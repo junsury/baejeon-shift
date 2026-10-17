@@ -314,7 +314,7 @@ final class Renderer {
         stroke.setStrokeWidth(1f); stroke.setColor(line);
         for (int wk = 0; wk <= weeks; wk++) cv.drawLine(padL, top + wk * rh, W - padL, top + wk * rh, stroke);
         for (int i = 1; i < 7; i++) cv.drawLine(padL + i * cw, top, padL + i * cw, top + weeks * rh, stroke);
-        float numSz = fs * 1.25f, evSz = fs * 1.0f;
+        float numSz = fs * 1.15f, evSz = fs * 0.95f;
         float csz = Math.round(20 * s.c);
         for (int wk = 0; wk < weeks; wk++) {
             for (int i = 0; i < 7; i++) {
@@ -329,11 +329,13 @@ final class Renderer {
                 String num = String.valueOf(ShiftData.dayOfMonth(n));
                 float numW = width(num, numSz, BOLD);
                 float ct = t + 3;
-                float chH = Math.min(csz, (rh - 6) * 0.48f);
+                float chH = Math.min(csz, (rh - 6) * 0.45f);
                 String lab = code == null ? "" : ShiftData.label(code);
-                float chW = Math.max(chH, lab.length() > 1 ? chH * 1.25f : chH);
-                chW = Math.min(chW, cw - 6);
-                boolean side = numW + 4 + chW <= (r - l) - 4;     // 숫자 옆에 칩이 들어가면 한 줄, 아니면 두 줄
+                float want = Math.max(chH, lab.length() > 1 ? chH * 1.25f : chH);
+                float avail = (r - l) - 6 - numW - 3;              // 숫자 옆 남은 폭
+                float chW = Math.min(want, avail);
+                boolean side = chW >= Math.max(chH * 0.72f, lab.length() > 1 ? chH * 1.05f : 0);   // 옆에 들어가면 한 줄
+                if (!side) chW = Math.min(want, (r - l) - 6);
                 float rowH = Math.max(chH, numSz * 1.05f);
                 text(num, l + 3, mid(ct + (side ? rowH : numSz * 1.1f) / 2f, numSz, BOLD), numSz, BOLD, ncol, true);
                 float belowTop;
@@ -387,7 +389,8 @@ final class Renderer {
         float pad = 14, padB = 12;
         int n0 = ShiftData.todayNum();
         // 아래 6일 줄 높이
-        float dsz = fs, chH = Math.round(26 * s.c), chW = Math.round(30 * s.c);
+        float cc = Math.min(s.c, 1.25f);
+        float dsz = 10f * Math.min(s.t, 1.25f), chH = Math.round(26 * cc), chW = Math.round(30 * cc);
         float rowH = lineH(dsz) + 3 + chH + 3 + 5;
         float bottomTop = H - padB - rowH;
         float topB = bottomTop - 10;
@@ -426,9 +429,11 @@ final class Renderer {
         rr(panelL, pad, panelR, topB, 14 * k, s.soft);
         float px = panelL + 10, pmax = panelR - 10 - px, py = pad + 8;
         float h1 = fs, h2 = fs * 1.2f, h3 = fs * 1.1f;
-        text("오늘 일정 · 메모", px, py + asc(h1, BOLD), h1, BOLD, s.muted, true);
-        py += lineH(h1) + 4;
         float lastY = topB - 8 - lineH(h3);
+        if (py + lineH(h1) + 4 + lineH(h2) <= lastY) {   // 공간이 좁으면 제목 줄은 빼고 일정부터
+            text("오늘 일정 · 메모", px, py + asc(h1, BOLD), h1, BOLD, s.muted, true);
+            py += lineH(h1) + 4;
+        }
         List<CalendarReader.Ev> list = evs.get(n0);
         if (list == null || list.isEmpty()) {
             if (py + lineH(h2) <= lastY) text("일정 없음", px, py + asc(h2, REG), h2 * 0.92f, REG, s.muted, true);
