@@ -1258,12 +1258,13 @@ function swapCheck(a,an,b,bn){
 }
 /* b가 돌려줄 수 있는 날짜들 (a의 an날 근무를 받을 때) — 앞뒤로 찾아봐요 */
 const SWAP_BACK=31,SWAP_AHEAD=62;
-const swapFrom=an=>ui.attTab==='req'?Math.max(an-SWAP_BACK,todayN):an-SWAP_BACK;   // 신청은 지난 날 제외
+const swapFrom=an=>todayN;   // 근무자2가 넘겨줄 날: 오늘부터
+const swapTo=()=>todayN+183;   // 6달 뒤까지
 function swapDates(a,an,b){
   const out=[];const ca=dayCells(an)[a];
   const sa=ca&&!ca.cover&&(ca.code==='주'||ca.code==='야')?ca.code:null;if(!sa||a===b)return out;
   if(working(dayCells(an)[b]))return out;
-  for(let n=swapFrom(an);n<=an+SWAP_AHEAD;n++){
+  for(let n=swapFrom(an);n<=swapTo();n++){
     if(n===an)continue;const cb=dayCells(n)[b];
     if(!cb||cb.cover||cb.code!==sa)continue;          // 같은 근무가 있는 날만
     if(working(dayCells(n)[a]))continue;
@@ -1286,7 +1287,7 @@ function refreshSwapB0(){
   for(const m of workers()){if(m.id===a||m.role==='TSO')continue;const d=swapDates(a,an,m.id);if(d.length)ok.push([m,d])}
   sel.innerHTML='<option value="">'+(ok.length?'선택 ('+ok.length+'명 가능)':'바꿀 수 있는 사람이 없어요')+'</option>'+ok.map(([m,d])=>'<option value="'+m.id+'">'+esc(m.name)+' ('+teamLabel(m,an)+') · 가능 '+d.length+'일</option>').join('');
   if(ok.some(([m])=>m.id===cur))sel.value=cur;
-  if(hint)hint.textContent=ok.length?fmt(an)+' '+(sa==='주'?'주간':'야간')+'을 받아 줄 수 있고, 돌려줄 '+(sa==='주'?'주간':'야간')+'이 있는 사람만 보여요 ('+fmt(swapFrom(an))+'~'+fmt(an+SWAP_AHEAD)+' 중에서).':'이 날 근무를 바꿀 수 있는 사람이 없어요. 다른 날을 골라 보세요.';
+  if(hint)hint.textContent=ok.length?fmt(an)+' '+(sa==='주'?'주간':'야간')+'을 받아 줄 수 있고, 돌려줄 '+(sa==='주'?'주간':'야간')+'이 있는 사람만 보여요 ('+fmt(swapFrom(an))+'~'+fmt(swapTo())+' 중에서).':'이 날 근무를 바꿀 수 있는 사람이 없어요. 다른 날을 골라 보세요.';
   const b=sel.value;
   if(b){swapOkDates=new Set(swapDates(a,an,b));
     const bd=$('#sBDate').value;
