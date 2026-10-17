@@ -188,6 +188,13 @@ public class ConfigActivity extends Activity {
             fillCals();
         }
 
+        if (!"mini".equals(kind)) {
+            Button fam = new Button(this);
+            fam.setText("가족 공유 캘린더 (구글) 설정 ›");
+            fam.setOnClickListener(v -> startActivity(new Intent(this, FamilyActivity.class)));
+            col.addView(fam, mlp(10));
+        }
+
         Button done = new Button(this);
         done.setText("완료");
         done.setTextSize(16);

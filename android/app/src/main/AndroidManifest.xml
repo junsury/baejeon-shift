@@ -81,6 +81,21 @@
             android:windowSoftInputMode="adjustResize"
             android:theme="@android:style/Theme.DeviceDefault.Light.Dialog.NoActionBar.MinWidth" />
 
+        <!-- 가족 공유 캘린더 (구글) 설정 -->
+        <activity
+            android:name=".FamilyActivity"
+            android:exported="true"
+            android:label="가족 공유 캘린더"
+            android:windowSoftInputMode="adjustResize"
+            android:theme="@android:style/Theme.DeviceDefault.Light.NoActionBar">
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="baejeonshift" android:host="family" />
+            </intent-filter>
+        </activity>
+
         <!-- 웹 알림을 앱 알림으로 보여줌 -->
         <service
             android:name="com.google.androidbrowserhelper.trusted.DelegationService"

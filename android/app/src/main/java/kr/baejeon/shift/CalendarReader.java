@@ -75,13 +75,15 @@ final class CalendarReader {
         ContentUris.appendId(b, end + 86400000L);
         String[] cols = {CalendarContract.Instances.TITLE, CalendarContract.Instances.BEGIN, CalendarContract.Instances.END,
                 CalendarContract.Instances.ALL_DAY, CalendarContract.Instances.VISIBLE, CalendarContract.Instances.CALENDAR_ID,
-                CalendarContract.Instances.EVENT_ID, CalendarContract.Instances.DISPLAY_COLOR};
+                CalendarContract.Instances.EVENT_ID, CalendarContract.Instances.DISPLAY_COLOR, CalendarContract.Instances.DESCRIPTION};
         try (Cursor cur = c.getContentResolver().query(b.build(), cols, CalendarContract.Instances.VISIBLE + "=1", null,
                 CalendarContract.Instances.BEGIN + " ASC")) {
             if (cur == null) return out;
             java.util.Set<String> seen = new java.util.HashSet<>();
             while (cur.moveToNext()) {
                 if (only != null && !only.contains(cur.getLong(5))) continue;
+                String desc = cur.getString(8);
+                if (desc != null && desc.contains(ShiftSync.TAG)) continue;   // 앱이 넣은 근무 일정은 위젯에선 칩으로 보여서 빼요
                 String title = cur.getString(0);
                 if (title == null || title.trim().isEmpty()) title = "(제목 없음)";
                 long bg = cur.getLong(1), en = cur.getLong(2);

@@ -45,10 +45,11 @@ jobs:
         run: |
           fp=$(keytool -list -v -keystore "$KEYSTORE_FILE" -storetype PKCS12 -storepass "$KEYSTORE_PASSWORD" -alias baejeon | grep -m1 'SHA256:' | sed 's/.*SHA256: *//' | tr -d ' \r')
           echo "SHA256 $fp"
+          fp1=$(keytool -list -v -keystore "$KEYSTORE_FILE" -storetype PKCS12 -storepass "$KEYSTORE_PASSWORD" -alias baejeon | grep -m1 'SHA1:' | sed 's/.*SHA1: *//' | tr -d ' \r')
           mkdir -p app/.well-known
           printf '[{"relation":["delegate_permission/common.handle_all_urls"],"target":{"namespace":"android_app","package_name":"kr.baejeon.shift","sha256_cert_fingerprints":["%s"]}}]\n' "$fp" > app/.well-known/assetlinks.json
           cat app/.well-known/assetlinks.json
-          NODE_PATH="$RUNNER_TEMP/ks/node_modules" node android/ci/register.js "$RUNNER_TEMP/sa.json" "$fp"
+          NODE_PATH="$RUNNER_TEMP/ks/node_modules" node android/ci/register.js "$RUNNER_TEMP/sa.json" "$fp" "$fp1"
           if [ -n "$(git status --porcelain app/.well-known)" ]; then
             git config user.name "github-actions"; git config user.email "github-actions@users.noreply.github.com"
             git add app/.well-known/assetlinks.json && git commit -m "assetlinks 갱신" && git push

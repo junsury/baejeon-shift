@@ -46,6 +46,7 @@ final class WidgetUpdater {
                 String body = new String(bo.toByteArray(), StandardCharsets.UTF_8);
                 if (ShiftData.parse(body) == null) return false;
                 Store.setData(c, body);
+                try { ShiftSync.sync(c); } catch (Exception ignored) {}
                 Store.setUnlinked(c, false);
                 return true;
             }
@@ -190,5 +191,6 @@ final class WidgetUpdater {
         PendingIntent pi = PendingIntent.getBroadcast(c, 77, new Intent(c, RefreshReceiver.class),
                 PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
         try { am.setAndAllowWhileIdle(AlarmManager.RTC, next, pi); } catch (Exception ignored) {}
+        CalWatchWorker.watch(c);
     }
 }
