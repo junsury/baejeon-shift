@@ -23,13 +23,16 @@ export function persistentMultipleTabManager() { return {}; }
 export function doc(db, ...p) { if (p[0] && p[0].kind === 'col') { const c = p[0]; return { kind: 'doc', path: c.path + '/' + p[1] }; } return { kind: 'doc', path: p.join('/') }; }
 export function collection(db, ...p) { return { kind: 'col', path: p.join('/') }; }
 export function where(f, op, v) { return { f, op, v }; }
+export function orderBy() { return {}; }
+export function limit() { return {}; }
+export async function getDocs(q) { return colSnap(q); }
 export function query(col, ...w) { return { kind: 'col', path: col.path, where: w }; }
 const idOf = path => path.split('/').pop();
 const parentOf = path => path.split('/').slice(0, -1).join('/');
 function docSnap(path) { const d = G.store.get(path); return { id: idOf(path), exists: () => d !== undefined, data: () => clone(d) }; }
 function colSnap(q) {
   let docs = [...G.store.entries()].filter(([k]) => parentOf(k) === q.path);
-  for (const w of q.where || []) docs = docs.filter(([, v]) => (w.op === '==' ? v[w.f] === w.v : true));
+  for (const w of (q.where || []).filter(x => x.f)) docs = docs.filter(([, v]) => (w.op === '==' ? v[w.f] === w.v : true));
   docs = docs.map(([k, v]) => ({ id: idOf(k), data: () => clone(v) }));
   return { empty: docs.length === 0, docs, size: docs.length };
 }

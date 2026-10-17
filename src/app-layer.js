@@ -226,6 +226,7 @@ function restartRoleData(){
   if(mm)keep(db.doc('memos/'+mm).onSnapshot(s=>{ownMemos=(s.exists&&s.data().notes)||{};syncMemos();dataChanged()}));
   try{const p=JSON.parse(localStorage.getItem('bj-memo-import')||'null');if(p&&mm&&p.owner===mm&&!isFamily()){localStorage.removeItem('bj-memo-import');F.setDoc(tref('memos',mm),{notes:p.notes},{merge:true}).catch(()=>{})}}catch(e){}
   if(!isFamily())setTimeout(()=>offerPush(false),1500);
+  startExtras();
 }
 function syncMemos(){memos=me&&me===ownMid()?ownMemos:{}}
 
@@ -309,6 +310,7 @@ $('#pushAsk').addEventListener('click',async e=>{const b=e.target.closest('[data
 function toast(t){const d=document.createElement('div');d.className='toast';d.textContent=t;document.body.appendChild(d);setTimeout(()=>d.classList.add('on'),10);setTimeout(()=>{d.classList.remove('on');setTimeout(()=>d.remove(),300)},3500)}
 
 /* ---------- 내 정보 (가족 링크 · 알림 · 로그아웃) ---------- */
+$('#acct').addEventListener('change',async e=>{if(e.target.id==='remindChk'){try{await FB.F.updateDoc(tref('users',uid),{remind:e.target.checked});toast(e.target.checked?'내일 근무 알림을 켰어요':'내일 근무 알림을 껐어요')}catch(err){alert(errText(err))}}});
 $('#acctBtn').onclick=()=>{$('#acct').hidden=false;renderAcct()};
 $('#acct').addEventListener('click',async e=>{
   if(e.target.id==='acct'||e.target.closest('[data-ac=close]')){$('#acct').hidden=true;return}
@@ -349,6 +351,7 @@ function renderAcct(){
   h+='<h3>알림</h3>';
   if(!window.VAPID_KEY)h+='<p class="note" style="margin:0">알림 기능을 준비하고 있어요.</p>';
   else if(pushOn())h+='<p class="note" style="margin:0">이 기기에서 알림을 받고 있어요. 요청·승인·근태 변경이 있으면 알려 드려요.</p><button class="btn ghost" data-ac="pushOff">이 기기 알림 끄기</button>';
+  if(window.VAPID_KEY&&appUser.memberId)h+='<label class="chk" for="remindChk"><input type="checkbox" id="remindChk"'+(appUser.remind===false?'':' checked')+'><span>내일 근무 알림<small>매일 저녁 8시에 내일 근무와 같이 근무하는 사람을 알려 드려요. 근무가 바뀐 날은 "변경됨"으로 표시돼요.</small></span></label>';
   else h+='<p class="note" style="margin:0">'+(isIOS&&!standalone()?'아이폰은 "홈 화면에 추가"한 앱으로 열어야 알림을 받을 수 있어요.':'근무변경·대근 요청, 승인·거절, 근태 변경을 휴대폰 알림으로 받아요.')+'</p><button class="btn" data-ac="pushOn">알림 켜기</button>';
   if(appUser.memberId){
     h+='<h3>가족과 공유</h3><p class="note" style="margin:0">링크를 받은 가족은 로그인 없이 내 근무(일·주·월)와 내 메모를 볼 수 있어요. 링크를 끊으면 바로 못 봐요.</p>';
@@ -425,6 +428,7 @@ function applyRoleUI(){
   $('#meLab').hidden=fam;
   $('#famLab').hidden=!fam;if(fam)$('#famLab').textContent=nm(appUser.familyOf)+' 님 근무';
   const ib=$('#importBox');if(ib)ib.hidden=appRole!=='main';
+  renderLog();renderBackups();
   /* 관리자: 승인 대기 표시 */
   const pend=isAdmin?pendingUsers().length:0;const ta=$('#tabAdmin');
   if(ta)ta.innerHTML='관리'+(pend?'<span class="badge">'+pend+'</span>':'');
@@ -451,3 +455,85 @@ $('#importRun').onclick=async()=>{
   catch(e){msg.innerHTML='<div class="msg bad">가져오지 못했어요: '+esc(errText(e))+'</div>'}
   $('#importRun').disabled=false;
 };
+
+/* ---------- 변경 이력 (누가 언제 등록·취소했는지) ---------- */
+let historyLog=[];
+function evDesc(e){
+  if(!e)return '';
+  if(e.type==='swap'){const [a,b]=dn(e.aDate)<=dn(e.bDate)?[e.aDate,e.bDate]:[e.bDate,e.aDate];return fmt(dn(e.aDate))+' '+nm(e.aId)+' ↔ '+fmt(dn(e.bDate))+' '+nm(e.bId)+' '+(e.shift==='주'?'주간':'야간')+' 맞교환'}
+  const sh=e.shift==='T'?'TSO':e.shift==='주'?'주간':'야간';
+  return fmt(dn(e.date))+' '+nm(e.memberId)+' '+sh+' '+(LT_NAME[e.leaveType||'연차']||'')+(e.coverId?(e.coverType==='tso'?' → 근무지원 ':' → 대근 ')+nm(e.coverId):'');
+}
+async function logHistory(action,ev,label){
+  if(!FB||!appUser||isFamily())return;
+  try{await FB.F.addDoc(tcol('history'),{at:Date.now(),by:uid,byName:(appUser.memberId&&nm(appUser.memberId))||appUser.name||'',action,label,ev})}catch(e){console.warn('history',e)}
+}
+async function addEvent(ev){
+  ev.createdAt=Date.now();ev.byMember=me||null;
+  const ctx=ui.tab==='attend'?ui.attTab:'';if(ctx==='add')ev.src='admin';
+  try{const r=await db.collection('events').add(ev);logHistory('create',{...ev},ctx==='add'?'관리자 등록':ctx==='inbox'?'요청 승인':ctx==='req'?'구두 합의':'등록');return r.id}
+  catch(e){reqFail(e);return null}
+}
+async function delEventOk(id){
+  const ev=events.find(e=>e._id===id);
+  try{await db.doc('events/'+id).delete();if(ev){const{_id,...p}=ev;logHistory('delete',p,'취소')}return true}
+  catch(e){reqFail(e);return false}
+}
+async function delEvent(id){await delEventOk(id)}
+function renderLog(){
+  const box=$('#logCard');if(!box)return;
+  const show=ui.tab==='attend'&&ui.attTab==='hist'&&!isFamily();box.hidden=!show;if(!show)return;
+  const tm=t=>{const d=new Date(t);return (d.getMonth()+1)+'/'+d.getDate()+' '+String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0')};
+  box.innerHTML='<h3 style="margin-bottom:0">변경 이력</h3><p class="note" style="margin:0 0 4px">누가 언제 등록·취소했는지 최근 100건이에요. 지울 수 없어요.</p>'+
+    (historyLog.length?'<div class="list">'+historyLog.map(h=>'<div class="item"><span class="kind '+(h.action==='delete'?'swap':'leave')+'">'+esc(h.label||(h.action==='delete'?'취소':'등록'))+'</span><div class="t">'+esc(evDesc(h.ev))+'<small>'+tm(h.at)+' · '+esc(h.byName||'')+'</small></div></div>').join('')+'</div>':'<p class="empty" style="margin:6px 0 0">아직 기록이 없어요. 이제부터 등록·취소가 여기에 남아요.</p>');
+}
+
+/* ---------- 백업 (매일 새벽 자동, 관리자: 받기 · 되돌리기) ---------- */
+let backups=[];
+async function readBackup(id){
+  const F=FB.F;const s=await F.getDocs(tcol('backups',id,'parts'));
+  const parts=s.docs.map(d=>[+d.id,d.data().data]).sort((a,b)=>a[0]-b[0]).map(x=>x[1]);
+  return JSON.parse(parts.join(''));
+}
+function renderBackups(){
+  const box=$('#backupCard');if(!box)return;
+  const show=isAdmin&&!viewerPreview;box.hidden=!show;if(!show)return;
+  let h='<h2>백업</h2><p class="note" style="margin:0">매일 새벽 3시에 근무자·조 편성·대근총량·근태·요청 기록을 자동으로 저장해요 (30일 보관, 개인 메모는 제외).</p>';
+  h+=backups.length?'<div class="list">'+backups.slice(0,10).map(b=>'<div class="item"><div class="t"><b>'+esc(b.id)+'</b><small>근태 '+((b.counts&&b.counts.events)||0)+'건 · 요청 '+((b.counts&&b.counts.requests)||0)+'건</small></div><span class="btns"><button class="btn ghost" data-bk="get" data-id="'+b.id+'">받기</button>'+(appRole==='main'?'<button class="btn ghost" data-bk="restore" data-id="'+b.id+'">이 시점으로</button>':'')+'</span></div>').join('')+'</div>':'<p class="empty" style="margin:0">아직 백업이 없어요. 오늘 새벽부터 생겨요.</p>';
+  h+='<div class="btns"><button class="btn ghost" data-bk="now">지금 백업하기</button></div><div id="bkMsg"></div>';
+  box.innerHTML=h;
+}
+$('#backupCard').addEventListener('click',async e=>{
+  const b=e.target.closest('[data-bk]');if(!b||b.disabled)return;const msg=()=>$('#bkMsg');
+  try{
+    if(b.dataset.bk==='now'){b.disabled=true;msg().innerHTML='<div class="msg warn">백업하는 중…</div>';
+      if(!FB.Fn)FB.Fn=await import(FBB+'firebase-functions.js');
+      const call=FB.Fn.httpsCallable(FB.Fn.getFunctions(FB.app,'asia-northeast3'),'backupNow');const r=await call({team:TEAM});
+      msg().innerHTML='<div class="msg ok">✓ '+esc(r.data.id)+' 백업을 저장했어요.</div>'}
+    else if(b.dataset.bk==='get'){const d=await readBackup(b.dataset.id);await (await appDownloads()).save({filename:'근무표_백업_'+b.dataset.id+'.json',data:JSON.stringify(d,null,1)})}
+    else if(b.dataset.bk==='restore'){
+      if(!confirm(b.dataset.id+' 백업 시점으로 되돌릴까요?\n그 뒤에 등록·변경된 근태와 요청은 사라져요.'))return;
+      if(!confirm('정말 되돌릴까요? 되돌리기 전에 지금 상태도 자동으로 백업해 둘게요.'))return;
+      b.disabled=true;msg().innerHTML='<div class="msg warn">되돌리는 중…</div>';
+      try{if(!FB.Fn)FB.Fn=await import(FBB+'firebase-functions.js');await FB.Fn.httpsCallable(FB.Fn.getFunctions(FB.app,'asia-northeast3'),'backupNow')({team:TEAM})}catch(x){}
+      const d=await readBackup(b.dataset.id);await restoreBackup(d);
+      msg().innerHTML='<div class="msg ok">✓ '+esc(b.dataset.id)+' 시점으로 되돌렸어요.</div>'}
+  }catch(err){b.disabled=false;msg().innerHTML='<div class="msg bad">하지 못했어요: '+esc(errText(err))+'</div>'}
+});
+async function restoreBackup(d){
+  const F=FB.F;const ops=[];
+  for(const c of ['members','assignments','budgets','events','requests','config']){
+    const keep=new Set((d[c]||[]).map(x=>x._id));
+    const cur=await F.getDocs(tcol(c));cur.docs.forEach(x=>{if(!keep.has(x.id))ops.push(['del',c,x.id])});
+    for(const x of d[c]||[]){const{_id,...r}=x;ops.push(['set',c,_id,r])}
+  }
+  for(let i=0;i<ops.length;i+=400){const w=F.writeBatch(fsdb);for(const o of ops.slice(i,i+400)){if(o[0]==='del')w.delete(tref(o[1],o[2]));else w.set(tref(o[1],o[2]),o[3])}await w.commit()}
+  logHistory('delete',{type:'leave',date:ds(todayN),memberId:'',shift:'주'},'백업 되돌리기 '+(d.at||'').slice(0,10));
+}
+
+/* 역할별 추가 구독: 변경 이력 · 백업 목록 */
+function startExtras(){
+  const F=FB.F;if(isFamily())return;
+  roleUnsubs.push(F.onSnapshot(F.query(tcol('history'),F.orderBy('at','desc'),F.limit(100)),s=>{historyLog=s.docs.map(x=>x.data());renderLog()},()=>{}));
+  if(isAdmin)roleUnsubs.push(F.onSnapshot(F.query(tcol('backups'),F.orderBy('at','desc'),F.limit(30)),s=>{backups=s.docs.map(x=>({id:x.id,...x.data()}));renderBackups()},()=>{}));
+}

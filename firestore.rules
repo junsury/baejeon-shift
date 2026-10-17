@@ -70,6 +70,18 @@ service cloud.firestore {
         allow delete: if isAdmin(t) || resource.data.uid == request.auth.uid;
       }
 
+      // 변경 이력: 팀원이 남기고, 고치거나 지울 수 없음
+      match /history/{id} {
+        allow read: if isMember(t);
+        allow create: if isMember(t) && request.resource.data.by == request.auth.uid;
+      }
+
+      // 자동 백업: 서버가 만들고 관리자만 읽음 (개인 메모는 백업하지 않음)
+      match /backups/{id} {
+        allow read: if isAdmin(t);
+        match /parts/{p} { allow read: if isAdmin(t); }
+      }
+
       // 가족 보기 링크 (로그인 없이 보는 토큰)
       match /familyLinks/{token} {
         allow get: if signedIn();
@@ -97,7 +109,7 @@ service cloud.firestore {
 
         allow update: if
           // 본인: 이름·사진·메일만
-          (request.auth.uid == u && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['name', 'photo', 'email']))
+          (request.auth.uid == u && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['name', 'photo', 'email', 'remind']))
           // 메인관리자: 역할 지정·해제·넘기기, 승인, 본인 근무자 연결
           || isMain(t)
           // 서브관리자: 가입 승인·거절, 본인 근무자 연결

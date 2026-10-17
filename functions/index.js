@@ -101,3 +101,74 @@ exports.onUserUpdated = fn.document('teams/{t}/users/{u}').onUpdate(async (chg, 
   if (a.role !== 'sub' && b.role === 'sub') await send(t, [ctx.params.u], { title: '서브관리자가 됐어요', body: '관리 탭을 쓸 수 있어요.', url: './' });
   if (a.role !== 'main' && b.role === 'main') await send(t, [ctx.params.u], { title: '메인관리자가 됐어요', body: '메인관리자 권한을 넘겨받았어요.', url: './' });
 });
+
+/* ---------------- 내일 근무 알림 (매일 저녁 8시) ---------------- */
+const makeEngine = require('./engine');
+async function loadTeam(t) {
+  const T = db.collection('teams').doc(t);
+  const [ms, as, es, hol] = await Promise.all([T.collection('members').get(), T.collection('assignments').get(), T.collection('events').get(), T.collection('config').doc('holidays').get()]);
+  const members = ms.docs.map(d => ({ id: d.id, ...d.data() }));
+  return { members, engine: makeEngine({ members, assignments: as.docs.map(d => d.data()), events: es.docs.map(d => ({ _id: d.id, ...d.data() })), holidayDates: hol.exists ? hol.data().dates : null }) };
+}
+const SHN = { '주': '주간 08:00', '야': '야간 18:00', T: 'TSO 08:00', '지원': '근무지원 08:00' };
+function tomorrowText(E, members, mid, n) {
+  const cells = E.dayCells(n); const c = cells[mid]; if (!c) return null;
+  const nm = id => (members.find(m => m.id === id) || {}).name || '';
+  const active = members.filter(m => m.active !== false && m.id !== mid);
+  const mates = s => active.filter(m => { const x = cells[m.id]; return E.hasShift(x, s) || (s === '주' && x.code === '지원'); }).map(m => m.name).join(', ');
+  const day = E.WD[E.dow(n)]; const md = (new Date(n * 864e5).getUTCMonth() + 1) + '/' + new Date(n * 864e5).getUTCDate() + '(' + day + ')';
+  const notes = [];
+  if (c.tags && c.tags.includes('변경')) notes.push(nm(c.with) + '와 맞교환');
+  if (c.cover) notes.push(nm(c.for) + ' 대신 대근');
+  if (c.code === '지원') notes.push(nm(c.for) + ' 대신 근무지원');
+  if (c.part) notes.push('시간휴가 ' + c.part.from + '~' + c.part.to);
+  const changed = notes.length ? ' · 변경됨' : '';
+  if (c.code === '연') return { title: '내일 ' + md + ' 휴가', body: (c.by ? (c.byType === 'tso' ? '근무지원 ' : '대근 ') + nm(c.by) : '대체 근무자 미정') };
+  if (c.cover && E.HOURS[c.code]) return { title: '내일 ' + md + ' 주간+야간 24시간' + changed, body: '주간 같이: ' + (mates('주') || '없음') + ' · 야간 같이: ' + (mates('야') || '없음') + ' · ' + notes.join(' · ') };
+  const s = c.cover || c.code;
+  if (SHN[s]) { const w = s === '지원' ? '주' : s; return { title: '내일 ' + md + ' ' + SHN[s] + changed, body: (s === 'T' ? '' : '같이: ' + (mates(w) || '없음')) + (notes.length ? (s === 'T' ? '' : ' · ') + notes.join(' · ') : '') }; }
+  if (notes.length) return { title: '내일 ' + md + ' 휴무' + changed, body: notes.join(' · ') };
+  return null; /* 원래 쉬는 날은 알림 안 보냄 */
+}
+exports.dailyReminder = functions.region(REGION).pubsub.schedule('0 20 * * *').timeZone('Asia/Seoul').onRun(async () => {
+  const teams = await db.collection('teams').get();
+  const kst = new Date(Date.now() + 9 * 3600e3); const today = Math.floor(Date.UTC(kst.getUTCFullYear(), kst.getUTCMonth(), kst.getUTCDate()) / 864e5);
+  for (const td of teams.docs) {
+    const t = td.id; const { members, engine } = await loadTeam(t);
+    const us = await db.collection('teams').doc(t).collection('users').where('role', 'in', ['main', 'sub', 'member']).get();
+    for (const u of us.docs) {
+      const d = u.data(); if (!d.memberId || d.remind === false) continue;
+      const msg = tomorrowText(engine, members, d.memberId, today + 1); if (!msg) continue;
+      await send(t, [u.id], { ...msg, url: './', tag: 'tomorrow' });
+    }
+  }
+});
+
+/* ---------------- 자동 백업 (매일 새벽 3시, 30일 보관) ---------------- */
+const BACKUP_COLS = ['members', 'assignments', 'budgets', 'events', 'requests', 'config'];
+async function makeBackup(t) {
+  const T = db.collection('teams').doc(t); const data = { version: 1, team: t, at: new Date().toISOString() };
+  for (const c of BACKUP_COLS) { const s = await T.collection(c).get(); data[c] = s.docs.map(d => ({ _id: d.id, ...d.data() })); }
+  const json = JSON.stringify(data); const CH = 900000; const parts = Math.ceil(json.length / CH) || 1;
+  const kst = new Date(Date.now() + 9 * 3600e3); const id = kst.toISOString().slice(0, 10);
+  const B = T.collection('backups').doc(id);
+  const old = await B.collection('parts').get(); await Promise.all(old.docs.map(d => d.ref.delete()));
+  for (let i = 0; i < parts; i++) await B.collection('parts').doc(String(i)).set({ data: json.slice(i * CH, (i + 1) * CH) });
+  await B.set({ at: Date.now(), parts, size: json.length, counts: Object.fromEntries(BACKUP_COLS.map(c => [c, data[c].length])) });
+  /* 30일 지난 백업 지우기 */
+  const all = await T.collection('backups').orderBy('at', 'desc').get();
+  for (const d of all.docs.slice(30)) { const ps = await d.ref.collection('parts').get(); await Promise.all(ps.docs.map(p => p.ref.delete())); await d.ref.delete(); }
+  return id;
+}
+exports.dailyBackup = functions.region(REGION).pubsub.schedule('0 3 * * *').timeZone('Asia/Seoul').onRun(async () => {
+  const teams = await db.collection('teams').get();
+  for (const td of teams.docs) await makeBackup(td.id);
+});
+/* 관리자가 "지금 백업" 누르면 */
+exports.backupNow = functions.region(REGION).https.onCall(async (data, ctx) => {
+  const t = (data && data.team) || 'gyeonggi';
+  if (!ctx.auth) throw new functions.https.HttpsError('unauthenticated', '로그인이 필요해요');
+  const u = await db.collection('teams').doc(t).collection('users').doc(ctx.auth.uid).get();
+  if (!u.exists || !['main', 'sub'].includes(u.data().role)) throw new functions.https.HttpsError('permission-denied', '관리자만 할 수 있어요');
+  return { id: await makeBackup(t) };
+});
