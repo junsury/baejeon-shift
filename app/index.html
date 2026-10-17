@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="ko"><head><script>window.APP_BUILD="288652f154"</script>
+<html lang="ko"><head><script>window.APP_BUILD="26c0a14d6c"</script>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>배전센터 근무표</title>
@@ -352,6 +352,8 @@ table.grid td .c{min-width:28px;height:28px;font-size:13px}
 .dbtn[aria-expanded="true"]{border-color:var(--accent);box-shadow:inset 0 0 0 1px var(--accent)}
 .dpop{border:1px solid var(--line);border-radius:12px;padding:10px;background:var(--surface);display:flex;flex-direction:column;gap:8px}
 .dcal button.no{opacity:.32}
+.dcal button:disabled{cursor:default}
+.dbtn:disabled{opacity:.45;cursor:default}
 .dcal button.ok{box-shadow:inset 0 0 0 2px var(--ok,#1f9d55)}
 .dpop .dh{display:flex;align-items:center;justify-content:space-between;font-weight:700}
 .dpop .dh button{width:34px;height:34px;border-radius:8px;border:1px solid var(--line);background:var(--surface);color:var(--fg);cursor:pointer}
@@ -440,14 +442,16 @@ table.grid td.shiftday{box-shadow:inset 3px 0 0 var(--accent)}
 .dayrow .card{gap:6px}
 .dayrow h3{font-size:15px}
 .btn.sm{padding:6px 12px;font-size:13px;min-height:0}
-.dcal{display:flex!important;flex-direction:column;min-width:0}
-.dcal .period{display:block}
-.dcal .list{display:flex;flex-direction:column;gap:2px}
-.dcal .item{display:flex;align-items:flex-start}
-.dcal .item .t{min-width:0;flex:1}
-.dcal .dot-ev{margin-top:5px}
-.dcal .item{padding:4px 0;gap:6px;border:0;font-size:13px}
-.dcal .item b{font-size:13px;line-height:1.3}
+.sh-hint{font-size:12px;color:#666;margin:6px 0 0;text-align:right}
+#sheet td.rm{cursor:pointer}
+.dcalcol{display:flex!important;flex-direction:column;min-width:0}
+.dcalcol .period{display:block}
+.dcalcol .list{display:flex;flex-direction:column;gap:2px}
+.dcalcol .item{display:flex;align-items:flex-start}
+.dcalcol .item .t{min-width:0;flex:1}
+.dcalcol .dot-ev{margin-top:5px}
+.dcalcol .item{padding:4px 0;gap:6px;border:0;font-size:13px}
+.dcalcol .item b{font-size:13px;line-height:1.3}
 .myday .wk .r{padding-top:6px;padding-bottom:6px}
 /* ---- 앱 전용: 시작 화면 · 내 정보 ---- */
 body.gated{overflow:hidden}
@@ -821,6 +825,7 @@ let events=[];
 let assignments=[];   // [{date:'2026-10-19', teams:{A1:{team:'A',role:'조장'},...}}] 날짜순
 let holidays=new Set(DEFAULT_HOLIDAYS);
 let db=null, canWrite=false, live=false, isAdmin=false, viewerPreview=false;
+let sheetNotes={};   // 편성표 비고에 직접 적은 내용 {날짜:글}
 let cache=new Map();
 const ui={tab:'my',day:todayN,ym:monthOf(todayN),view:'team',form:'leave',sumYm:periodOf(todayN),myView:'week',myDay:todayN,teamView:'day',adminTab:'org',attTab:'add',orgYm:null,bStart:null};
 let me='';
@@ -1118,12 +1123,14 @@ function renderAddSelects(){
   $('#leaveForm').hidden=ui.form!=='leave';$('#swapForm').hidden=ui.form!=='swap';
   const rq=ui.attTab==='req';
   fillSel($('#lWho'),activeMembers(),me);
-  fillSel($('#sA'),workers(),me&&byId(me)&&byId(me).role!=='TSO'?me:'');
+  fillSel($('#sA'),workers().filter(m=>m.role!=='TSO'),'');
   if(rq){$('#lWho').value=me||'';$('#sA').value=me||''}
   $('#lWho').disabled=rq;$('#sA').disabled=rq;
   $('#leaveForm h2').textContent=rq?'휴가 신청':'휴가 등록';$('#swapForm h2').textContent=rq?'근무변경 신청 (맞교환)':'근무변경 (맞교환)';
   refreshSwapB();
-  for(const id of ['lDate','sADate','sBDate']){if(!$('#'+id).value)$('#'+id).value=ds(todayN);dpLabel(id)}
+  if(!$('#lDate').value)$('#lDate').value=ds(todayN);
+  for(const id of ['lDate','sADate','sBDate'])dpLabel(id);
+  swapGate();
   const tso=byId($('#lWho').value)&&byId($('#lWho').value).role==='TSO';const lt=$('#lType');const cur=lt.value;
   const allowSub=tso||ui.attTab!=='req';
   lt.innerHTML='<option value="연차">연차</option><option value="경조">경조휴가</option>'+(allowSub?'<option value="대체">휴일의대체</option>':'')+(tso?'<option value="시간">시간휴가</option>':'');lt.value=((cur==='대체'&&!allowSub)||(cur==='시간'&&!tso))?'연차':cur||'연차';
@@ -1154,12 +1161,13 @@ function renderDp(id){
   const ym=dpYm[id]||monthOf(v);dpYm[id]=ym;const [a,b]=monthRange(ym);
   let h='<div class="dh"><button type="button" data-dpm="-1" aria-label="이전 달">‹</button><span>'+ym.y+'년 '+(ym.m+1)+'월'+(who&&byId(who)?' · '+esc(nm(who)):'')+'</span><button type="button" data-dpm="1" aria-label="다음 달">›</button></div>';
   if(!who)h+='<p class="note" style="margin:0">사람을 먼저 고르면 날짜마다 주간·야간이 보여요.</p>';
-  if(id==='sBDate'&&swapOkDates&&$('#sB').value===who)h+='<p class="note" style="margin:0">초록 테두리 날짜만 바꿀 수 있어요.</p>';
+  if(id==='sBDate'&&swapOkDates&&$('#sB').value===who)h+='<p class="note" style="margin:0">초록 테두리 날짜만 고를 수 있어요 (주 54시간·연속 근무 규칙을 지키는 날).</p>';
+  if(id==='sADate'&&who)h+='<p class="note" style="margin:0">주간·야간 근무가 있는 날만 고를 수 있어요.</p>';
   h+='<div class="dcal">'+WD.map(w=>'<span class="wd">'+w+'</span>').join('');
   for(let i=0;i<dow(a);i++)h+='<span></span>';
   for(let n=a;n<b;n++){const c=who&&byId(who)?dayCells(n)[who]:null;const hol=holidays.has(ds(n))||dow(n)===0;
-    const okd=id==='sBDate'&&swapOkDates&&$('#sB').value===who?(swapOkDates.has(n)?' ok':' no'):'';
-    h+='<button type="button" data-dpd="'+n+'" class="'+(ds(n)===$('#'+id).value?'sel ':'')+(n===todayN?'td':'')+okd+'"><span class="'+(hol?'red':'')+'">'+new Date(n*864e5).getUTCDate()+'</span>'+(c?chip(c):'')+'</button>'}
+    const okd=id==='sBDate'&&swapOkDates&&$('#sB').value===who?(swapOkDates.has(n)?' ok':' no'):id==='sADate'&&who?(swapAOk(who,n)?' ok':' no'):'';
+    h+='<button type="button" data-dpd="'+n+'"'+(okd===' no'?' disabled':'')+' class="'+(ds(n)===$('#'+id).value?'sel ':'')+(n===todayN?'td':'')+okd+'"><span class="'+(hol?'red':'')+'">'+new Date(n*864e5).getUTCDate()+'</span>'+(c?chip(c):'')+'</button>'}
   h+='</div>';
   pop.innerHTML=h;
 }
@@ -1302,8 +1310,9 @@ function swapCheck(a,an,b,bn){
         const wh=weekHours(id,n,sim,true);if(wh>WEEK_LIMIT)errs.push(nm(id)+' '+fmt(weekStart(n))+' 주 근무가 '+wh+'h로 54시간을 넘어요.')}
       // 연속 근무 경고
       const cont=(id,n)=>{const p=dayCells(n-1,sim)[id],x=dayCells(n,sim)[id],q=dayCells(n+1,sim)[id];
-        if(hasShift(x,'주')&&hasShift(p,'야'))warns.push(nm(id)+' '+fmt(n)+': 전날 야간 끝나고 바로 주간 (연속 근무)');
-        if(hasShift(x,'야')&&hasShift(q,'주'))warns.push(nm(id)+' '+fmt(n)+': 야간 끝나고 다음날 바로 주간 (연속 근무)')};
+        if(hasShift(x,'주')&&hasShift(p,'야'))errs.push(nm(id)+' '+fmt(n)+': 전날 야간 끝나고 바로 주간이라 안 돼요 (야주 연속 근무)');
+        if(hasShift(x,'야')&&hasShift(q,'주'))errs.push(nm(id)+' '+fmt(n)+': 야간 끝나고 다음날 바로 주간이라 안 돼요 (야주 연속 근무)');
+        if(hasShift(x,'주')&&hasShift(x,'야'))errs.push(nm(id)+' '+fmt(n)+': 같은 날 주간·야간이라 안 돼요 (주야 연속 근무)')};
       cont(b,an);cont(a,bn);
       if(errs.length)ev=null;
     }
@@ -1327,7 +1336,8 @@ function swapDates(a,an,b){
 }
 let swapOkDates=null;   // 고른 근무자 2의 가능한 날
 /* 근무자 1·날짜가 정해지면, 근무자 2 목록에는 바꿀 수 있는 사람만 */
-function refreshSwapB(){
+function refreshSwapB(){refreshSwapB0();swapGate()}
+function refreshSwapB0(){
   const a=$('#sA').value,ad=$('#sADate').value,sel=$('#sB'),hint=$('#sBHint');
   const force=ui.attTab==='add'&&$('#sForce').checked;
   swapOkDates=null;
@@ -1343,8 +1353,17 @@ function refreshSwapB(){
   const b=sel.value;
   if(b){swapOkDates=new Set(swapDates(a,an,b));
     const bd=$('#sBDate').value;
-    if(swapOkDates.size&&(!bd||!swapOkDates.has(dn(bd)))){const list=[...swapOkDates];const after=list.find(n=>n>an)??list[list.length-1];$('#sBDate').value=ds(after);dpLabel('sBDate')}}
+    if(bd&&!swapOkDates.has(dn(bd))){$('#sBDate').value='';dpLabel('sBDate')}}   // 안 되는 날이면 비워요
+  swapGate();
 }
+/* 순서대로: 근무자1 → 넘겨줄 날 → 근무자2 → 근무자2가 넘겨줄 날 */
+function swapGate(){
+  const a=$('#sA').value,ad=$('#sADate').value,b=$('#sB').value;
+  $('#sADateBtn').disabled=!a;$('#sB').disabled=!(a&&ad);$('#sBDateBtn').disabled=!(a&&ad&&b);
+  if(!b&&$('#sBDate').value){$('#sBDate').value='';dpLabel('sBDate')}
+}
+/* 근무자1이 넘겨줄 수 있는 날 (주간·야간 근무가 있는 날) */
+function swapAOk(a,n){const c=dayCells(n)[a];return !!(c&&!c.cover&&(c.code==='주'||c.code==='야'))&&(ui.attTab!=='req'||n>=todayN)}
 function updateSwap(){
   const a=$('#sA').value,ad=$('#sADate').value,b=$('#sB').value,bd=$('#sBDate').value;
   const out=$('#sResult');swapDraft=null;$('#sSave').disabled=true;out.innerHTML='';
@@ -1547,7 +1566,7 @@ function renderMy(){
     const calCol=typeof window.__dayCal==='function'?window.__dayCal(n):'';
     // 메모(2/3) + 일정(1/3) 한 줄로
     if(isFamily()){if(mm)h+='<div class="card form" style="gap:6px"><h3>메모</h3><p style="margin:0;white-space:pre-wrap">'+esc(mm)+'</p></div>'}
-    else if(me&&me===ownMid())h+='<div class="dayrow'+(calCol?'':' solo')+'"><div class="card form dmemo"><div class="period"><h3>내 메모</h3><span class="note">가족과 함께 봐요</span></div><textarea id="pmemo" rows="2" placeholder="예: 아이 학교 행사" style="font:inherit;font-size:15px;color:var(--fg);background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:8px 10px;resize:vertical;width:100%">'+esc(mm)+'</textarea><div class="btns"><button class="btn ghost sm" id="pmSave" data-day="">저장</button>'+(mm?'<button class="btn ghost sm" id="pmDel">지우기</button>':'')+'</div></div>'+(calCol?'<div class="card form dcal">'+calCol+'</div>':'')+'</div>';
+    else if(me&&me===ownMid())h+='<div class="dayrow'+(calCol?'':' solo')+'"><div class="card form dmemo"><div class="period"><h3>내 메모</h3><span class="note">가족과 함께 봐요</span></div><textarea id="pmemo" rows="2" placeholder="예: 아이 학교 행사" style="font:inherit;font-size:15px;color:var(--fg);background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:8px 10px;resize:vertical;width:100%">'+esc(mm)+'</textarea><div class="btns"><button class="btn ghost sm" id="pmSave" data-day="">저장</button>'+(mm?'<button class="btn ghost sm" id="pmDel">지우기</button>':'')+'</div></div>'+(calCol?'<div class="card form dcalcol">'+calCol+'</div>':'')+'</div>';
     h+='<div class="card"><h3 style="margin-bottom:4px">다음 3일</h3><div class="wk">'+WK_HEAD+[1,2,3].map(i=>weekRow(n+i)).join('')+'</div></div>';
     body.innerHTML=pendHtml+'<div class="myday">'+h+'</div>';
   }else if(ui.myView==='week'){
@@ -1833,9 +1852,11 @@ function renderSheet(){
     for(const t of tsos()){const c=dayCells(n)[t.id];if(c.code==='연')rm.push('휴: '+t.name+(c.leaveType&&c.leaveType!=='연차'?'('+LT_PRINT[c.leaveType]+')':''));else if(c.part)rm.push('휴: '+t.name+'('+c.part.from+'~'+c.part.to+')')}
     for(const m of members){if(m.joinDate===key)rm.push('전입: '+m.name);if(m.leaveDate===key)rm.push('전출: '+m.name)}
     if(asgDays.has(key)&&n!==a)rm.push('조 편성 변경');
-    h+='<tr class="'+(red?'red ':'')+(sat?'sat ':'')+(asgDays.has(key)&&n!==a?'sd':'')+'"><td class="md">'+(d.getUTCMonth()+1)+'월 '+String(d.getUTCDate()).padStart(2,' ')+'일</td><td class="wd">'+WD[d.getUTCDay()]+'</td>'+cells['주']+cells['야']+'<td class="rm">'+esc(rm.join(', '))+'</td></tr>';
+    if(sheetNotes[key])rm.push(sheetNotes[key]);
+    h+='<tr class="'+(red?'red ':'')+(sat?'sat ':'')+(asgDays.has(key)&&n!==a?'sd':'')+'"><td class="md">'+(d.getUTCMonth()+1)+'월 '+String(d.getUTCDate()).padStart(2,' ')+'일</td><td class="wd">'+WD[d.getUTCDay()]+'</td>'+cells['주']+cells['야']+'<td class="rm" data-rm="'+key+'">'+esc(rm.join(', '))+'</td></tr>';
   }
   h+='</tbody></table>';
+  if(isAdmin&&!viewerPreview)h+='<p class="sh-hint">비고 칸을 누르면 직접 적을 수 있어요 (관리자)</p>';
   const el=$('#sheet');el.className='sheet a4page';el.innerHTML='<div class="a4in">'+h+'</div>';
   requestAnimationFrame(()=>{fitA4(el);zoomInit(false)});
 }
@@ -2139,7 +2160,11 @@ $('#fLeave').onclick=()=>{ui.form='leave';render()};$('#fSwap').onclick=()=>{ui.
 ['lWho','lType','lDate'].forEach(id=>$('#'+id).addEventListener('change',()=>{renderAddSelects();updateLeave()}));
 $('#lForce').addEventListener('change',updateLeave);$('#sForce').addEventListener('change',()=>{refreshSwapB();updateSwap()});
 ['lDirect','sDirect'].forEach(id=>$('#'+id).addEventListener('change',renderAddSelects));
-['sA','sADate','sB','sBDate'].forEach(id=>$('#'+id).addEventListener('change',()=>{if(id!=='sBDate')refreshSwapB();dpLabel('sADate');dpLabel('sBDate');updateSwap()}));
+['sA','sADate','sB','sBDate'].forEach(id=>$('#'+id).addEventListener('change',()=>{
+  if(id==='sA'){$('#sADate').value='';$('#sB').value='';$('#sBDate').value=''}
+  if(id==='sADate'){const a=$('#sA').value,ad=$('#sADate').value;if(a&&ad&&!swapAOk(a,dn(ad))){$('#sADate').value=''}}
+  if(id==='sB'){$('#sBDate').value=''}
+  if(id!=='sBDate')refreshSwapB();else swapGate();dpLabel('sADate');dpLabel('sBDate');updateSwap()}));
 $('#lSave').onclick=async()=>{
   if(!leaveDraft)return;
   const ev={...leaveDraft};
@@ -2416,6 +2441,7 @@ function startData(){
   db.collection('assignments').onSnapshot(s=>{assignments=s.docs.map(x=>x.data()).filter(x=>x&&x.date&&x.teams).sort((x,y)=>x.date<y.date?-1:1);orgDraft=null;dataChanged()});
   db.collection('budgets').onSnapshot(s=>{budgets=s.docs.map(x=>({id:x.id,...x.data()}));dataChanged()});
   db.doc('config/holidays').onSnapshot(s=>{if(s.exists&&Array.isArray(s.data().dates)){holidays=new Set(s.data().dates);dataChanged()}});
+  db.doc('config/sheetNotes').onSnapshot(s=>{sheetNotes=(s.exists&&s.data().notes)||{};dataChanged()},()=>{});
   restartRoleData();
 }
 function stopRoleData(){for(const u of roleUnsubs)try{u()}catch(e){}roleUnsubs=[]}

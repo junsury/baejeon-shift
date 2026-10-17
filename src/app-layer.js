@@ -208,6 +208,7 @@ function startData(){
   db.collection('assignments').onSnapshot(s=>{assignments=s.docs.map(x=>x.data()).filter(x=>x&&x.date&&x.teams).sort((x,y)=>x.date<y.date?-1:1);orgDraft=null;dataChanged()});
   db.collection('budgets').onSnapshot(s=>{budgets=s.docs.map(x=>({id:x.id,...x.data()}));dataChanged()});
   db.doc('config/holidays').onSnapshot(s=>{if(s.exists&&Array.isArray(s.data().dates)){holidays=new Set(s.data().dates);dataChanged()}});
+  db.doc('config/sheetNotes').onSnapshot(s=>{sheetNotes=(s.exists&&s.data().notes)||{};dataChanged()},()=>{});
   restartRoleData();
 }
 function stopRoleData(){for(const u of roleUnsubs)try{u()}catch(e){}roleUnsubs=[]}

@@ -1,0 +1,27 @@
+import sys, os, json, tempfile
+SHOT=sys.argv[1]; sys.argv=[sys.argv[0]]
+src=open(os.path.join(os.path.dirname(__file__),'run.py')).read().replace('\nrun()','\n')
+R={'__file__':os.path.join(os.path.dirname(os.path.abspath(__file__)),'run.py')}; exec(compile(src,'run.py','exec'),R)
+from playwright.sync_api import sync_playwright
+with sync_playwright() as p:
+    b=p.chromium.launch()
+    ctx,pg,errs=R['page'](b,R['ADMIN']); pg.goto(R['BASE']); pg.wait_for_timeout(500)
+    pg.click('[data-g=google]'); pg.wait_for_timeout(500)
+    f=tempfile.NamedTemporaryFile('w',suffix='.json',delete=False); json.dump(R['TEST_DATA'],f,ensure_ascii=False); f.close()
+    pg.set_input_files('#gImport',f.name); pg.click('[data-g=setup]'); pg.wait_for_timeout(1500)
+    pg.click('[data-g=pick][data-id=B2]'); pg.wait_for_timeout(800)
+    pg.click('[data-tab=attend]'); pg.wait_for_timeout(300); pg.click('#fSwap'); pg.wait_for_timeout(300)
+    st=lambda: pg.evaluate("[document.getElementById('sA').value,document.getElementById('sADate').value,document.getElementById('sB').value,document.getElementById('sBDate').value,document.getElementById('sADateBtn').disabled,document.getElementById('sB').disabled,document.getElementById('sBDateBtn').disabled]")
+    print('init', st())
+    pg.select_option('#sA','B2'); pg.wait_for_timeout(200); print('A', st())
+    pg.click('#sADateBtn'); pg.wait_for_timeout(300)
+    print('A cal cols', pg.evaluate("getComputedStyle(document.querySelector('#pop-sADate .dcal')).gridTemplateColumns.split(' ').length"), 'enabled days', pg.eval_on_selector_all('#pop-sADate button[data-dpd]:not([disabled])','b=>b.length'))
+    pg.click('#pop-sADate button[data-dpd]:not([disabled])'); pg.wait_for_timeout(300); print('Ad', st())
+    opts=pg.eval_on_selector_all('#sB option','os=>os.map(o=>o.textContent)'); print(opts)
+    v=pg.eval_on_selector_all('#sB option','os=>os.map(o=>o.value).filter(Boolean)')
+    pg.select_option('#sB',v[0]); pg.wait_for_timeout(300); print('B', st())
+    pg.click('#sBDateBtn'); pg.wait_for_timeout(300)
+    print('B ok days', pg.eval_on_selector_all('#pop-sBDate button.ok','b=>b.length'))
+    pg.click('#pop-sBDate button.ok'); pg.wait_for_timeout(300); print('Bd', st(), pg.inner_text('#sResult')[:200].replace('\n',' | '))
+    pg.screenshot(path=SHOT+'/swap2.png')
+    print('errs', [e for e in errs if 'ERR_FAILED' not in e])
