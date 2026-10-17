@@ -53,6 +53,12 @@ public class DayActivity extends Activity {
         super.onCreate(b);
         dp = getResources().getDisplayMetrics().density;
         day = getIntent().getIntExtra("day", ShiftData.todayNum());
+        // 근무표 앱(웹)에서 baejeonshift://day?d=2026-10-20 로 열 때
+        Uri u = getIntent().getData();
+        if (u != null && "day".equals(u.getHost()) && u.getQueryParameter("d") != null) {
+            int n = FamApi.dayNum(u.getQueryParameter("d"));
+            if (n != Integer.MIN_VALUE) day = n;
+        }
         wid = getIntent().getIntExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, 0);
         getWindow().setLayout(Math.min(getResources().getDisplayMetrics().widthPixels - px(24), px(460)), ViewGroup.LayoutParams.WRAP_CONTENT);
         build();

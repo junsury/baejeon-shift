@@ -1460,6 +1460,7 @@ function renderMy(){
     h+=dayNotes(c).map(x=>'<div class="msg ok" style="font-size:14px">'+esc(x)+'</div>').join('');
     if(holidays.has(ds(n))&&(hasShift(c,'주')||hasShift(c,'야')))h+='<div class="msg ok">'+holWorkText(ds(n),c)+'</div>';
     h+='</div>';
+    if(typeof window.__dayCal==='function')h+=window.__dayCal(n);
     const mm=memos[ds(n)]||'';
     h+='<div class="card form" style="gap:8px"><div class="period"><h3>내 메모</h3><span class="note">팀원은 볼 수 없어요 · 앱에서는 가족과 함께 봐요</span></div><textarea id="pmemo" rows="3" placeholder="예: 아이 학교 행사, 병원 예약" style="font:inherit;font-size:15px;color:var(--fg);background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:10px;resize:vertical;width:100%">'+esc(mm)+'</textarea><div class="btns"><button class="btn ghost" id="pmSave" data-day="">메모 저장</button>'+(mm?'<button class="btn ghost" id="pmDel">메모 지우기</button>':'')+'</div></div>';
     h+='<div class="card"><h3 style="margin-bottom:6px">다음 3일</h3><div class="wk">'+WK_HEAD+[1,2,3].map(i=>weekRow(n+i)).join('')+'</div></div>';

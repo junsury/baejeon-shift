@@ -34,3 +34,5 @@ body.family #tab-my .wk .ds{display:grid}
 .pushask span{font-size:13px;color:var(--muted)}
 .toast{position:fixed;left:50%;bottom:calc(24px + env(safe-area-inset-bottom));transform:translate(-50%,20px);opacity:0;z-index:120;background:var(--fg);color:var(--surface);padding:10px 16px;border-radius:999px;font-size:14px;font-weight:600;transition:.25s;max-width:90vw;text-align:center}
 .toast.on{opacity:1;transform:translate(-50%,0)}
+
+.dot-ev{width:8px;height:8px;border-radius:50%;background:#8e24aa;flex:none;align-self:center}

@@ -75,11 +75,18 @@
         <!-- 달력 위젯에서 날짜를 누르면 뜨는 창: 그날 근무·일정, 일정 추가 -->
         <activity
             android:name=".DayActivity"
-            android:exported="false"
+            android:exported="true"
             android:excludeFromRecents="true"
             android:taskAffinity="kr.baejeon.shift.day"
             android:windowSoftInputMode="adjustResize"
-            android:theme="@android:style/Theme.DeviceDefault.Light.Dialog.NoActionBar.MinWidth" />
+            android:theme="@android:style/Theme.DeviceDefault.Light.Dialog.NoActionBar.MinWidth">
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="baejeonshift" android:host="day" />
+            </intent-filter>
+        </activity>
 
         <!-- 가족 공유 캘린더 (구글) 설정 -->
         <activity
