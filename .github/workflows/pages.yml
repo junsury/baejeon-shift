@@ -1,4 +1,4 @@
-# main 브랜치에 올리면 app/ 폴더를 GitHub Pages로 자동 배포
+# 예전 GitHub Pages 주소 → 새 주소(baejeon-shift.web.app)로 넘겨주는 페이지(pages/)를 배포
 name: 배포
 on:
   push:
@@ -22,6 +22,6 @@ jobs:
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:
-          path: app
+          path: pages
       - id: deployment
         uses: actions/deploy-pages@v4
