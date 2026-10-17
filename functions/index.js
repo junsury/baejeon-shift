@@ -173,54 +173,9 @@ exports.backupNow = functions.region(REGION).https.onCall(async (data, ctx) => {
   return { id: await makeBackup(t) };
 });
 
-/* ---------------- 캘린더 구독 (.ics) — 구글·삼성·아이폰 캘린더 ---------------- */
-const icsEsc = s => String(s || '').replace(/\\/g, '\\\\').replace(/;/g, '\;').replace(/,/g, '\\,').replace(/\n/g, '\\n');
-const icsUtc = (n, h) => { const d = new Date(n * 864e5 + (h - 9) * 3600e3); return d.toISOString().replace(/[-:]/g, '').replace(/\.\d{3}/, ''); };
-const icsDay = n => new Date(n * 864e5).toISOString().slice(0, 10).replace(/-/g, '');
-function fold(line) { const out = []; let s = line; while (Buffer.byteLength(s) > 73) { let i = 60; while (Buffer.byteLength(s.slice(0, i)) > 73) i--; out.push(s.slice(0, i)); s = ' ' + s.slice(i); } out.push(s); return out.join('\r\n'); }
-exports.calendar = functions.region(REGION).https.onRequest(async (req, res) => {
-  try {
-    const tok = String(req.query.t || ''); const t = String(req.query.team || 'gyeonggi');
-    if (!/^[A-Za-z0-9]{12,40}$/.test(tok)) { res.status(404).send('not found'); return; }
-    const link = await db.collection('teams').doc(t).collection('calLinks').doc(tok).get();
-    if (!link.exists) { res.status(404).send('이 캘린더 링크는 끊겼어요'); return; }
-    const { memberId, memos: withMemo } = link.data();
-    const { members, engine: E } = await loadTeam(t);
-    const nm = id => (members.find(m => m.id === id) || {}).name || '';
-    const me = members.find(m => m.id === memberId);
-    let memos = {};
-    if (withMemo) { const ms = await db.collection('teams').doc(t).collection('memos').doc(memberId).get(); if (ms.exists) memos = ms.data().notes || {}; }
-    const kst = new Date(Date.now() + 9 * 3600e3); const today = Math.floor(Date.UTC(kst.getUTCFullYear(), kst.getUTCMonth(), kst.getUTCDate()) / 864e5);
-    const stamp = new Date().toISOString().replace(/[-:]/g, '').replace(/\.\d{3}/, '');
-    const L = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//baejeon-shift//KO', 'CALSCALE:GREGORIAN', 'METHOD:PUBLISH',
-      'X-WR-CALNAME:' + icsEsc((me ? me.name + ' ' : '') + '근무'), 'X-WR-TIMEZONE:Asia/Seoul', 'REFRESH-INTERVAL;VALUE=DURATION:PT1H', 'X-PUBLISHED-TTL:PT1H'];
-    const ev = (uid, summary, desc, start, end, allDay) => {
-      L.push('BEGIN:VEVENT', 'UID:' + uid + '@baejeon-shift', 'DTSTAMP:' + stamp);
-      if (allDay) { L.push('DTSTART;VALUE=DATE:' + icsDay(start), 'DTEND;VALUE=DATE:' + icsDay(start + 1)); }
-      else { L.push('DTSTART:' + start, 'DTEND:' + end); }
-      L.push(fold('SUMMARY:' + icsEsc(summary))); if (desc) L.push(fold('DESCRIPTION:' + icsEsc(desc))); L.push('END:VEVENT');
-    };
-    for (let n = today - 31; n <= today + 120; n++) {
-      const cells = E.dayCells(n); const c = cells[memberId]; if (!c) continue;
-      const others = members.filter(m => m.active !== false && m.id !== memberId);
-      const mates = s => others.filter(m => { const x = cells[m.id]; return E.hasShift(x, s) || (s === '주' && x.code === '지원'); }).map(m => m.name).join(', ');
-      const memo = memos[E.ds(n)] ? '메모: ' + memos[E.ds(n)] : '';
-      const sw = c.tags && c.tags.includes('변경') ? ' (변경: ' + nm(c.with) + '와 맞교환)' : '';
-      const shift = (s, tag) => {
-        if (s === '주') ev(memberId + '-' + n + '-d' + tag, '주간 근무' + (tag ? ' · 대근' : '') + sw, ['같이: ' + (mates('주') || '없음'), tag ? nm(c.for) + ' 대신' : '', memo].filter(Boolean).join('\n'), icsUtc(n, 8), icsUtc(n, 18));
-        if (s === '야') ev(memberId + '-' + n + '-n' + tag, '야간 근무' + (tag ? ' · 대근' : '') + sw, ['같이: ' + (mates('야') || '없음'), tag ? nm(c.for) + ' 대신' : '', memo].filter(Boolean).join('\n'), icsUtc(n, 18), icsUtc(n + 1, 8));
-      };
-      if (c.code === '주' || c.code === '야') shift(c.code, '');
-      if (c.cover) shift(c.cover, 'c');
-      if (c.code === 'T') ev(memberId + '-' + n + '-t', 'TSO 근무' + (c.part ? ' · 시간휴가 ' + c.part.from + '~' + c.part.to : ''), memo, icsUtc(n, 8), icsUtc(n, 17));
-      if (c.code === '지원') ev(memberId + '-' + n + '-s', '근무지원 (' + nm(c.for) + ' 대신)', memo, icsUtc(n, 8), icsUtc(n, 18));
-      if (c.code === '연') ev(memberId + '-' + n + '-l', '휴가', [(c.by ? (c.byType === 'tso' ? '근무지원 ' : '대근 ') + nm(c.by) : ''), memo].filter(Boolean).join('\n'), n, 0, true);
-      if (c.code === '휴' && sw) ev(memberId + '-' + n + '-x', '휴무' + sw, memo, n, 0, true);
-      if (memo && !['주', '야', 'T', '지원', '연'].includes(c.code) && !c.cover && !sw) ev(memberId + '-' + n + '-m', '메모: ' + memos[E.ds(n)], '', n, 0, true);
-    }
-    L.push('END:VCALENDAR');
-    res.set('Content-Type', 'text/calendar; charset=utf-8');
-    res.set('Cache-Control', 'public, max-age=900');
-    res.send(L.join('\r\n') + '\r\n');
-  } catch (e) { console.error(e); res.status(500).send('error'); }
+/* ---------------- 캘린더 구독: 기능 없앰 ----------------
+   예전에 구독한 캘린더가 빈 캘린더가 되도록 빈 일정만 돌려줌 (근무 일정이 캘린더에서 사라짐) */
+exports.calendar = functions.region(REGION).https.onRequest((req, res) => {
+  res.set('Content-Type', 'text/calendar; charset=utf-8');
+  res.send(['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//baejeon-shift//KO', 'X-WR-CALNAME:근무표(사용 안 함)', 'END:VCALENDAR'].join('\r\n') + '\r\n');
 });

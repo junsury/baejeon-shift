@@ -2458,11 +2458,6 @@ $('#acct').addEventListener('click',async e=>{
     else if(b.dataset.ac==='famShare'){shareFamily(b.dataset.tok)}
     else if(b.dataset.ac==='pushOn'){await enablePush()}
     else if(b.dataset.ac==='shareGuide'){shareGuide()}
-    else if(b.dataset.ac==='calNew'){b.disabled=true;const tok=rndCode(24);await F.setDoc(tref('calLinks',tok),{memberId:appUser.memberId,by:uid,at:Date.now(),memos:!!($('#calMemo')&&$('#calMemo').checked)});toast('캘린더 링크를 만들었어요')}
-    else if(b.dataset.ac==='calGoogle'){window.open('https://calendar.google.com/calendar/r?cid='+encodeURIComponent(calUrl().replace(/^https:/,'webcal:')),'_blank')}
-    else if(b.dataset.ac==='calApple'){location.href=calUrl().replace(/^https:/,'webcal:')}
-    else if(b.dataset.ac==='calCopy'){const u=calUrl();try{await navigator.clipboard.writeText(u);toast('주소를 복사했어요')}catch(x){prompt('이 주소를 복사하세요',u)}}
-    else if(b.dataset.ac==='calDel'){if(confirm('캘린더 연결을 끊을까요? 캘린더에서 근무가 더 이상 갱신되지 않아요.'))await F.deleteDoc(tref('calLinks',b.dataset.tok))}
     else if(b.dataset.ac==='pushOff'){await disablePush()}
     else if(b.dataset.ac==='famLeave'){if(confirm('이 기기에서 근무표 보기를 그만둘까요? 다시 보려면 링크를 다시 눌러야 해요.')){try{localStorage.removeItem('bj-fam')}catch(e){}await F.deleteDoc(tref('users',uid)).catch(()=>{});await FB.Au.signOut(auth);location.replace(location.pathname)}}
   }catch(err){alert(errText(err))}
@@ -2473,7 +2468,6 @@ function shareGuide(){
   if(navigator.share)navigator.share({title:'배전센터 근무표 사용 설명서',text,url}).catch(()=>{});
   else{navigator.clipboard&&navigator.clipboard.writeText(text+'\n'+url).catch(()=>{});alert('설명서 링크를 복사했어요. 단톡방에 붙여 넣으세요.\n\n'+url)}
 }
-function calUrl(){const l=calLinks[0];return 'https://asia-northeast3-'+window.FIREBASE_CONFIG.projectId+'.cloudfunctions.net/calendar?t='+(l?l.token:'')}
 function famUrl(tok){return location.origin+location.pathname+'?f='+tok}
 function shareFamily(tok){
   const url=famUrl(tok);const text=nm(appUser.memberId)+' 근무표예요. 링크를 누르면 로그인 없이 볼 수 있어요.';
@@ -2499,15 +2493,6 @@ function renderAcct(){
     h+='<h3>가족과 공유</h3><p class="note" style="margin:0">링크를 받은 가족은 로그인 없이 내 근무(일·주·월)와 내 메모를 볼 수 있어요. 링크를 끊으면 바로 못 봐요.</p>';
     h+=famLinks.length?'<div class="list">'+famLinks.map(l=>'<div class="item"><div class="t"><b>가족 링크</b><small>'+new Date(l.at).toLocaleDateString('ko-KR')+' 만듦</small></div><span class="btns"><button class="btn" data-ac="famShare" data-tok="'+l.token+'">보내기</button><button class="btn ghost" data-ac="famDel" data-tok="'+l.token+'">끊기</button></span></div>').join('')+'</div>':'';
     h+='<button class="btn ghost" data-ac="famNew">'+(famLinks.length?'새 링크 만들기':'가족 링크 만들기')+'</button>';
-  }
-  if(appUser.memberId){
-    h+='<h3>캘린더에 내 근무 표시</h3>';
-    if(calLinks.length){const l=calLinks[0];
-      h+='<p class="note" style="margin:0">휴대폰 캘린더와 캘린더 위젯에 내 근무'+(l.memos?'와 메모':'')+'가 자동으로 들어가요. 갤럭시는 <b>구글 캘린더에 추가</b>를 누르면 삼성 캘린더에도 같이 보여요.</p>'+
-        '<div class="btns"><button class="btn" data-ac="calGoogle">구글 캘린더에 추가</button><button class="btn ghost" data-ac="calApple">아이폰 캘린더</button></div>'+
-        '<div class="btns"><button class="btn ghost" data-ac="calCopy">주소 복사</button><button class="btn ghost" data-ac="calDel" data-tok="'+l.token+'">연결 끊기</button></div>'+
-        '<p class="note" style="margin:0">구글 캘린더는 바뀐 근무가 몇 시간 늦게 반영될 수 있어요. 정확한 건 앱과 알림으로 확인하세요.</p>'}
-    else h+='<p class="note" style="margin:0">구글·삼성·아이폰 캘린더에 내 근무를 자동으로 넣어요. 캘린더 위젯으로 홈 화면에서 볼 수 있어요.</p><label class="chk" for="calMemo"><input type="checkbox" id="calMemo"><span>내 메모도 캘린더에 보이기</span></label><button class="btn ghost" data-ac="calNew">캘린더 연결하기</button>';
   }
   h+='<h3>도움말</h3><div class="btns"><a class="btn ghost" href="guide.html" target="_blank" rel="noopener">사용 설명서</a><button class="btn ghost" data-ac="shareGuide">설명서 보내기</button></div>';
   h+='<h3>홈 화면에 추가</h3><p class="note" style="margin:0">아이폰: 사파리 아래 공유 버튼 → "홈 화면에 추가". 안드로이드: 크롬 ⋮ → "홈 화면에 추가" 또는 "앱 설치".</p>';
@@ -2686,7 +2671,8 @@ async function restoreBackup(d){
 function startExtras(){
   const F=FB.F;if(isFamily())return;
   roleUnsubs.push(F.onSnapshot(F.query(tcol('history'),F.orderBy('at','desc'),F.limit(100)),s=>{historyLog=s.docs.map(x=>x.data());renderLog()},()=>{}));
-  if(appUser.memberId)roleUnsubs.push(F.onSnapshot(F.query(tcol('calLinks'),F.where('by','==',uid)),s=>{calLinks=s.docs.map(x=>({token:x.id,...x.data()}));renderAcct()},()=>{}));
+  /* 캘린더 구독은 없앰: 예전에 만든 링크 정리 */
+  if(appUser.memberId)F.getDocs(F.query(tcol('calLinks'),F.where('by','==',uid))).then(r=>r.docs.forEach(d=>F.deleteDoc(d.ref).catch(()=>{}))).catch(()=>{});
   if(isAdmin)roleUnsubs.push(F.onSnapshot(F.query(tcol('backups'),F.orderBy('at','desc'),F.limit(30)),s=>{backups=s.docs.map(x=>({id:x.id,...x.data()}));renderBackups()},()=>{}));
 }
 
