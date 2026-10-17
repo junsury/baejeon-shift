@@ -33,15 +33,17 @@ async function adminUids(t) {
   return s.docs.map(d => d.id);
 }
 async function send(t, uids, msg) {
-  uids = [...new Set(uids)]; if (!uids.length) return;
+  uids = [...new Set(uids)]; if (!uids.length) { console.log('push', msg.title, 'no recipients'); return; }
   const refs = [];
   for (const u of uids) { const s = await db.collection('teams').doc(t).collection('users').doc(u).collection('tokens').get(); s.forEach(d => refs.push(d)); }
-  if (!refs.length) return;
+  if (!refs.length) { console.log('push', msg.title, 'recipients', uids.length, 'but no devices'); return; }
   const res = await admin.messaging().sendEachForMulticast({
     tokens: refs.map(r => r.id),
     data: { title: msg.title, body: msg.body || '', url: msg.url || './', tag: msg.tag || '' },
     webpush: { headers: { Urgency: 'high', TTL: '86400' } },
   });
+  console.log('push', msg.title, 'devices', refs.length, 'ok', res.successCount, 'fail', res.failureCount,
+    res.responses.filter(r => r.error).map(r => r.error.code).join(','));
   /* 더 이상 안 쓰는 기기는 정리 */
   await Promise.all(res.responses.map((r, i) => {
     const c = r.error && r.error.code;
