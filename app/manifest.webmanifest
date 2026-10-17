@@ -1,0 +1,16 @@
+{
+  "name": "배전센터 근무표",
+  "short_name": "근무표",
+  "description": "4조2교대 근무표 · 휴가 · 대근 · 근무변경",
+  "lang": "ko",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#edf0f3",
+  "theme_color": "#1d5d8f",
+  "icons": [
+    {"src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png"},
+    {"src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png"},
+    {"src": "icons/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable"}
+  ]
+}

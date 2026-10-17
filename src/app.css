@@ -1,0 +1,32 @@
+/* ---- 앱 전용: 시작 화면 · 내 정보 ---- */
+body.gated{overflow:hidden}
+#gate{position:fixed;inset:0;z-index:100;background:var(--bg);display:flex;align-items:flex-start;justify-content:center;overflow:auto;padding:max(48px,env(safe-area-inset-top)) 16px 32px}
+#gateBody{width:100%;max-width:420px;background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:24px 20px;display:flex;flex-direction:column;gap:12px;box-shadow:0 8px 30px rgba(0,0,0,.06)}
+#gateBody h2{margin:0;font-size:20px}
+#gateBody .note{margin:0}
+.g-logo{width:56px;height:56px;border-radius:14px;background:var(--accent);color:#fff;font-weight:800;font-size:28px;display:flex;align-items:center;justify-content:center;align-self:center}
+#gateBody h2:first-of-type{text-align:left}
+.g-google{display:flex;align-items:center;justify-content:center;gap:10px;height:48px;font-size:16px}
+.g-g{width:24px;height:24px;border-radius:50%;background:#fff;color:#4285f4;font-weight:800;display:inline-flex;align-items:center;justify-content:center;font-size:15px}
+.g-small{font-size:12px!important;text-align:center}
+.g-code{font:inherit;font-family:var(--mono,monospace);font-size:24px;letter-spacing:.2em;text-align:center;text-transform:uppercase;padding:12px;border:1.5px solid var(--line);border-radius:10px;background:var(--surface);color:var(--fg);width:100%}
+.g-lab{display:flex;flex-direction:column;gap:4px;font-size:13px;color:var(--muted);font-weight:600}
+.g-lab input{font:inherit;font-size:15px;padding:10px;border:1px solid var(--line);border-radius:8px;background:var(--surface);color:var(--fg)}
+.g-lab small{font-weight:400}
+.g-spin{width:36px;height:36px;border-radius:50%;border:4px solid var(--sunk);border-top-color:var(--accent);animation:gs 1s linear infinite;align-self:center;margin:12px}
+@keyframes gs{to{transform:rotate(360deg)}}
+.acctbtn{width:36px;height:36px;border-radius:50%;border:1px solid var(--line);background:var(--surface);color:var(--fg);font-size:16px;display:inline-flex;align-items:center;justify-content:center;cursor:pointer;flex:none}
+.brand .right{display:flex;align-items:center;gap:8px}
+#famLab{font-size:13px;font-weight:700;color:var(--accent)}
+#acct{position:fixed;inset:0;z-index:90;background:rgba(0,0,0,.35);display:flex;align-items:flex-end;justify-content:center}
+#acctBody{width:100%;max-width:520px;max-height:88vh;overflow:auto;background:var(--surface);border-radius:18px 18px 0 0;padding:20px 18px calc(20px + env(safe-area-inset-bottom));display:flex;flex-direction:column;gap:10px}
+#acctBody h3{margin:8px 0 0;font-size:15px}
+.acct-me{display:flex;align-items:center;gap:10px}
+.acct-me img{width:40px;height:40px;border-radius:50%}
+.acct-me div{flex:1;display:flex;flex-direction:column}
+.acct-me small{color:var(--muted)}
+.mono{font-family:var(--mono,monospace);letter-spacing:.12em;font-size:17px}
+.invite{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:10px 12px;border-radius:10px;background:var(--sunk)}
+.invite b{font-size:22px}
+.invite .btns{margin-left:auto}
+body.family #tab-my .wk .ds{display:grid}
