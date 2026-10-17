@@ -1797,6 +1797,15 @@ function renderSheet(){
   const el=$('#sheet');el.className='sheet a4page';el.innerHTML='<div class="a4in">'+h+'</div>';
   requestAnimationFrame(()=>{fitA4(el);zoomInit(false)});
 }
+/* 편성표 비고 직접 쓰기 (관리자) */
+document.addEventListener('click',async e=>{
+  if(!(isAdmin&&!viewerPreview)||!e.target.closest('#zbox,#sheet'))return;
+  const hit=document.elementFromPoint(e.clientX,e.clientY);const td=(hit&&hit.closest('#sheet td[data-rm]'))||e.target.closest('#sheet td[data-rm]');if(!td)return;
+  const key=td.dataset.rm;const v=prompt(fmtLong(dn(key))+' 비고 (자동으로 들어가는 공휴일·휴가 등은 그대로 있어요)',sheetNotes[key]||'');
+  if(v===null)return;const t=v.trim();const notes={...sheetNotes};if(t)notes[key]=t.slice(0,60);else delete notes[key];sheetNotes=notes;
+  if(db){try{await db.doc('config/sheetNotes').set({notes})}catch(err){fail(err)}}
+  renderSheet();
+});
 /* A4 한 장에 맞추기: 내용이 넘치면 비율대로 줄임 */
 function fitA4(el){
   const inn=el.firstElementChild;if(!inn)return;inn.style.transform='';inn.style.width='';
@@ -2233,15 +2242,6 @@ render();
   },()=>{});
   render();
 })();
-/* 편성표 비고 직접 쓰기 (관리자) */
-document.addEventListener('click',async e=>{
-  if(!(isAdmin&&!viewerPreview)||!e.target.closest('#zbox,#sheet'))return;
-  const hit=document.elementFromPoint(e.clientX,e.clientY);const td=(hit&&hit.closest('#sheet td[data-rm]'))||e.target.closest('#sheet td[data-rm]');if(!td)return;
-  const key=td.dataset.rm;const v=prompt(fmtLong(dn(key))+' 비고 (자동으로 들어가는 공휴일·휴가 등은 그대로 있어요)',sheetNotes[key]||'');
-  if(v===null)return;const t=v.trim();const notes={...sheetNotes};if(t)notes[key]=t.slice(0,60);else delete notes[key];sheetNotes=notes;
-  if(db){try{await db.doc('config/sheetNotes').set({notes})}catch(err){fail(err)}}
-  renderSheet();
-});
 })();
 </script>
 

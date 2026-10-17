@@ -86,7 +86,7 @@ final class FamApi {
                     JSONObject st = e.optJSONObject("start"), en = e.optJSONObject("end");
                     if (st == null) continue;
                     JSONObject o = new JSONObject().put("t", e.optString("summary", "(제목 없음)")).put("id", e.optString("id"))
-                            .put("c", FamColors.hex(want)).put("w", FamColors.who(c, creator));
+                            .put("c", FamColors.hex(want)).put("w", FamColors.who(c, creator)).put("m", e.optString("description", ""));
                     if (st.has("date")) {
                         o.put("d0", st.getString("date"));
                         o.put("d1", en != null && en.has("date") ? en.getString("date") : st.getString("date"));
@@ -99,6 +99,7 @@ final class FamApi {
                         if (x.length() >= 16 && x.substring(11, 16).equals("00:00") && !endDay.equals(s.substring(0, 10)))
                             endDay = ShiftData.ymd(dayNum(endDay) - 1);
                         o.put("e", endDay);
+                        o.put("eh", x.length() >= 16 ? x.substring(11, 16) : "");
                     }
                     out.put(o);
                 }
@@ -137,6 +138,13 @@ final class FamApi {
                     CalendarReader.Ev ev = new CalendarReader.Ev(title, time.isEmpty(), 0, time);
                     ev.color = o.optInt("c", 0xFF8E24AA);
                     ev.who = o.optString("w", "");
+                    ev.gid = o.optString("id", null);
+                    ev.desc = o.optString("m", "");
+                    if (!h.isEmpty()) {
+                        ev.startMin = hmToMin(h);
+                        String eh = o.optString("eh", "");
+                        ev.endMin = eh.isEmpty() ? -1 : hmToMin(eh);
+                    }
                     l.add(ev);
                 }
             }
@@ -162,6 +170,41 @@ final class FamApi {
                 b.put("end", new JSONObject().put("dateTime", rfc(base + em * 60000L)).put("timeZone", "Asia/Seoul"));
             }
             GoogleCal.call(tok, "POST", "/calendars/" + GoogleCal.enc(id) + "/events", b);
+            refresh(c);
+            return true;
+        } catch (Exception e) { return false; }
+    }
+
+    static int hmToMin(String hm) {
+        try { return Integer.parseInt(hm.substring(0, 2)) * 60 + Integer.parseInt(hm.substring(3, 5)); } catch (Exception e) { return -1; }
+    }
+
+    /** 공유 캘린더 일정 고치기 (색은 처음 만든 사람 색 그대로) */
+    static boolean update(Context c, String gid, String title, int day, boolean allDay, int startMin, int endMin, String memo) {
+        String id = calId(c); String tok = id.isEmpty() ? null : token(c);
+        if (tok == null || gid == null) return false;
+        try {
+            JSONObject b = new JSONObject().put("summary", title).put("description", memo == null ? "" : memo);
+            if (allDay) {
+                b.put("start", new JSONObject().put("date", ShiftData.ymd(day)).put("dateTime", JSONObject.NULL).put("timeZone", JSONObject.NULL));
+                b.put("end", new JSONObject().put("date", ShiftData.ymd(day + 1)).put("dateTime", JSONObject.NULL).put("timeZone", JSONObject.NULL));
+            } else {
+                long base = day * 86400000L - ShiftData.KST.getRawOffset();
+                int em = endMin <= startMin ? endMin + 1440 : endMin;
+                b.put("start", new JSONObject().put("dateTime", rfc(base + startMin * 60000L)).put("timeZone", "Asia/Seoul").put("date", JSONObject.NULL));
+                b.put("end", new JSONObject().put("dateTime", rfc(base + em * 60000L)).put("timeZone", "Asia/Seoul").put("date", JSONObject.NULL));
+            }
+            GoogleCal.call(tok, "PATCH", "/calendars/" + GoogleCal.enc(id) + "/events/" + GoogleCal.enc(gid), b);
+            refresh(c);
+            return true;
+        } catch (Exception e) { return false; }
+    }
+
+    static boolean delete(Context c, String gid) {
+        String id = calId(c); String tok = id.isEmpty() ? null : token(c);
+        if (tok == null || gid == null) return false;
+        try {
+            GoogleCal.call(tok, "DELETE", "/calendars/" + GoogleCal.enc(id) + "/events/" + GoogleCal.enc(gid), null);
             refresh(c);
             return true;
         } catch (Exception e) { return false; }

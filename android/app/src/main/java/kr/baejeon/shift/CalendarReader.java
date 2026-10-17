@@ -23,6 +23,7 @@ final class CalendarReader {
     static final class Ev {
         final String title; final boolean allDay; final long begin; final String time;
         long eventId = -1; int color = 0; boolean memo = false; String who = "";
+        String gid = null, desc = ""; int startMin = -1, endMin = -1;
         Ev(String title, boolean allDay, long begin, String time) { this.title = title; this.allDay = allDay; this.begin = begin; this.time = time; }
         String text() { return time.isEmpty() ? title : title + " " + time; }
     }
@@ -116,6 +117,11 @@ final class CalendarReader {
                     if (l == null) { l = new ArrayList<>(); out.put(n, l); }
                     Ev ev = new Ev(title.trim(), all || n != d0, bg, n == d0 ? time : "");
                     ev.eventId = cur.getLong(6); ev.color = cur.getInt(7);
+                    ev.desc = desc == null ? "" : desc;
+                    if (!all) {
+                        ev.startMin = (int) Math.floorMod((bg + kst.getOffset(bg)) / 60000L, 1440L);
+                        ev.endMin = (int) Math.floorMod((en + kst.getOffset(en)) / 60000L, 1440L);
+                    }
                     l.add(ev);
                 }
             }
@@ -225,5 +231,40 @@ final class CalendarReader {
             syncCalendar(c, id);
             return true;
         } catch (Exception e) { return false; }
+    }
+
+    /** 휴대폰 캘린더 일정 고치기 */
+    static boolean update(Context c, long eventId, String title, int day, boolean allDay, int startMin, int endMin, String memo) {
+        try {
+            android.content.ContentValues v = new android.content.ContentValues();
+            v.put(CalendarContract.Events.TITLE, title);
+            v.put(CalendarContract.Events.DESCRIPTION, memo == null ? "" : memo);
+            if (allDay) {
+                v.put(CalendarContract.Events.DTSTART, day * 86400000L);
+                v.put(CalendarContract.Events.DTEND, (day + 1) * 86400000L);
+                v.put(CalendarContract.Events.ALL_DAY, 1);
+                v.put(CalendarContract.Events.EVENT_TIMEZONE, "UTC");
+            } else {
+                long base = day * 86400000L - ShiftData.KST.getOffset(day * 86400000L);
+                v.put(CalendarContract.Events.DTSTART, base + startMin * 60000L);
+                v.put(CalendarContract.Events.DTEND, base + (endMin <= startMin ? endMin + 1440 : endMin) * 60000L);
+                v.put(CalendarContract.Events.ALL_DAY, 0);
+                v.put(CalendarContract.Events.EVENT_TIMEZONE, "Asia/Seoul");
+            }
+            return c.getContentResolver().update(ContentUris.withAppendedId(CalendarContract.Events.CONTENT_URI, eventId), v, null, null) > 0;
+        } catch (Exception e) { return false; }
+    }
+
+    static boolean delete(Context c, long eventId) {
+        try { return c.getContentResolver().delete(ContentUris.withAppendedId(CalendarContract.Events.CONTENT_URI, eventId), null, null) > 0; }
+        catch (Exception e) { return false; }
+    }
+
+    static long calendarOf(Context c, long eventId) {
+        try (Cursor cur = c.getContentResolver().query(ContentUris.withAppendedId(CalendarContract.Events.CONTENT_URI, eventId),
+                new String[]{CalendarContract.Events.CALENDAR_ID}, null, null, null)) {
+            if (cur != null && cur.moveToFirst()) return cur.getLong(0);
+        } catch (Exception ignored) {}
+        return -1;
     }
 }

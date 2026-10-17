@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="ko"><head><script>window.APP_BUILD="26c0a14d6c"</script>
+<html lang="ko"><head><script>window.APP_BUILD="2c89306cfb"</script>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>배전센터 근무표</title>
@@ -491,6 +491,7 @@ body.family #tab-my .wk .ds{display:grid}
 .toast.on{opacity:1;transform:translate(-50%,0)}
 
 .dot-ev{width:8px;height:8px;border-radius:50%;background:#8e24aa;flex:none;align-self:center}
+a.item.evlink{color:inherit;text-decoration:none}
 </style>
 </head><body>
 <div id="gate" hidden><div id="gateBody"></div></div>
@@ -1860,6 +1861,15 @@ function renderSheet(){
   const el=$('#sheet');el.className='sheet a4page';el.innerHTML='<div class="a4in">'+h+'</div>';
   requestAnimationFrame(()=>{fitA4(el);zoomInit(false)});
 }
+/* 편성표 비고 직접 쓰기 (관리자) */
+document.addEventListener('click',async e=>{
+  if(!(isAdmin&&!viewerPreview)||!e.target.closest('#zbox,#sheet'))return;
+  const hit=document.elementFromPoint(e.clientX,e.clientY);const td=(hit&&hit.closest('#sheet td[data-rm]'))||e.target.closest('#sheet td[data-rm]');if(!td)return;
+  const key=td.dataset.rm;const v=prompt(fmtLong(dn(key))+' 비고 (자동으로 들어가는 공휴일·휴가 등은 그대로 있어요)',sheetNotes[key]||'');
+  if(v===null)return;const t=v.trim();const notes={...sheetNotes};if(t)notes[key]=t.slice(0,60);else delete notes[key];sheetNotes=notes;
+  if(db){try{await db.doc('config/sheetNotes').set({notes})}catch(err){fail(err)}}
+  renderSheet();
+});
 /* A4 한 장에 맞추기: 내용이 넘치면 비율대로 줄임 */
 function fitA4(el){
   const inn=el.firstElementChild;if(!inn)return;inn.style.transform='';inn.style.width='';
@@ -2459,7 +2469,7 @@ function restartRoleData(){
   const mm=ownMid();
   if(mm)keep(db.doc('memos/'+mm).onSnapshot(s=>{ownMemos=(s.exists&&s.data().notes)||{};syncMemos();dataChanged()}));
   // 갤럭시 앱이 올린 내 휴대폰 캘린더 일정 → '내 근무 · 월'에 보이기 (본인 것만)
-  if(mm&&!isFamily())keep(db.doc('calcache/'+mm).onSnapshot(s=>{const m={};const hx=n=>n?'#'+((n>>>0)&0xffffff).toString(16).padStart(6,'0'):'';if(s.exists)for(const x of (s.data().items||[])){(m[x.d]=m[x.d]||[]).push({t:(x.h?x.h+' ':'')+x.t,c:hx(x.c),w:x.w||''})}
+  if(mm&&!isFamily())keep(db.doc('calcache/'+mm).onSnapshot(s=>{const m={};const hx=n=>n?'#'+((n>>>0)&0xffffff).toString(16).padStart(6,'0'):'';if(s.exists)for(const x of (s.data().items||[])){(m[x.d]=m[x.d]||[]).push({t:(x.h?x.h+' ':'')+x.t,c:hx(x.c),w:x.w||'',id:x.id||''})}
     window.__calLines=k=>me===mm?m[ds(k)]:null;
     window.__calItems=m;dataChanged()},()=>{}));
   // '내 근무 · 일': 그날 캘린더 일정 + 일정 추가 (갤럭시 앱 → 가족 공유 캘린더에 저장)
@@ -2467,7 +2477,7 @@ function restartRoleData(){
     if(!mm||me!==mm||isFamily())return '';
     const list=(window.__calItems||{})[ds(k)]||[];
     let h='<div class="period"><h3>일정</h3></div>';
-    h+=list.length?'<div class="list">'+list.map(x=>'<div class="item"><span class="dot-ev"'+(x.c?' style="background:'+x.c+'"':'')+'></span><div class="t"><b style="font-weight:500">'+(x.w&&x.w!=='나'?'<span class="note" style="font-weight:600">'+esc(x.w)+' · </span>':'')+esc(x.t)+'</b></div></div>').join('')+'</div>':'<p class="note" style="margin:0;font-size:13px">없음</p>';
+    h+=list.length?'<div class="list">'+list.map(x=>(isTWA&&x.id?'<a class="item evlink" href="intent://day?d='+ds(k)+'&e='+encodeURIComponent(x.id)+'#Intent;scheme=baejeonshift;package=kr.baejeon.shift;end">':'<div class="item">')+'<span class="dot-ev"'+(x.c?' style="background:'+x.c+'"':'')+'></span><div class="t"><b style="font-weight:500">'+(x.w&&x.w!=='나'?'<span class="note" style="font-weight:600">'+esc(x.w)+' · </span>':'')+esc(x.t)+'</b></div>'+(isTWA&&x.id?'</a>':'</div>')).join('')+'</div>':'<p class="note" style="margin:0;font-size:13px">없음</p>';
     if(isTWA)h+='<div class="btns" style="margin-top:auto"><a class="btn sm" href="intent://day?d='+ds(k)+'#Intent;scheme=baejeonshift;package=kr.baejeon.shift;end">＋ 일정</a></div>';
     else h+='<p class="note" style="margin:auto 0 0;font-size:12px">추가는 갤럭시 앱에서</p>';
     return h;

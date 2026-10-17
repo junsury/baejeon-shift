@@ -226,7 +226,7 @@ function restartRoleData(){
   const mm=ownMid();
   if(mm)keep(db.doc('memos/'+mm).onSnapshot(s=>{ownMemos=(s.exists&&s.data().notes)||{};syncMemos();dataChanged()}));
   // 갤럭시 앱이 올린 내 휴대폰 캘린더 일정 → '내 근무 · 월'에 보이기 (본인 것만)
-  if(mm&&!isFamily())keep(db.doc('calcache/'+mm).onSnapshot(s=>{const m={};const hx=n=>n?'#'+((n>>>0)&0xffffff).toString(16).padStart(6,'0'):'';if(s.exists)for(const x of (s.data().items||[])){(m[x.d]=m[x.d]||[]).push({t:(x.h?x.h+' ':'')+x.t,c:hx(x.c),w:x.w||''})}
+  if(mm&&!isFamily())keep(db.doc('calcache/'+mm).onSnapshot(s=>{const m={};const hx=n=>n?'#'+((n>>>0)&0xffffff).toString(16).padStart(6,'0'):'';if(s.exists)for(const x of (s.data().items||[])){(m[x.d]=m[x.d]||[]).push({t:(x.h?x.h+' ':'')+x.t,c:hx(x.c),w:x.w||'',id:x.id||''})}
     window.__calLines=k=>me===mm?m[ds(k)]:null;
     window.__calItems=m;dataChanged()},()=>{}));
   // '내 근무 · 일': 그날 캘린더 일정 + 일정 추가 (갤럭시 앱 → 가족 공유 캘린더에 저장)
@@ -234,7 +234,7 @@ function restartRoleData(){
     if(!mm||me!==mm||isFamily())return '';
     const list=(window.__calItems||{})[ds(k)]||[];
     let h='<div class="period"><h3>일정</h3></div>';
-    h+=list.length?'<div class="list">'+list.map(x=>'<div class="item"><span class="dot-ev"'+(x.c?' style="background:'+x.c+'"':'')+'></span><div class="t"><b style="font-weight:500">'+(x.w&&x.w!=='나'?'<span class="note" style="font-weight:600">'+esc(x.w)+' · </span>':'')+esc(x.t)+'</b></div></div>').join('')+'</div>':'<p class="note" style="margin:0;font-size:13px">없음</p>';
+    h+=list.length?'<div class="list">'+list.map(x=>(isTWA&&x.id?'<a class="item evlink" href="intent://day?d='+ds(k)+'&e='+encodeURIComponent(x.id)+'#Intent;scheme=baejeonshift;package=kr.baejeon.shift;end">':'<div class="item">')+'<span class="dot-ev"'+(x.c?' style="background:'+x.c+'"':'')+'></span><div class="t"><b style="font-weight:500">'+(x.w&&x.w!=='나'?'<span class="note" style="font-weight:600">'+esc(x.w)+' · </span>':'')+esc(x.t)+'</b></div>'+(isTWA&&x.id?'</a>':'</div>')).join('')+'</div>':'<p class="note" style="margin:0;font-size:13px">없음</p>';
     if(isTWA)h+='<div class="btns" style="margin-top:auto"><a class="btn sm" href="intent://day?d='+ds(k)+'#Intent;scheme=baejeonshift;package=kr.baejeon.shift;end">＋ 일정</a></div>';
     else h+='<p class="note" style="margin:auto 0 0;font-size:12px">추가는 갤럭시 앱에서</p>';
     return h;
