@@ -28,9 +28,14 @@ final class Store {
         int theme = 2;         // 0 밝게 1 어둡게 2 휴대폰 설정 따라
         boolean events = true;
         int weekMode = 0;      // 0 이번 주(월~일) 1 오늘부터 7일
+        int open = 0;          // 누르면 열 화면: OPEN_KEYS 순서
         int monthOffset = 0;
         long offsetAt = 0;
     }
+
+    static final String[] OPEN_KEYS = {"my-day", "my-week", "my-month", "team-day", "team-month"};
+    static final String[] OPEN_NAMES = {"내 근무 · 일", "내 근무 · 주", "내 근무 · 월", "팀 근무표 · 하루", "팀 근무표 · 한달"};
+    static int defOpen(String kind) { return "month".equals(kind) ? 2 : "week".equals(kind) ? 1 : 0; }
 
     static Cfg cfg(Context c, int id, String kind) {
         SharedPreferences s = p(c);
@@ -44,6 +49,7 @@ final class Store {
         f.theme = s.getInt(k + "th", f.theme);
         f.events = s.getBoolean(k + "ev", f.events);
         f.weekMode = s.getInt(k + "wm", f.weekMode);
+        f.open = s.getInt(k + "oc", defOpen(kind));
         f.monthOffset = s.getInt(k + "mo", 0);
         f.offsetAt = s.getLong(k + "ma", 0);
         return f;
@@ -53,7 +59,7 @@ final class Store {
         String k = "w" + id + ".";
         p(c).edit().putInt(k + "op", f.opacity).putInt(k + "co", f.corner).putInt(k + "tx", f.text)
                 .putInt(k + "ch", f.chip).putInt(k + "th", f.theme).putBoolean(k + "ev", f.events)
-                .putInt(k + "wm", f.weekMode).putInt(k + "mo", f.monthOffset).putLong(k + "ma", f.offsetAt).apply();
+                .putInt(k + "wm", f.weekMode).putInt(k + "oc", f.open).putInt(k + "mo", f.monthOffset).putLong(k + "ma", f.offsetAt).apply();
     }
 
     static void setOffset(Context c, int id, int off) {
@@ -64,7 +70,7 @@ final class Store {
     static void remove(Context c, int id) {
         String k = "w" + id + ".";
         SharedPreferences.Editor e = p(c).edit();
-        for (String x : new String[]{"op", "co", "tx", "ch", "th", "ev", "wm", "mo", "ma"}) e.remove(k + x);
+        for (String x : new String[]{"op", "co", "tx", "ch", "th", "ev", "wm", "oc", "mo", "ma"}) e.remove(k + x);
         e.apply();
     }
 }

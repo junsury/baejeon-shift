@@ -145,6 +145,20 @@ public class ConfigActivity extends Activity {
         col.addView(label("화면", 15, true, 0xFF161C24), mlp(14));
         col.addView(choice(new String[]{"밝게", "어둡게", "휴대폰 설정"}, f.theme, v -> { f.theme = v; draw(); }), mlp(4));
 
+        col.addView(label("위젯을 누르면 열 화면", 15, true, 0xFF161C24), mlp(14));
+        RadioGroup og = new RadioGroup(this);
+        og.setOrientation(RadioGroup.VERTICAL);
+        for (int i = 0; i < Store.OPEN_NAMES.length; i++) {
+            RadioButton r = new RadioButton(this);
+            r.setText(Store.OPEN_NAMES[i]); r.setTextSize(14); r.setTextColor(0xFF161C24);
+            r.setId(View.generateViewId());
+            final int v = i;
+            r.setOnClickListener(x -> f.open = v);
+            og.addView(r);
+            if (i == f.open) r.setChecked(true);
+        }
+        col.addView(og, mlp(2));
+
         if ("week".equals(kind)) {
             col.addView(label("보여줄 기간", 15, true, 0xFF161C24), mlp(14));
             col.addView(choice(new String[]{"이번 주 (월~일)", "오늘부터 7일"}, f.weekMode, v -> { f.weekMode = v; draw(); }), mlp(4));

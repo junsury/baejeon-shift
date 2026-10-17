@@ -141,8 +141,11 @@ final class WidgetUpdater {
         RemoteViews rv = new RemoteViews(c.getPackageName(), R.layout.widget_root);
         rv.setImageViewBitmap(R.id.img, bm);
         int fl = PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE;
-        Intent open = new Intent(c, MainActivity.class).setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-        rv.setOnClickPendingIntent(R.id.img, PendingIntent.getActivity(c, 1, open, fl));
+        Store.Cfg f = Store.cfg(c, id, kind);
+        String go = Store.OPEN_KEYS[Math.max(0, Math.min(Store.OPEN_KEYS.length - 1, f.open))];
+        Intent open = new Intent(Intent.ACTION_VIEW, android.net.Uri.parse("https://baejeon-shift.web.app/?src=twa&go=" + go))
+                .setClass(c, MainActivity.class).setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+        rv.setOnClickPendingIntent(R.id.img, PendingIntent.getActivity(c, 1000 + id, open, fl));
         if ("month".equals(kind) && ShiftData.parse(Store.data(c)) != null) {
             rv.setViewVisibility(R.id.prev, android.view.View.VISIBLE);
             rv.setViewVisibility(R.id.next, android.view.View.VISIBLE);
