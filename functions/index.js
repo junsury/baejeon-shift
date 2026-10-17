@@ -179,3 +179,36 @@ exports.calendar = functions.region(REGION).https.onRequest((req, res) => {
   res.set('Content-Type', 'text/calendar; charset=utf-8');
   res.send(['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//baejeon-shift//KO', 'X-WR-CALNAME:근무표(사용 안 함)', 'END:VCALENDAR'].join('\r\n') + '\r\n');
 });
+
+/* ---------------- 갤럭시 위젯 데이터 (앱 위젯이 30분마다 가져감) ---------------- */
+exports.widgetData = functions.region(REGION).https.onRequest(async (req, res) => {
+  try {
+    const tok = String(req.query.t || ''); const t = String(req.query.team || 'gyeonggi');
+    if (!/^[A-Za-z0-9]{12,40}$/.test(tok)) { res.status(404).json({ error: 'bad token' }); return; }
+    const link = await db.collection('teams').doc(t).collection('widgetLinks').doc(tok).get();
+    if (!link.exists) { res.status(404).json({ error: 'unlinked' }); return; }
+    const { memberId } = link.data();
+    const { members, engine: E } = await loadTeam(t);
+    const me = members.find(m => m.id === memberId);
+    const kst = new Date(Date.now() + 9 * 3600e3); const today = Math.floor(Date.UTC(kst.getUTCFullYear(), kst.getUTCMonth(), kst.getUTCDate()) / 864e5);
+    const hol = await db.collection('teams').doc(t).collection('config').doc('holidays').get();
+    const holSet = new Set(hol.exists && Array.isArray(hol.data().dates) ? hol.data().dates : []);
+    const others = members.filter(m => m.active !== false && m.id !== memberId);
+    const days = {};
+    for (let n = today - 45; n <= today + 80; n++) {
+      const cells = E.dayCells(n); const c = cells[memberId]; if (!c) continue;
+      const d = { c: c.code };
+      if (c.cover) d.cv = c.cover;
+      if ((c.tags && (c.tags.includes('변경') || c.tags.includes('대근'))) || c.code === '지원') d.ch = 1;
+      if (holSet.has(E.ds(n))) d.h = 1;
+      if (c.part) d.p = c.part.from + '~' + c.part.to;
+      if (n >= today - 1 && n <= today + 7) {
+        const s = c.cover || (c.code === '지원' ? '주' : c.code);
+        if (s === '주' || s === '야') d.m = others.filter(m => { const x = cells[m.id]; return E.hasShift(x, s) || (s === '주' && x.code === '지원'); }).map(m => m.name);
+      }
+      days[E.ds(n)] = d;
+    }
+    res.set('Cache-Control', 'no-store');
+    res.json({ v: 1, name: me ? me.name : '', gen: Date.now(), days });
+  } catch (e) { console.error(e); res.status(500).json({ error: 'server' }); }
+});

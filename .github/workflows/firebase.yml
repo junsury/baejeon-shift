@@ -1,10 +1,10 @@
-# 보안 규칙(firestore.rules)과 알림 서버(functions/)를 Firebase에 자동 배포
+# 앱 화면(app/ → Firebase Hosting), 보안 규칙, 알림 서버(functions/)를 Firebase에 자동 배포
 # 필요: 저장소 Settings → Secrets → Actions 에 FIREBASE_SERVICE_ACCOUNT (서비스 계정 키 JSON 전체)
 name: Firebase 배포
 on:
   push:
     branches: [main]
-    paths: ['functions/**', 'firestore.rules', 'firebase.json', '.github/workflows/firebase.yml']
+    paths: ['functions/**', 'firestore.rules', 'firebase.json', 'app/**', '.github/workflows/firebase.yml']
   workflow_dispatch:
 jobs:
   deploy:
@@ -30,9 +30,9 @@ jobs:
           echo "$SA" > "$RUNNER_TEMP/sa.json"
           export GOOGLE_APPLICATION_CREDENTIALS="$RUNNER_TEMP/sa.json"
           gcloud auth activate-service-account --key-file="$RUNNER_TEMP/sa.json" --quiet
-          gcloud services enable cloudbilling.googleapis.com cloudfunctions.googleapis.com cloudbuild.googleapis.com artifactregistry.googleapis.com firestore.googleapis.com fcm.googleapis.com cloudscheduler.googleapis.com pubsub.googleapis.com --project baejeon-shift --quiet || true
+          gcloud services enable cloudbilling.googleapis.com cloudfunctions.googleapis.com cloudbuild.googleapis.com artifactregistry.googleapis.com firestore.googleapis.com fcm.googleapis.com cloudscheduler.googleapis.com pubsub.googleapis.com firebasehosting.googleapis.com --project baejeon-shift --quiet || true
           set +e
-          npx --yes firebase-tools@13 deploy --only firestore:rules,functions --project baejeon-shift --force --non-interactive > "$RUNNER_TEMP/out.txt" 2>&1
+          npx --yes firebase-tools@13 deploy --only firestore:rules,functions,hosting --project baejeon-shift --force --non-interactive > "$RUNNER_TEMP/out.txt" 2>&1
           code=$?
           cat "$RUNNER_TEMP/out.txt"
           if [ $code -ne 0 ]; then grep -v '^\s*$' "$RUNNER_TEMP/out.txt" | sed 's/\x1b\[[0-9;]*m//g' | tail -9 | while IFS= read -r l; do echo "::error::$l"; done; exit $code; fi

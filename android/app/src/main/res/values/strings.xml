@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">근무표</string>
+    <string name="host">baejeon-shift.web.app</string>
+    <string name="launch_url">https://baejeon-shift.web.app/?src=twa</string>
+    <string name="config_title">위젯 설정</string>
+    <string name="w_month">근무 달력 (4×4)</string>
+    <string name="w_today">오늘·이번 주 (4×2)</string>
+    <string name="w_week">주간 근무 (4×1)</string>
+    <string name="w_mini">오늘 근무 (2×2)</string>
+    <string name="w_month_desc">한 달 근무와 내 캘린더 일정</string>
+    <string name="w_today_desc">오늘 근무, 같이 근무자, 오늘 일정, 앞으로 6일</string>
+    <string name="w_week_desc">일주일 근무만 한 줄로</string>
+    <string name="w_mini_desc">오늘과 내일 근무</string>
+    <string name="asset_statements" translatable="false">[{\"relation\": [\"delegate_permission/common.handle_all_urls\"], \"target\": {\"namespace\": \"web\", \"site\": \"https://baejeon-shift.web.app\"}}]</string>
+</resources>

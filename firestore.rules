@@ -82,6 +82,14 @@ service cloud.firestore {
         match /parts/{p} { allow read: if isAdmin(t); }
       }
 
+      // 갤럭시 위젯 연결 (서버만 읽음)
+      match /widgetLinks/{token} {
+        allow list: if isMember(t) && resource.data.by == request.auth.uid;
+        allow create: if isMember(t) && request.resource.data.by == request.auth.uid
+          && myMid(t) != null && request.resource.data.memberId == myMid(t);
+        allow delete: if isAdmin(t) || resource.data.by == request.auth.uid;
+      }
+
       // 캘린더 구독 링크 (서버만 읽음)
       match /calLinks/{token} {
         allow list: if isMember(t) && resource.data.by == request.auth.uid;

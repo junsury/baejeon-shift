@@ -52,3 +52,10 @@
 - 카카오 로그인 (Firebase Blaze 요금제 + Cloud Functions 필요)
 - 요청·승인 푸시 알림 (FCM)
 - 앱스토어·플레이스토어 등록 (Capacitor로 감싸기)
+
+
+## 갤럭시 앱 (android/)
+- 앱 화면은 크롬 엔진(TWA)으로 https://baejeon-shift.web.app 을 열어요 → 구글 로그인·알림이 웹과 똑같이 동작.
+- 홈 화면 위젯 4종(달력 4×4 · 오늘·이번 주 4×2 · 주간 4×1 · 오늘 2×2)은 앱이 직접 그려요. 데이터는 `widgetData` 함수(토큰), 일정은 휴대폰 캘린더에서 읽음.
+- `.github/workflows/android.yml` 이 APK를 만들어 릴리스 `android`에 `baejeon-shift.apk`로 올려요. 서명 열쇠는 처음 실행 때 만들어 Firestore `ci/android`(서버 전용)에 보관.
+- 웹앱은 Firebase Hosting(baejeon-shift.web.app)으로 이사했고, 예전 GitHub Pages 주소는 새 주소로 넘겨줘요(`pages/`).
