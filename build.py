@@ -70,6 +70,8 @@ rep('  <div id="banner" class="banner" hidden></div>', '  <div id="banner" class
 rep('      <div class="card form" id="linkCard"></div>\n', '')
 rep('    <div id="adm-set" class="panel" style="padding-top:0" hidden>\n', '    <div id="adm-set" class="panel" style="padding-top:0" hidden>\n      <div class="card form" id="linkCard"></div>\n')
 
+rep('        <div id="exportMsg"></div>\n', '        <div id="exportMsg"></div>\n        <div id="importBox" class="form" style="gap:6px;border-top:1px solid var(--line);padding-top:10px" hidden><b>데이터 가져오기 (메인관리자)</b><p class="note" style="margin:0">근무표 아티팩트에서 내보낸 .json 파일을 넣으면 근무자 이름·조 편성·대근총량·휴가/대근/변경 기록·공휴일을 덮어써요. 같은 기록은 중복되지 않아요.</p><input type="file" id="importFile" accept=".json,application/json"><div class="btns"><button class="btn" id="importRun">가져오기</button></div><div id="importMsg"></div></div>\n')
+
 # 5) 메모: 가족은 읽기 전용
 m = re.search(r"    h\+='<div class=\"card form\" style=\"gap:8px\"><div class=\"period\"><h3>내 메모</h3>.*?\n", s)
 assert m

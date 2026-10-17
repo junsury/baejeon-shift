@@ -416,6 +416,7 @@ function applyRoleUI(){
   const sel=$('#meSel');sel.disabled=!!appUser&&!isAdmin;
   $('#meLab').hidden=fam;
   $('#famLab').hidden=!fam;if(fam)$('#famLab').textContent=nm(appUser.familyOf)+' 님 근무';
+  const ib=$('#importBox');if(ib)ib.hidden=appRole!=='main';
   /* 관리자: 승인 대기 표시 */
   const pend=isAdmin?pendingUsers().length:0;const ta=$('#tabAdmin');
   if(ta)ta.innerHTML='관리'+(pend?'<span class="badge">'+pend+'</span>':'');
@@ -431,3 +432,14 @@ $('#pendBar').addEventListener('click',e=>{if(e.target.id==='goPend'){ui.tab='ad
   const clear=()=>{try{navigator.clearAppBadge&&navigator.clearAppBadge()}catch(e){}};
   clear();document.addEventListener('visibilitychange',()=>{if(!document.hidden)clear()});
 })();
+/* 메인관리자: 아티팩트 데이터 가져오기 (팀을 이미 만든 뒤에도) */
+$('#importRun').onclick=async()=>{
+  const f=$('#importFile').files&&$('#importFile').files[0];const msg=$('#importMsg');
+  if(!f){msg.innerHTML='<div class="msg warn">파일을 먼저 고르세요.</div>';return}
+  let d;try{d=JSON.parse(await f.text())}catch(e){msg.innerHTML='<div class="msg bad">파일을 읽지 못했어요. 근무표에서 받은 .json 파일인지 확인하세요.</div>';return}
+  if(!confirm('가져올까요? 지금 앱의 근무자 이름·조 편성·대근총량·근태 기록이 파일 내용으로 바뀌어요.'))return;
+  $('#importRun').disabled=true;msg.innerHTML='<div class="msg warn">가져오는 중…</div>';
+  try{await importData(d);msg.innerHTML='<div class="msg ok">✓ 가져왔어요. 근무자 '+(d.members||[]).length+'명, 근태 기록 '+(d.events||[]).length+'건.</div>'}
+  catch(e){msg.innerHTML='<div class="msg bad">가져오지 못했어요: '+esc(errText(e))+'</div>'}
+  $('#importRun').disabled=false;
+};
