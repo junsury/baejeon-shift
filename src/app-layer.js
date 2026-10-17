@@ -326,7 +326,7 @@ $('#acct').addEventListener('click',async e=>{
 });
 function shareGuide(){
   const base=location.origin+location.pathname.replace(/[^/]*$/,'');const url=base+'guide.html';
-  const text='배전센터 근무표 사용 설명서예요. 설치 → 구글 로그인 → 내 이름 선택 → 관리자 승인 순서로 시작해요.';
+  const text='배전센터 근무표 사용 설명서예요. 안드로이드는 크롬, 아이폰은 사파리에서 열어 주세요.';
   if(navigator.share)navigator.share({title:'배전센터 근무표 사용 설명서',text,url}).catch(()=>{});
   else{navigator.clipboard&&navigator.clipboard.writeText(text+'\n'+url).catch(()=>{});alert('설명서 링크를 복사했어요. 단톡방에 붙여 넣으세요.\n\n'+url)}
 }
@@ -394,7 +394,7 @@ $('#linkCard').addEventListener('click',async e=>{
   const who=x?(x.memberId?nm(x.memberId):(nm(x.requestedMemberId)||x.name||x.email)):'';
   try{
     switch(b.dataset.ad){
-      case 'shareApp':{const url=location.origin+location.pathname;const text='배전센터 근무표 앱이에요. 구글로 로그인하고 본인 이름을 고르면 관리자가 승인해 드려요.\n사용 설명서: '+location.origin+location.pathname.replace(/[^/]*$/,'')+'guide.html';
+      case 'shareApp':{const url=location.origin+location.pathname;const text='배전센터 근무표 앱이에요. 안드로이드는 크롬, 아이폰은 사파리에서 열어 주세요. 구글로 로그인하고 본인 이름을 고르면 관리자가 승인해 드려요.\n사용 설명서: '+location.origin+location.pathname.replace(/[^/]*$/,'')+'guide.html';
         if(navigator.share)navigator.share({title:'배전센터 근무표',text,url}).catch(()=>{});else{navigator.clipboard&&navigator.clipboard.writeText(text+'\n'+url).catch(()=>{});alert('주소를 복사했어요. 단톡방에 붙여 넣으세요.\n\n'+url)}break}
       case 'approve':{b.disabled=true;const mid=x.requestedMemberId;const w=F.writeBatch(fsdb);w.set(tref('claims',mid),{uid:x.uid,at:Date.now(),by:uid});w.update(tref('users',x.uid),{role:'member',memberId:mid,approvedAt:Date.now(),approvedBy:uid});await w.commit();toast(who+' 님을 승인했어요');break}
       case 'reject':if(confirm(who+' 님으로 온 요청을 거절할까요?'))await F.updateDoc(tref('users',x.uid),{role:'rejected'});break;
