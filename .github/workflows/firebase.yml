@@ -33,4 +33,4 @@ jobs:
           npx --yes firebase-tools@13 deploy --only firestore:rules,functions --project baejeon-shift --force --non-interactive > "$RUNNER_TEMP/out.txt" 2>&1
           code=$?
           cat "$RUNNER_TEMP/out.txt"
-          if [ $code -ne 0 ]; then grep -v '^\s*$' "$RUNNER_TEMP/out.txt" | tail -25 | while IFS= read -r l; do echo "::error::$l"; done; exit $code; fi
+          if [ $code -ne 0 ]; then grep -v '^\s*$' "$RUNNER_TEMP/out.txt" | sed 's/\x1b\[[0-9;]*m//g' | tail -9 | while IFS= read -r l; do echo "::error::$l"; done; exit $code; fi
