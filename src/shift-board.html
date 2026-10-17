@@ -337,6 +337,8 @@ table.grid td .c{min-width:28px;height:28px;font-size:13px}
 .dbtn .c{min-width:24px;height:24px;font-size:12px}
 .dbtn[aria-expanded="true"]{border-color:var(--accent);box-shadow:inset 0 0 0 1px var(--accent)}
 .dpop{border:1px solid var(--line);border-radius:12px;padding:10px;background:var(--surface);display:flex;flex-direction:column;gap:8px}
+.dcal button.no{opacity:.32}
+.dcal button.ok{box-shadow:inset 0 0 0 2px var(--ok,#1f9d55)}
 .dpop .dh{display:flex;align-items:center;justify-content:space-between;font-weight:700}
 .dpop .dh button{width:34px;height:34px;border-radius:8px;border:1px solid var(--line);background:var(--surface);color:var(--fg);cursor:pointer}
 .dcal{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:3px}
@@ -598,6 +600,7 @@ table.grid td.shiftday{box-shadow:inset 3px 0 0 var(--accent)}
           <label for="sB">근무자 2<select id="sB"></select></label>
           <label>근무자 2가 넘겨줄 날<button type="button" class="dbtn" data-dp="sBDate" data-who="sB" id="sBDateBtn"></button><input type="hidden" id="sBDate"></label>
         </div>
+        <p class="note" id="sBHint" style="margin:-4px 0 0"></p>
         <div class="dpop" id="pop-sBDate" hidden></div>
         <div id="sResult" class="form"></div>
         <label class="chk" for="sForce" id="sForceWrap" hidden><input type="checkbox" id="sForce"><span>규칙 무시하고 강제 등록 (관리자)<small>하루 12시간, 주 54시간 제한에 걸려도 등록해요. 근무가 없는 날이나 주간↔야간 교환은 할 수 없어요.</small></span></label>
@@ -1033,7 +1036,7 @@ function renderAddSelects(){
   if(rq){$('#lWho').value=me||'';$('#sA').value=me||''}
   $('#lWho').disabled=rq;$('#sA').disabled=rq;
   $('#leaveForm h2').textContent=rq?'휴가 신청':'휴가 등록';$('#swapForm h2').textContent=rq?'근무변경 신청 (맞교환)':'근무변경 (맞교환)';
-  fillSel($('#sB'),workers(),'');
+  refreshSwapB();
   for(const id of ['lDate','sADate','sBDate']){if(!$('#'+id).value)$('#'+id).value=ds(todayN);dpLabel(id)}
   const tso=byId($('#lWho').value)&&byId($('#lWho').value).role==='TSO';const lt=$('#lType');const cur=lt.value;
   const allowSub=tso||ui.attTab!=='req';
@@ -1065,10 +1068,12 @@ function renderDp(id){
   const ym=dpYm[id]||monthOf(v);dpYm[id]=ym;const [a,b]=monthRange(ym);
   let h='<div class="dh"><button type="button" data-dpm="-1" aria-label="이전 달">‹</button><span>'+ym.y+'년 '+(ym.m+1)+'월'+(who&&byId(who)?' · '+esc(nm(who)):'')+'</span><button type="button" data-dpm="1" aria-label="다음 달">›</button></div>';
   if(!who)h+='<p class="note" style="margin:0">사람을 먼저 고르면 날짜마다 주간·야간이 보여요.</p>';
+  if(id==='sBDate'&&swapOkDates&&$('#sB').value===who)h+='<p class="note" style="margin:0">초록 테두리 날짜만 바꿀 수 있어요.</p>';
   h+='<div class="dcal">'+WD.map(w=>'<span class="wd">'+w+'</span>').join('');
   for(let i=0;i<dow(a);i++)h+='<span></span>';
   for(let n=a;n<b;n++){const c=who&&byId(who)?dayCells(n)[who]:null;const hol=holidays.has(ds(n))||dow(n)===0;
-    h+='<button type="button" data-dpd="'+n+'" class="'+(ds(n)===$('#'+id).value?'sel ':'')+(n===todayN?'td':'')+'"><span class="'+(hol?'red':'')+'">'+new Date(n*864e5).getUTCDate()+'</span>'+(c?chip(c):'')+'</button>'}
+    const okd=id==='sBDate'&&swapOkDates&&$('#sB').value===who?(swapOkDates.has(n)?' ok':' no'):'';
+    h+='<button type="button" data-dpd="'+n+'" class="'+(ds(n)===$('#'+id).value?'sel ':'')+(n===todayN?'td':'')+okd+'"><span class="'+(hol?'red':'')+'">'+new Date(n*864e5).getUTCDate()+'</span>'+(c?chip(c):'')+'</button>'}
   h+='</div>';
   pop.innerHTML=h;
 }
@@ -1188,45 +1193,84 @@ function evalCover(w,n,shift,leaveId,gj){
 
 /* 근무변경 */
 let swapDraft=null;
-function updateSwap(){
-  const a=$('#sA').value,ad=$('#sADate').value,b=$('#sB').value,bd=$('#sBDate').value;
-  const out=$('#sResult');swapDraft=null;$('#sSave').disabled=true;out.innerHTML='';
-  if(!a||!b||!ad||!bd)return;
-  if(a===b){out.innerHTML='<div class="msg bad">서로 다른 두 사람을 골라주세요.</div>';return}
-  const an=dn(ad),bn=dn(bd);
+/* 맞교환 가능 여부: a가 an날 근무를 b에게, b가 bn날 같은 근무를 a에게 */
+function swapCheck(a,an,b,bn){
   const ca=dayCells(an)[a],cb=dayCells(bn)[b];
   const errs=[],warns=[];
-  const sa=ca.cover?null:(ca.code==='주'||ca.code==='야'?ca.code:null);
-  const sb=cb.cover?null:(cb.code==='주'||cb.code==='야'?cb.code:null);
-  let h='<div class="info">'+esc(nm(a))+' '+fmt(an)+' '+chip(ca)+' ↔ '+esc(nm(b))+' '+fmt(bn)+' '+chip(cb)+'</div>';
+  const sa=ca&&!ca.cover&&(ca.code==='주'||ca.code==='야')?ca.code:null;
+  const sb=cb&&!cb.cover&&(cb.code==='주'||cb.code==='야')?cb.code:null;
   if(!sa)errs.push(nm(a)+'은 '+fmt(an)+'에 넘겨줄 주간·야간 근무가 없어요.');
   if(!sb)errs.push(nm(b)+'은 '+fmt(bn)+'에 넘겨줄 주간·야간 근무가 없어요.');
   if(sa&&sb&&sa!==sb)errs.push('주간은 주간끼리, 야간은 야간끼리만 바꿀 수 있어요. ('+sa+' ↔ '+sb+')');
   if(an===bn&&!errs.length)errs.push('같은 날짜끼리는 바꿀 수 없어요.');
-  const structural=errs.length;
+  const structural=errs.length;let ev=null;
   if(!errs.length){
-    const shift=sa;
     // 받는 날 이미 근무가 있으면 하루 12h 초과
-    const rb=dayCells(an)[b],ra=dayCells(bn)[a];
-    if(working(rb))errs.push(nm(b)+'은 '+fmt(an)+'에 이미 근무가 있어 하루 '+DAY_LIMIT+'시간을 넘어요.');
-    if(working(ra))errs.push(nm(a)+'은 '+fmt(bn)+'에 이미 근무가 있어 하루 '+DAY_LIMIT+'시간을 넘어요.');
+    if(working(dayCells(an)[b]))errs.push(nm(b)+'은 '+fmt(an)+'에 이미 근무가 있어 하루 '+DAY_LIMIT+'시간을 넘어요.');
+    if(working(dayCells(bn)[a]))errs.push(nm(a)+'은 '+fmt(bn)+'에 이미 근무가 있어 하루 '+DAY_LIMIT+'시간을 넘어요.');
     if(!errs.length){
-      const ev={type:'swap',aId:a,aDate:ad,bId:b,bDate:bd,shift,createdAt:Date.now()};
+      ev={type:'swap',aId:a,aDate:ds(an),bId:b,bDate:ds(bn),shift:sa,createdAt:Date.now()};
       const sim=[...events,ev];
-      const checks=[[a,an],[a,bn],[b,an],[b,bn]];const seen=new Set();
-      for(const[id,n]of checks){const k=id+weekStart(n);if(seen.has(k))continue;seen.add(k);
+      const seen=new Set();
+      for(const[id,n]of[[a,an],[a,bn],[b,an],[b,bn]]){const k=id+weekStart(n);if(seen.has(k))continue;seen.add(k);
         const wh=weekHours(id,n,sim,true);if(wh>WEEK_LIMIT)errs.push(nm(id)+' '+fmt(weekStart(n))+' 주 근무가 '+wh+'h로 54시간을 넘어요.')}
       // 연속 근무 경고
       const cont=(id,n)=>{const p=dayCells(n-1,sim)[id],x=dayCells(n,sim)[id],q=dayCells(n+1,sim)[id];
         if(hasShift(x,'주')&&hasShift(p,'야'))warns.push(nm(id)+' '+fmt(n)+': 전날 야간 끝나고 바로 주간 (연속 근무)');
         if(hasShift(x,'야')&&hasShift(q,'주'))warns.push(nm(id)+' '+fmt(n)+': 야간 끝나고 다음날 바로 주간 (연속 근무)')};
       cont(b,an);cont(a,bn);
-      if(!errs.length){swapDraft=ev;
-        const after='<b>변경 후</b><br>'+fmt(an)+': '+esc(nm(a))+' 휴무 → '+esc(nm(b))+' '+(shift==='주'?'주간':'야간')+'<br>'+fmt(bn)+': '+esc(nm(b))+' 휴무 → '+esc(nm(a))+' '+(shift==='주'?'주간':'야간');
-        h+='<div class="msg ok">✓ 하루 12시간, 주 54시간 기준을 지켜요.</div><div class="info">'+after+'</div>'}
+      if(errs.length)ev=null;
     }
   }
-  if(!swapDraft&&!structural&&ui.attTab==='add'&&$('#sForce').checked){swapDraft={type:'swap',aId:a,aDate:ad,bId:b,bDate:bd,shift:sa,createdAt:Date.now(),forced:true};warns.unshift('관리자 강제 등록: 위 제한을 무시하고 등록해요.')}
+  return {sa,sb,errs,warns,structural,ev,ca,cb};
+}
+/* b가 돌려줄 수 있는 날짜들 (a의 an날 근무를 받을 때) — 앞뒤로 찾아봐요 */
+const SWAP_BACK=31,SWAP_AHEAD=62;
+const swapFrom=an=>ui.attTab==='req'?Math.max(an-SWAP_BACK,todayN):an-SWAP_BACK;   // 신청은 지난 날 제외
+function swapDates(a,an,b){
+  const out=[];const ca=dayCells(an)[a];
+  const sa=ca&&!ca.cover&&(ca.code==='주'||ca.code==='야')?ca.code:null;if(!sa||a===b)return out;
+  if(working(dayCells(an)[b]))return out;
+  for(let n=swapFrom(an);n<=an+SWAP_AHEAD;n++){
+    if(n===an)continue;const cb=dayCells(n)[b];
+    if(!cb||cb.cover||cb.code!==sa)continue;          // 같은 근무가 있는 날만
+    if(working(dayCells(n)[a]))continue;
+    if(!swapCheck(a,an,b,n).errs.length)out.push(n);
+  }
+  return out;
+}
+let swapOkDates=null;   // 고른 근무자 2의 가능한 날
+/* 근무자 1·날짜가 정해지면, 근무자 2 목록에는 바꿀 수 있는 사람만 */
+function refreshSwapB(){
+  const a=$('#sA').value,ad=$('#sADate').value,sel=$('#sB'),hint=$('#sBHint');
+  const force=ui.attTab==='add'&&$('#sForce').checked;
+  swapOkDates=null;
+  if(!a||!ad||force){fillSel(sel,workers(),'');if(hint)hint.textContent='';return}
+  const an=dn(ad),ca=dayCells(an)[a];
+  const sa=ca&&!ca.cover&&(ca.code==='주'||ca.code==='야')?ca.code:null;
+  if(!sa){fillSel(sel,workers(),'');if(hint)hint.textContent='';return}
+  const cur=sel.value;const ok=[];
+  for(const m of workers()){if(m.id===a||m.role==='TSO')continue;const d=swapDates(a,an,m.id);if(d.length)ok.push([m,d])}
+  sel.innerHTML='<option value="">'+(ok.length?'선택 ('+ok.length+'명 가능)':'바꿀 수 있는 사람이 없어요')+'</option>'+ok.map(([m,d])=>'<option value="'+m.id+'">'+esc(m.name)+' ('+teamLabel(m,an)+') · 가능 '+d.length+'일</option>').join('');
+  if(ok.some(([m])=>m.id===cur))sel.value=cur;
+  if(hint)hint.textContent=ok.length?fmt(an)+' '+(sa==='주'?'주간':'야간')+'을 받아 줄 수 있고, 돌려줄 '+(sa==='주'?'주간':'야간')+'이 있는 사람만 보여요 ('+fmt(swapFrom(an))+'~'+fmt(an+SWAP_AHEAD)+' 중에서).':'이 날 근무를 바꿀 수 있는 사람이 없어요. 다른 날을 골라 보세요.';
+  const b=sel.value;
+  if(b){swapOkDates=new Set(swapDates(a,an,b));
+    const bd=$('#sBDate').value;
+    if(swapOkDates.size&&(!bd||!swapOkDates.has(dn(bd)))){const list=[...swapOkDates];const after=list.find(n=>n>an)??list[list.length-1];$('#sBDate').value=ds(after);dpLabel('sBDate')}}
+}
+function updateSwap(){
+  const a=$('#sA').value,ad=$('#sADate').value,b=$('#sB').value,bd=$('#sBDate').value;
+  const out=$('#sResult');swapDraft=null;$('#sSave').disabled=true;out.innerHTML='';
+  if(!a||!b||!ad||!bd)return;
+  if(a===b){out.innerHTML='<div class="msg bad">서로 다른 두 사람을 골라주세요.</div>';return}
+  const an=dn(ad),bn=dn(bd);
+  const r=swapCheck(a,an,b,bn);const errs=r.errs,warns=r.warns;
+  let h='<div class="info">'+esc(nm(a))+' '+fmt(an)+' '+chip(r.ca)+' ↔ '+esc(nm(b))+' '+fmt(bn)+' '+chip(r.cb)+'</div>';
+  if(r.ev){swapDraft=r.ev;const shift=r.sa;
+    const after='<b>변경 후</b><br>'+fmt(an)+': '+esc(nm(a))+' 휴무 → '+esc(nm(b))+' '+(shift==='주'?'주간':'야간')+'<br>'+fmt(bn)+': '+esc(nm(b))+' 휴무 → '+esc(nm(a))+' '+(shift==='주'?'주간':'야간');
+    h+='<div class="msg ok">✓ 하루 12시간, 주 54시간 기준을 지켜요.</div><div class="info">'+after+'</div>'}
+  if(!swapDraft&&!r.structural&&ui.attTab==='add'&&$('#sForce').checked){swapDraft={type:'swap',aId:a,aDate:ad,bId:b,bDate:bd,shift:r.sa,createdAt:Date.now(),forced:true};warns.unshift('관리자 강제 등록: 위 제한을 무시하고 등록해요.')}
   h+=errs.map(e=>'<div class="msg bad">✕ '+esc(e)+'</div>').join('')+warns.map(e=>'<div class="msg warn">! '+esc(e)+'</div>').join('');
   out.innerHTML=h;
   $('#sSave').disabled=!swapDraft||!canAct();
@@ -2030,9 +2074,9 @@ $('#banner').addEventListener('click',e=>{if(e.target.id==='endPreview'){viewerP
 $('#fLeave').onclick=()=>{ui.form='leave';render()};$('#fSwap').onclick=()=>{ui.form='swap';render()};
 ['lFrom','lTo'].forEach(id=>$('#'+id).addEventListener('change',updateLeave));
 ['lWho','lType','lDate'].forEach(id=>$('#'+id).addEventListener('change',()=>{renderAddSelects();updateLeave()}));
-$('#lForce').addEventListener('change',updateLeave);$('#sForce').addEventListener('change',updateSwap);
+$('#lForce').addEventListener('change',updateLeave);$('#sForce').addEventListener('change',()=>{refreshSwapB();updateSwap()});
 ['lDirect','sDirect'].forEach(id=>$('#'+id).addEventListener('change',renderAddSelects));
-['sA','sADate','sB','sBDate'].forEach(id=>$('#'+id).addEventListener('change',()=>{dpLabel('sADate');dpLabel('sBDate');updateSwap()}));
+['sA','sADate','sB','sBDate'].forEach(id=>$('#'+id).addEventListener('change',()=>{if(id!=='sBDate')refreshSwapB();dpLabel('sADate');dpLabel('sBDate');updateSwap()}));
 $('#lSave').onclick=async()=>{
   if(!leaveDraft)return;
   const ev={...leaveDraft};

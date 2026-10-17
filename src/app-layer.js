@@ -368,9 +368,9 @@ function renderAcct(){
   h+='<p class="note">연결된 근무자: <b style="color:var(--fg)">'+(appUser.memberId?esc(nm(appUser.memberId)):'없음')+'</b></p>';
   h+='<h3>알림</h3>';
   if(!window.VAPID_KEY)h+='<p class="note" style="margin:0">알림 기능을 준비하고 있어요.</p>';
-  else if(pushOn())h+='<p class="note" style="margin:0">이 기기에서 알림을 받고 있어요. 요청·승인·근태 변경이 있으면 알려 드려요.</p><button class="btn ghost" data-ac="pushOff">이 기기 알림 끄기</button>';
-  if(window.VAPID_KEY&&appUser.memberId)h+='<label class="chk" for="remindChk"><input type="checkbox" id="remindChk"'+(appUser.remind===false?'':' checked')+'><span>내일 근무 알림<small>매일 저녁 8시에 내일 근무와 같이 근무하는 사람을 알려 드려요. 근무가 바뀐 날은 "변경됨"으로 표시돼요.</small></span></label>';
-  else h+='<p class="note" style="margin:0">'+(isIOS&&!standalone()?'아이폰은 "홈 화면에 추가"한 앱으로 열어야 알림을 받을 수 있어요.':'근무변경·대근 요청, 승인·거절, 근태 변경을 휴대폰 알림으로 받아요.')+'</p><button class="btn" data-ac="pushOn">알림 켜기</button>';
+  else if(pushOn())h+='<p class="note" style="margin:0">✓ 이 기기에서 알림을 받고 있어요. 요청·승인·근태 변경이 있으면 알려 드려요.</p><div class="btns"><button class="btn ghost" data-ac="pushOff">이 기기 알림 끄기</button><button class="btn ghost" data-ac="pushOn">다시 연결</button></div>';
+  else h+='<p class="note" style="margin:0">'+(isIOS&&!standalone()?'아이폰은 "홈 화면에 추가"한 앱으로 열어야 알림을 받을 수 있어요.':'이 기기는 아직 알림이 꺼져 있어요. 켜면 근무변경·대근 요청, 승인·거절, 근태 변경, 가입 승인 요청을 휴대폰 알림으로 받아요.')+'</p><button class="btn" data-ac="pushOn">이 기기 알림 켜기</button>';
+  if(window.VAPID_KEY&&appUser.memberId)h+='<label class="chk" for="remindChk"><input type="checkbox" id="remindChk"'+(appUser.remind===false?'':' checked')+'><span>내일 근무 알림<small>매일 저녁 8시에 내일 근무와 같이 근무하는 사람을 알려 드려요. 근무가 바뀐 날은 "변경됨"으로 표시돼요.'+(pushOn()?'':' (위에서 이 기기 알림을 켜야 받아요)')+'</small></span></label>';
   if(appUser.memberId){
     h+='<h3>가족과 공유</h3><p class="note" style="margin:0">링크를 받은 가족은 로그인 없이 내 근무(일·주·월)와 내 메모를 볼 수 있어요. 링크를 끊으면 바로 못 봐요.</p>';
     h+=famLinks.length?'<div class="list">'+famLinks.map(l=>'<div class="item"><div class="t"><b>가족 링크</b><small>'+new Date(l.at).toLocaleDateString('ko-KR')+' 만듦</small></div><span class="btns"><button class="btn" data-ac="famShare" data-tok="'+l.token+'">보내기</button><button class="btn ghost" data-ac="famDel" data-tok="'+l.token+'">끊기</button></span></div>').join('')+'</div>':'';
