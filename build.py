@@ -108,5 +108,10 @@ s = s[:a] + layer + '\nrender();\n' + s[b:]
 import engine_gen
 engine_gen.generate(SRC.read_text())
 OUT.parent.mkdir(exist_ok=True)
+# 새 버전 알림용 빌드 번호 (내용이 바뀌면 바뀜)
+import hashlib, json as _json
+BUILD = hashlib.sha1((s + (ROOT / 'app' / 'sw.js').read_text()).encode()).hexdigest()[:10]
+s = s.replace('<head>', '<head><script>window.APP_BUILD=' + _json.dumps(BUILD) + '</script>', 1)
+(ROOT / 'app' / 'version.json').write_text(_json.dumps({'b': BUILD}) + '\n')
 OUT.write_text(s)
 print('wrote', OUT, len(s))

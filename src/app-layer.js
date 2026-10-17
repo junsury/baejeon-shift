@@ -561,3 +561,19 @@ function startExtras(){
   if(appUser.memberId)F.getDocs(F.query(tcol('calLinks'),F.where('by','==',uid))).then(r=>r.docs.forEach(d=>F.deleteDoc(d.ref).catch(()=>{}))).catch(()=>{});
   if(isAdmin)roleUnsubs.push(F.onSnapshot(F.query(tcol('backups'),F.orderBy('at','desc'),F.limit(30)),s=>{backups=s.docs.map(x=>({id:x.id,...x.data()}));renderBackups()},()=>{}));
 }
+
+/* ---------- 새 버전 바로 반영: 앱으로 돌아올 때·5분마다 확인 ---------- */
+(()=>{
+  if(!window.APP_BUILD)return;let busy=false,shown=false;
+  async function check(auto){
+    if(busy)return;busy=true;
+    try{const r=await fetch('version.json?t='+Date.now(),{cache:'no-store'});const v=await r.json();
+      if(v&&v.b&&v.b!==window.APP_BUILD){
+        const typing=document.activeElement&&/INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName);
+        if(document.hidden||(auto&&!typing)){location.reload();return}
+        if(!shown){shown=true;const d=document.createElement('div');d.className='toast on';d.style.cursor='pointer';d.textContent='새 버전이 있어요 · 눌러서 새로고침';d.onclick=()=>location.reload();document.body.appendChild(d)}
+      }}catch(e){}finally{busy=false}
+  }
+  document.addEventListener('visibilitychange',()=>{if(!document.hidden)check(true)});
+  setInterval(()=>check(false),5*60*1000);setTimeout(()=>check(true),1500);
+})();
