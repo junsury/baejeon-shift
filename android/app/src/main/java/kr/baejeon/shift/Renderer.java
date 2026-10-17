@@ -314,8 +314,9 @@ final class Renderer {
         stroke.setStrokeWidth(1f); stroke.setColor(line);
         for (int wk = 0; wk <= weeks; wk++) cv.drawLine(padL, top + wk * rh, W - padL, top + wk * rh, stroke);
         for (int i = 1; i < 7; i++) cv.drawLine(padL + i * cw, top, padL + i * cw, top + weeks * rh, stroke);
-        float numSz = fs * 1.15f, evSz = fs * 0.95f;
-        float csz = Math.round(20 * s.c);
+        // 4×4 칸은 좁아서 날짜 숫자·칩은 상한을 두고, 남는 크기는 일정 글자에 써요
+        float numSz = Math.min(fs * 1.15f, 15f), evSz = Math.min(fs * 0.95f, 13.5f);
+        float csz = Math.min(Math.round(20 * s.c), 26);
         for (int wk = 0; wk < weeks; wk++) {
             for (int i = 0; i < 7; i++) {
                 int n = start + wk * 7 + i;
