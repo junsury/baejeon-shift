@@ -59,7 +59,7 @@ final class WidgetUpdater {
     static void refreshAsync(Context ctx, Runnable done) {
         final Context c = ctx.getApplicationContext();
         new Thread(() -> {
-            try { CalendarReader.syncAllGoogle(c); fetch(c); renderAll(c); scheduleMidnight(c); CalUpload.upload(c, false); }
+            try { CalendarReader.syncAllGoogle(c); FamApi.refresh(c); fetch(c); renderAll(c); scheduleMidnight(c); CalUpload.upload(c, false); }
             finally { if (done != null) done.run(); }
         }).start();
     }
@@ -158,7 +158,7 @@ final class WidgetUpdater {
                     new Intent(c, MonthWidget.class).setAction(BaseWidget.ACT_NEXT).putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, id), fl));
             // 날짜 칸 터치 → 그날 일정 창
             float dens = c.getResources().getDisplayMetrics().density;
-            float t = new float[]{0.88f, 1f, 1.15f}[Math.max(0, Math.min(2, f.text))];
+            float t = Renderer.tScale(f.text);
             rv.setViewVisibility(R.id.grid, android.view.View.VISIBLE);
             rv.setViewPadding(R.id.grid, Math.round(12 * dens), Math.round(Renderer.monthGridTop(t) * dens), Math.round(12 * dens), Math.round(12 * dens));
             int[] g = Renderer.monthGeom(f.monthOffset);
@@ -192,5 +192,6 @@ final class WidgetUpdater {
                 PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
         try { am.setAndAllowWhileIdle(AlarmManager.RTC, next, pi); } catch (Exception ignored) {}
         CalWatchWorker.watch(c);
+        FamPollWorker.schedule(c);
     }
 }

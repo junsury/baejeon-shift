@@ -111,6 +111,7 @@ public class FamilyActivity extends Activity {
             now.setText("지금 다시 맞추기");
             now.setOnClickListener(v -> withPerm(() -> bg.execute(() -> {
                 ShiftSync.requestSync(this);
+                FamApi.refresh(this);
                 WidgetUpdater.fetch(this);
                 ShiftSync.sync(this);
                 WidgetUpdater.renderAll(this);
@@ -159,7 +160,8 @@ public class FamilyActivity extends Activity {
             forget.setText("이 휴대폰에서 연결 끊기 (캘린더는 구글에 남아요)");
             forget.setOnClickListener(v -> {
                 bg.execute(() -> ShiftSync.clear(this));
-                Store.p(this).edit().remove("famCalId").remove("famAccount").apply();
+                Store.p(this).edit().remove("famCalId").remove("famAccount").remove("famEvents").apply();
+                FamPollWorker.schedule(this);
                 toast("연결을 끊었어요");
                 build();
             });
@@ -246,6 +248,7 @@ public class FamilyActivity extends Activity {
                 try { owner = GoogleCal.ownerOf(token, id); } catch (Exception ignored) {}
                 Store.p(this).edit().putString("famCalId", id).putString("famAccount", owner).putBoolean("famShifts", true).apply();
                 ShiftSync.requestSync(this);
+                FamPollWorker.schedule(this);
                 // 휴대폰에 캘린더가 내려오면 근무를 넣고, 일정 추가 기본 캘린더로 정해요
                 for (int i = 0; i < 20 && ShiftSync.localId(this) < 0; i++) { Thread.sleep(3000); if (i % 5 == 4) ShiftSync.requestSync(this); }
                 long local = ShiftSync.localId(this);

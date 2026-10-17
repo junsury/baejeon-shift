@@ -80,6 +80,9 @@ public class RenderTest {
     public void render() throws Exception {
         int gray = 0xFF33414D, light = 0xFFDDE2E7;
         shot("month_light.png", "month", 360, 380, 100, 2, 2, false, 26, gray, true);
+        shot("month_xl.png", "month", 360, 380, 100, 3, 3, false, 26, gray, true);
+        shot("week_xl.png", "week", 360, 92, 100, 3, 3, false, 22, gray, true);
+        shot("today_xl.png", "today", 360, 184, 100, 3, 3, false, 26, gray, true);
         shot("month_dark40.png", "month", 360, 380, 40, 1, 1, true, 26, Color.rgb(79, 95, 69), true);
         shot("month_clear_light.png", "month", 360, 380, 0, 1, 1, false, 0, light, true);
         shot("today_dark65.png", "today", 360, 184, 65, 2, 1, true, 26, gray, true);

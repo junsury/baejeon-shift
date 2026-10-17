@@ -27,8 +27,8 @@ final class Renderer {
         St(Store.Cfg f, boolean dark) {
             this.dark = dark;
             a = Math.max(0, Math.min(100, f.opacity)) / 100f;
-            t = new float[]{0.88f, 1f, 1.15f}[clamp(f.text)];
-            c = new float[]{0.85f, 1f, 1.2f}[clamp(f.chip)];
+            t = tScale(f.text);
+            c = cScale(f.chip);
             r = Math.max(0, Math.min(32, f.corner));
             fg = dark ? 0xFFEEF1F4 : 0xFF161C24;
             muted = dark ? 0xFFC6CED7 : 0xFF4F5A67;
@@ -42,7 +42,7 @@ final class Renderer {
             evBg = dark ? Color.argb(82, 160, 130, 240) : Color.argb(Math.round(Math.max(a, 0.85f) * 255), 239, 233, 251);
             dot = dark ? 0xFFC7B3F6 : 0xFF6B4CC0;
         }
-        private static int clamp(int i) { return Math.max(0, Math.min(2, i)); }
+        private static int clamp(int i) { return Math.max(0, Math.min(3, i)); }
         boolean shadow() { return a < 0.6f; }
         int[] chip(String code) {   // {배경, 글자}
             if (code == null) return new int[]{Color.TRANSPARENT, muted};
@@ -248,8 +248,13 @@ final class Renderer {
         int start = first - ShiftData.dow(first);
         return new int[]{first, nextFirst, start, (int) Math.ceil((nextFirst - start) / 7.0)};
     }
-    /** 달력 칸 영역의 위쪽 여백(dp) */
-    static float monthGridTop(float t) { return 14 + 28 + 6 + 10f * t * 1.3f + 6; }
+    /** 글자·아이콘 크기 단계: 작게 · 보통 · 크게 · 아주 크게 */
+    static float tScale(int i) { return new float[]{0.95f, 1.15f, 1.35f, 1.6f}[Math.max(0, Math.min(3, i))]; }
+    static float cScale(int i) { return new float[]{0.95f, 1.15f, 1.35f, 1.6f}[Math.max(0, Math.min(3, i))]; }
+    /** 머리줄·요일 줄 글자는 너무 커지지 않게 */
+    static float headScale(float t) { return Math.min(t, 1.25f); }
+    /** 달력 칸 영역의 위쪽 여백(dp) — 위젯 터치 칸도 이 값을 써요 */
+    static float monthGridTop(float t) { return 14 + 28 + 6 + 10f * headScale(t) * 1.3f + 6; }
 
     void month(ShiftData d, Map<Integer, List<CalendarReader.Ev>> evs, int offset) {
         float k = s.r / 26f;
@@ -269,10 +274,11 @@ final class Renderer {
         float hh = 28, cy = padT + hh / 2f;
         float x = padL + 4;
         String title = (year != ShiftData.cal(today).get(java.util.Calendar.YEAR) ? (year % 100) + "년 " : "") + mon + "월";
-        float tsz = fs * 2f;
+        float hf = 10f * headScale(s.t);
+        float tsz = hf * 2f;
         text(title, x, mid(cy, tsz, BOLD), tsz, BOLD, s.fg, true);
         x += width(title, tsz, BOLD) + 8;
-        float nsz = fs * 1.2f;
+        float nsz = hf * 1.2f;
         // 버튼 ‹ ›
         float bs = 28, bR = s.r < 8 ? 6 : 14;
         float nextL = W - padL - bs, prevL = nextL - 8 - bs;
@@ -283,7 +289,7 @@ final class Renderer {
         // 오늘 pill
         String code0 = d.code(today);
         String pill = "오늘 " + (code0 == null ? "-" : ShiftData.shortName(code0));
-        float psz = fs * 1.1f, pw = width(pill, psz, BOLD) + 16;
+        float psz = hf * 1.1f, pw = width(pill, psz, BOLD) + 16;
         float pr = prevL - 8, pl = pr - pw;
         float nameMax = pl - 8 - x;
         if (nameMax > 20) text(fit(d.name, nsz, REG, nameMax), x, mid(cy, nsz, REG), nsz, REG, s.muted, true);
@@ -294,39 +300,51 @@ final class Renderer {
 
         // 요일 줄
         float top = padT + hh + 6;
-        float gw = W - padL * 2, cw = (gw - 2 * 6) / 7f;
-        float wsz = fs;
+        float gw = W - padL * 2, cw = gw / 7f;
+        float wsz = hf;
         for (int i = 0; i < 7; i++) {
             int col = i == 0 ? RED : i == 6 ? s.sat : s.muted;
-            center(ShiftData.WD[i], padL + i * (cw + 2) + cw / 2f, top + wsz * 0.6f, wsz, BOLD, col, true);
+            center(ShiftData.WD[i], padL + i * cw + cw / 2f, top + wsz * 0.6f, wsz, BOLD, col, true);
         }
         top += wsz * 1.3f + 6;
         float gh = H - padB - top;
-        float rh = (gh - (weeks - 1) * 2) / weeks;
-        float csz = Math.round(18 * s.c);
-        float numSz = fs * 1.1f, evSz = fs * 0.9f;
+        float rh = gh / weeks;
+        // 칸 구분선 (가로·세로)
+        int line = s.dark ? 0x33FFFFFF : 0x24101820;
+        stroke.setStrokeWidth(1f); stroke.setColor(line);
+        for (int wk = 0; wk <= weeks; wk++) cv.drawLine(padL, top + wk * rh, W - padL, top + wk * rh, stroke);
+        for (int i = 1; i < 7; i++) cv.drawLine(padL + i * cw, top, padL + i * cw, top + weeks * rh, stroke);
+        float numSz = fs * 1.25f, evSz = fs * 1.0f;
+        float csz = Math.round(20 * s.c);
         for (int wk = 0; wk < weeks; wk++) {
             for (int i = 0; i < 7; i++) {
                 int n = start + wk * 7 + i;
                 boolean out = n < first || n >= nextFirst;
-                float l = padL + i * (cw + 2), t = top + wk * (rh + 2), r = l + cw, b = t + rh;
+                float l = padL + i * cw + 1, t = top + wk * rh + 1, r = l + cw - 2, b = t + rh - 2;
                 int save = out ? cv.saveLayerAlpha(new RectF(l - 4, t - 4, r + 4, b + 4), 102) : cv.save();
-                if (n == today) todayBox(l, t, r, b, 8 * k);
-                float ct = t + 4, chH = Math.min(csz, rh - 8);
+                if (n == today) todayBox(l, t, r, b, 6 * k);
                 String code = d.code(n);
                 int ncol = dayColor(d, n, s.fg);
                 if (ShiftData.dow(n) == 0 || d.holiday(n)) ncol = RED_TXT;
-                text(String.valueOf(ShiftData.dayOfMonth(n)), l + 3, ct + chH / 2f + asc(numSz, BOLD) * 0.36f, numSz, BOLD, ncol, true);
+                String num = String.valueOf(ShiftData.dayOfMonth(n));
+                float numW = width(num, numSz, BOLD);
+                float ct = t + 3;
+                float chH = Math.min(csz, (rh - 6) * 0.48f);
+                String lab = code == null ? "" : ShiftData.label(code);
+                float chW = Math.max(chH, lab.length() > 1 ? chH * 1.25f : chH);
+                chW = Math.min(chW, cw - 6);
+                boolean side = numW + 4 + chW <= (r - l) - 4;     // 숫자 옆에 칩이 들어가면 한 줄, 아니면 두 줄
+                float rowH = Math.max(chH, numSz * 1.05f);
+                text(num, l + 3, mid(ct + (side ? rowH : numSz * 1.1f) / 2f, numSz, BOLD), numSz, BOLD, ncol, true);
+                float belowTop;
                 if (code != null && !"없".equals(code)) {
-                    String lab = ShiftData.label(code);
-                    float chW = Math.max(chH, lab.length() > 1 ? chH * 1.15f : chH);
-                    chW = Math.min(chW, cw - 6 - width("30", numSz, BOLD));
-                    chip(code, r - 3 - chW, ct, chW, chH, 5 * s.c * k, 10 * s.c, !out && d.changed(n));
-                }
+                    if (side) { chip(code, r - 2 - chW, ct + (rowH - chH) / 2f, chW, chH, 5 * s.c * k, 11 * s.c, !out && d.changed(n)); belowTop = ct + rowH; }
+                    else { float cy2 = ct + numSz * 1.1f + 2; chip(code, (l + r) / 2f - chW / 2f, cy2, chW, chH, 5 * s.c * k, 11 * s.c, !out && d.changed(n)); belowTop = cy2 + chH; }
+                } else belowTop = ct + (side ? rowH : numSz * 1.1f);
                 // 일정
                 List<CalendarReader.Ev> list = out ? null : evs.get(n);
                 if (list != null && !list.isEmpty()) {
-                    float ey = ct + chH + 3, eh = lineH(evSz) + 2;
+                    float ey = belowTop + 3, eh = lineH(evSz) + 2;
                     int shown = 0;
                     cv.save();
                     cv.clipRect(l + 2, t, r - 2, b);
@@ -476,6 +494,8 @@ final class Renderer {
         float inner = lineH(dsz) + 3 + chH + 3 + 4;
         float avail = bot - top;
         if (inner > avail) { chH = Math.max(12, chH - (inner - avail)); inner = lineH(dsz) + 3 + chH + 3 + 4; }
+        stroke.setStrokeWidth(1f); stroke.setColor(s.dark ? 0x33FFFFFF : 0x24101820);
+        for (int i = 1; i < 7; i++) { float lx = padX + i * (cw + 3) - 1.5f; cv.drawLine(lx, top + 4, lx, bot - 4, stroke); }
         for (int i = 0; i < 7; i++) {
             int n = start + i;
             float l = padX + i * (cw + 3), r = l + cw;

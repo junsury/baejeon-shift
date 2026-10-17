@@ -141,9 +141,9 @@ public class ConfigActivity extends Activity {
         col.addView(co, mlp(4));
 
         col.addView(label("글자 크기", 15, true, 0xFF161C24), mlp(14));
-        col.addView(choice(new String[]{"작게", "보통", "크게"}, f.text, v -> { f.text = v; draw(); }), mlp(4));
+        col.addView(choice(new String[]{"작게", "보통", "크게", "아주 크게"}, f.text, v -> { f.text = v; draw(); }), mlp(4));
         col.addView(label("근무 아이콘 크기", 15, true, 0xFF161C24), mlp(14));
-        col.addView(choice(new String[]{"작게", "보통", "크게"}, f.chip, v -> { f.chip = v; draw(); }), mlp(4));
+        col.addView(choice(new String[]{"작게", "보통", "크게", "아주 크게"}, f.chip, v -> { f.chip = v; draw(); }), mlp(4));
         col.addView(label("화면", 15, true, 0xFF161C24), mlp(14));
         col.addView(choice(new String[]{"밝게", "어둡게", "휴대폰 설정"}, f.theme, v -> { f.theme = v; draw(); }), mlp(4));
 
@@ -273,9 +273,14 @@ public class ConfigActivity extends Activity {
         if (cals.isEmpty()) { calBox.addView(label("휴대폰에 캘린더가 없어요.", 13, false, 0xFF4F5A67)); return; }
         calBox.addView(label("가져올 캘린더 (모든 위젯 공통 · 새 캘린더는 자동으로 보여요)", 14, true, 0xFF161C24));
         final java.util.Set<Long> ex = Store.calExcluded(this);
+        int n0 = ShiftData.todayNum();
+        java.util.Map<Long, Integer> counts = CalendarReader.countByCal(this, n0 - 45, n0 + 100);
+        long famLocal = ShiftSync.localId(this);
         for (CalendarReader.Cal cl : cals) {
             android.widget.CheckBox cb = new android.widget.CheckBox(this);
-            cb.setText(cl.name + "\n" + cl.account);
+            Integer cnt = counts.get(cl.id);
+            String flag = (!cl.synced ? " · ⚠ 휴대폰 동기화 꺼짐" : !cl.visible ? " · ⚠ 숨김" : "");
+            cb.setText(cl.name + (cl.id == famLocal ? " (가족 공유)" : "") + "\n" + cl.account + " · 일정 " + (cnt == null ? 0 : cnt) + "개" + flag);
             cb.setTextSize(13.5f); cb.setTextColor(0xFF161C24);
             cb.setChecked(!ex.contains(cl.id));
             cb.setButtonTintList(android.content.res.ColorStateList.valueOf(cl.color | 0xFF000000));
@@ -285,6 +290,16 @@ public class ConfigActivity extends Activity {
                 draw();
             });
             calBox.addView(cb, mlp(2));
+            if (!cl.synced || !cl.visible) {
+                Button on = new Button(this);
+                on.setText("이 캘린더 휴대폰 동기화 켜기");
+                on.setOnClickListener(v -> {
+                    if (!CalendarReader.canWrite(this)) { requestPermissions(new String[]{Manifest.permission.WRITE_CALENDAR}, 6); return; }
+                    Toast.makeText(this, CalendarReader.enable(this, cl.id) ? "켰어요. 몇 분 뒤 일정이 들어와요" : "켜지 못했어요", Toast.LENGTH_LONG).show();
+                    fillCals();
+                });
+                calBox.addView(on, mlp(0));
+            }
         }
         Switch app = new Switch(this);
         app.setText("근무표 앱 '내 근무 · 월'에도 이 일정 보이기");

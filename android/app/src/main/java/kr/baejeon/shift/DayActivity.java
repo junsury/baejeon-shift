@@ -147,7 +147,8 @@ public class DayActivity extends Activity {
         Button openApp = new Button(this);
         openApp.setText("근무표 열기");
         openApp.setOnClickListener(v -> {
-            String go = "my-day&d=" + ShiftData.ymd(day);
+            Store.Cfg wf = Store.cfg(this, wid, "month");
+            String go = Store.OPEN_KEYS[Math.max(0, Math.min(Store.OPEN_KEYS.length - 1, wf.open))] + "&d=" + ShiftData.ymd(day);
             startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse("https://baejeon-shift.web.app/?src=twa&go=" + go))
                     .setClass(this, MainActivity.class).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
             finish();
@@ -279,14 +280,30 @@ public class DayActivity extends Activity {
         }
         int i = calSpin.getSelectedItemPosition();
         if (cals.isEmpty() || i < 0 || i >= cals.size()) { Toast.makeText(this, "저장할 캘린더가 없어요", Toast.LENGTH_LONG).show(); return; }
-        long calId = cals.get(i).id;
-        boolean ok = CalendarReader.insert(this, calId, t, day, allDay.isChecked(), startMin, endMin, memo.getText().toString().trim());
-        if (!ok) { Toast.makeText(this, "일정을 저장하지 못했어요", Toast.LENGTH_LONG).show(); return; }
+        final long calId = cals.get(i).id;
+        final boolean ad = allDay.isChecked();
+        final String mm = memo.getText().toString().trim();
         Store.p(this).edit().putLong("lastCal", calId).apply();
-        CalendarReader.syncCalendar(this, calId);   // 구글로 바로 올라가게
-        Toast.makeText(this, ShiftData.mdw(day) + " 일정을 추가했어요", Toast.LENGTH_SHORT).show();
-        WidgetUpdater.renderAll(this);
-        finish();
+        saveBtn.setEnabled(false);
+        saveBtn.setText("저장 중…");
+        final boolean fam = calId == ShiftSync.localId(this);
+        new Thread(() -> {
+            // 가족 공유 캘린더는 구글 서버에 바로 넣어요 → 아이폰에 바로 보여요
+            boolean ok = fam && FamApi.insert(this, t, day, ad, startMin, endMin, mm);
+            boolean viaApi = ok;
+            if (!ok) {
+                ok = CalendarReader.insert(this, calId, t, day, ad, startMin, endMin, mm);
+                if (ok) CalendarReader.syncCalendar(this, calId);   // 구글로 올라가게
+            }
+            final boolean done = ok;
+            WidgetUpdater.renderAll(this);
+            runOnUiThread(() -> {
+                if (!done) { saveBtn.setEnabled(true); saveBtn.setText("일정 저장"); Toast.makeText(this, "일정을 저장하지 못했어요", Toast.LENGTH_LONG).show(); return; }
+                Toast.makeText(this, ShiftData.mdw(day) + " 일정을 추가했어요" + (viaApi ? " (가족에게 바로 보여요)" : ""), Toast.LENGTH_SHORT).show();
+                finish();
+            });
+            if (done) CalUpload.upload(this, false);
+        }).start();
     }
 
     @Override

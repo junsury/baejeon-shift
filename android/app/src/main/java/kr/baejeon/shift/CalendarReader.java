@@ -35,6 +35,7 @@ final class CalendarReader {
     /** 휴대폰에 있는 캘린더 목록 */
     static final class Cal {
         final long id; final String name, account; final int color;
+        boolean visible = true, synced = true;
         Cal(long id, String name, String account, int color) { this.id = id; this.name = name; this.account = account; this.color = color; }
     }
 
@@ -42,9 +43,10 @@ final class CalendarReader {
         List<Cal> out = new ArrayList<>();
         if (!allowed(c)) return out;
         String[] cols = {CalendarContract.Calendars._ID, CalendarContract.Calendars.CALENDAR_DISPLAY_NAME,
-                CalendarContract.Calendars.ACCOUNT_NAME, CalendarContract.Calendars.ACCOUNT_TYPE, CalendarContract.Calendars.CALENDAR_COLOR};
+                CalendarContract.Calendars.ACCOUNT_NAME, CalendarContract.Calendars.ACCOUNT_TYPE, CalendarContract.Calendars.CALENDAR_COLOR,
+                CalendarContract.Calendars.VISIBLE, CalendarContract.Calendars.SYNC_EVENTS};
         try (Cursor cur = c.getContentResolver().query(CalendarContract.Calendars.CONTENT_URI, cols,
-                CalendarContract.Calendars.VISIBLE + "=1", null, CalendarContract.Calendars.ACCOUNT_TYPE + "," + CalendarContract.Calendars.ACCOUNT_NAME)) {
+                null, null, CalendarContract.Calendars.ACCOUNT_TYPE + "," + CalendarContract.Calendars.ACCOUNT_NAME)) {
             if (cur == null) return out;
             while (cur.moveToNext()) {
                 String type = cur.getString(3) == null ? "" : cur.getString(3);
@@ -55,7 +57,9 @@ final class CalendarReader {
                 else if (type.equals(CalendarContract.ACCOUNT_TYPE_LOCAL) || type.isEmpty()) where = "휴대폰";
                 else where = acc.isEmpty() ? type : acc;
                 String name = cur.getString(1) == null ? "(이름 없음)" : cur.getString(1);
-                out.add(new Cal(cur.getLong(0), name, where, cur.getInt(4)));
+                Cal cl = new Cal(cur.getLong(0), name, where, cur.getInt(4));
+                cl.visible = cur.getInt(5) == 1; cl.synced = cur.getInt(6) == 1;
+                out.add(cl);
             }
         } catch (Exception ignored) {}
         return out;
@@ -66,7 +70,8 @@ final class CalendarReader {
     /** excl = 뺄 캘린더 */
     static Map<Integer, List<Ev>> read(Context c, int from, int to, java.util.Set<Long> excl) {
         Map<Integer, List<Ev>> out = new HashMap<>();
-        if (!allowed(c)) return out;
+        java.util.Set<String> seenAll = new java.util.HashSet<>();
+        if (!allowed(c)) { FamApi.addTo(c, out, from, to, seenAll); return out; }
         TimeZone kst = ShiftData.KST;
         long start = from * 86400000L - kst.getOffset(from * 86400000L);
         long end = (to + 1) * 86400000L - kst.getOffset(to * 86400000L);
@@ -79,7 +84,7 @@ final class CalendarReader {
         try (Cursor cur = c.getContentResolver().query(b.build(), cols, CalendarContract.Instances.VISIBLE + "=1", null,
                 CalendarContract.Instances.BEGIN + " ASC")) {
             if (cur == null) return out;
-            java.util.Set<String> seen = new java.util.HashSet<>();
+            java.util.Set<String> seen = seenAll;
             while (cur.moveToNext()) {
                 if (excl != null && excl.contains(cur.getLong(5))) continue;
                 String desc = cur.getString(8);
@@ -108,6 +113,11 @@ final class CalendarReader {
                     l.add(ev);
                 }
             }
+        } catch (Exception ignored) {}
+        // 가족 공유 캘린더는 구글 서버에서 바로 받은 것도 합쳐요 (휴대폰 동기화가 늦을 때 대비)
+        try {
+            long fam = ShiftSync.localId(c);
+            if (fam < 0 || excl == null || !excl.contains(fam)) FamApi.addTo(c, out, from, to, seenAll);
         } catch (Exception ignored) {}
         for (List<Ev> l : out.values()) Collections.sort(l, (x, y) -> x.allDay != y.allDay ? (x.allDay ? -1 : 1) : Long.compare(x.begin, y.begin));
         return out;
@@ -188,5 +198,30 @@ final class CalendarReader {
             b.putBoolean(android.content.ContentResolver.SYNC_EXTRAS_EXPEDITED, true);
             android.content.ContentResolver.requestSync(new android.accounts.Account(name, type), CalendarContract.AUTHORITY, b);
         } catch (Exception ignored) {}
+    }
+
+    /** 캘린더별 일정 개수 (진단용) */
+    static java.util.Map<Long, Integer> countByCal(Context c, int from, int to) {
+        java.util.Map<Long, Integer> m = new HashMap<>();
+        if (!allowed(c)) return m;
+        Uri.Builder b = CalendarContract.Instances.CONTENT_URI.buildUpon();
+        ContentUris.appendId(b, from * 86400000L);
+        ContentUris.appendId(b, (to + 1) * 86400000L);
+        try (Cursor cur = c.getContentResolver().query(b.build(), new String[]{CalendarContract.Instances.CALENDAR_ID}, null, null, null)) {
+            if (cur != null) while (cur.moveToNext()) { long id = cur.getLong(0); Integer v = m.get(id); m.put(id, v == null ? 1 : v + 1); }
+        } catch (Exception ignored) {}
+        return m;
+    }
+
+    /** 숨김·동기화 꺼짐 캘린더 켜기 */
+    static boolean enable(Context c, long id) {
+        try {
+            android.content.ContentValues v = new android.content.ContentValues();
+            v.put(CalendarContract.Calendars.VISIBLE, 1);
+            v.put(CalendarContract.Calendars.SYNC_EVENTS, 1);
+            c.getContentResolver().update(ContentUris.withAppendedId(CalendarContract.Calendars.CONTENT_URI, id), v, null, null);
+            syncCalendar(c, id);
+            return true;
+        } catch (Exception e) { return false; }
     }
 }
