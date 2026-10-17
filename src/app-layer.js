@@ -271,9 +271,17 @@ const isTWA=(()=>{try{const q=new URLSearchParams(location.search);if(q.get('src
   return sessionStorage.getItem('bj-twa')==='1'||document.referrer.startsWith('android-app://kr.baejeon.shift')}catch(e){return false}})();
 const standalone=()=>matchMedia('(display-mode: standalone)').matches||navigator.standalone===true;
 let pushState='';
+function fixTwaNotify(){
+  pushState='denied';renderAcct();
+  alert('갤럭시 앱의 알림 권한이 아직 꺼져 있어요.\n[확인]을 누르면 알림 허용 화면이 열려요. 허용하면 근무표가 다시 열리고, 그때 👤 → [알림 켜기]를 한 번 더 눌러 주세요.');
+  location.href='intent://notify#Intent;scheme=baejeonshift;package=kr.baejeon.shift;end';
+}
 async function enablePush(){
   if(!pushSupported()){alert(isIOS&&!standalone()?'아이폰은 사파리에서 공유 → "홈 화면에 추가"로 설치한 앱에서만 알림을 받을 수 있어요. 설치한 앱으로 열어서 다시 눌러 주세요.':'이 브라우저에서는 알림을 쓸 수 없어요.');return}
   const perm=await Notification.requestPermission();
+  // 갤럭시 앱에서는 허용 결과가 조금 늦게 반영될 때가 있어요
+  if(perm==='granted')for(let i=0;i<20&&Notification.permission!=='granted';i++)await new Promise(r=>setTimeout(r,150));
+  if(isTWA&&(perm!=='granted'||Notification.permission!=='granted')){fixTwaNotify();return}
   if(perm!=='granted'){pushState='denied';renderAcct();alert('알림이 꺼져 있어요. 휴대폰 설정 → 알림에서 이 앱(또는 브라우저)의 알림을 허용해 주세요.');return}
   try{
     if(!FB.M)FB.M=await import(FBB+'firebase-messaging.js');
@@ -286,7 +294,7 @@ async function enablePush(){
     pushState='on';
     FB.M.onMessage(messaging,p=>{const d=(p&&p.data)||{};toast((d.title||'알림')+(d.body?' · '+d.body:''))});
     renderAcct();toast('알림을 켰어요');
-  }catch(e){console.error(e);alert('알림을 켜지 못했어요: '+errText(e))}
+  }catch(e){console.error(e);if(isTWA&&/permission-blocked|permission-default/.test((e&&e.code)||String(e)))fixTwaNotify();else alert('알림을 켜지 못했어요: '+errText(e))}
 }
 async function disablePush(){
   try{const t=localStorage.getItem('bj-push');if(t){await FB.F.deleteDoc(tref('users',uid,'tokens',t));localStorage.removeItem('bj-push')}
