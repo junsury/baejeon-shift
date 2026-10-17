@@ -407,7 +407,7 @@ async function renderLinks(){
     }
     const canManage=!self&&(appRole==='main'||(appRole==='sub'&&(x.role==='member'||x.role==='rejected')));
     if(canManage)acts.push('<button class="btn ghost" data-ad="remove" data-uid="'+x.uid+'">'+(x.role==='rejected'?'지우기':'내보내기')+'</button>');
-    return '<div class="item" style="flex-wrap:wrap"><div class="t"><b>'+who+'</b> <span class="tag '+(x.role==='main'?'대근':x.role==='sub'?'변경':x.role==='rejected'?'미정':'지원')+'">'+ROLE_NAME[x.role]+'</span>'+(self?' <span class="tag 미정">나</span>':'')+'<small>'+esc(x.email||'')+'</small></div>'+(acts.length?'<span class="btns">'+acts.join('')+'</span>':'')+'</div>'}).join('')+'</div>';
+    return '<div class="item" style="flex-wrap:wrap;row-gap:8px"><div class="t" style="flex:1 1 100%;min-width:0"><b style="white-space:nowrap">'+who+'</b> <span class="tag '+(x.role==='main'?'대근':x.role==='sub'?'변경':x.role==='rejected'?'미정':'지원')+'">'+ROLE_NAME[x.role]+'</span>'+(self?' <span class="tag 미정">나</span>':'')+'<small>'+esc(x.email||'')+'</small></div>'+(acts.length?'<span class="btns" style="flex-wrap:wrap">'+acts.join('')+'</span>':'')+'</div>'}).join('')+'</div>';
   const fams=appUsers.filter(x=>x.role==='family');
   if(fams.length)h+='<p class="note" style="margin:0">가족 링크로 보는 기기: '+[...new Set(fams.map(f=>f.familyOf))].map(mid=>esc(nm(mid))+' '+fams.filter(f=>f.familyOf===mid).length+'대').join(' · ')+'</p>';
   box.innerHTML=h;
