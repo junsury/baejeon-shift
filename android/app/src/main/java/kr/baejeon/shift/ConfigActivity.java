@@ -8,6 +8,7 @@ import android.graphics.Bitmap;
 import android.graphics.Color;
 import android.graphics.Typeface;
 import android.graphics.drawable.GradientDrawable;
+import android.os.Build;
 import android.os.Bundle;
 import android.view.Gravity;
 import android.view.View;
@@ -35,6 +36,7 @@ public class ConfigActivity extends Activity {
     ImageView preview;
     LinearLayout previewBox;
     Switch evSwitch;
+    LinearLayout calBox;
     int wall = 0;
     static final int[] WALLS = {0xFF33414D, 0xFFDDE2E7, 0xFF4F5F45};
     float dp;
@@ -174,11 +176,16 @@ public class ConfigActivity extends Activity {
             evSwitch.setOnCheckedChangeListener((CompoundButton bt, boolean on) -> {
                 f.events = on;
                 if (on && !CalendarReader.allowed(this)) requestPermissions(new String[]{Manifest.permission.READ_CALENDAR}, 5);
+                fillCals();
                 draw();
             });
             col.addView(evSwitch, mlp(16));
             col.addView(label("휴대폰에 있는 구글·삼성 캘린더 일정을 근무 위에 겹쳐 보여줘요. 일정은 휴대폰 안에서만 읽고 어디에도 보내지 않아요.", 12.5f, false, 0xFF4F5A67), mlp(2));
             if (f.events && !CalendarReader.allowed(this)) f.events = false;
+            calBox = new LinearLayout(this);
+            calBox.setOrientation(LinearLayout.VERTICAL);
+            col.addView(calBox, mlp(6));
+            fillCals();
         }
 
         Button done = new Button(this);
@@ -225,7 +232,7 @@ public class ConfigActivity extends Activity {
         boolean dk = f.theme == 1 || (f.theme == 2 && WidgetUpdater.systemDark(this));
         ShiftData d = ShiftData.parse(Store.data(this));
         Map<Integer, List<CalendarReader.Ev>> evs = null;
-        if (f.events && d != null) { int n0 = ShiftData.todayNum(); evs = CalendarReader.read(this, n0 - 45, n0 + 45); }
+        if (f.events && d != null) { int n0 = ShiftData.todayNum(); evs = CalendarReader.read(this, n0 - 45, n0 + 45, Store.calSet(f)); }
         Store.Cfg pf = Store.cfg(this, id, kind);
         f.monthOffset = pf.monthOffset; f.offsetAt = pf.offsetAt;
         Bitmap bm = Renderer.make(kind, sz[0], sz[1], dp, new Renderer.St(f, dk), d, evs, f, Store.unlinked(this));
@@ -246,7 +253,38 @@ public class ConfigActivity extends Activity {
             if (evSwitch != null) evSwitch.setChecked(false);
             Toast.makeText(this, "캘린더 권한을 허용해야 일정이 보여요", Toast.LENGTH_LONG).show();
         }
+        fillCals();
         draw();
+    }
+
+    /** 가져올 캘린더 고르기 (체크한 것만 위젯에 보여요) */
+    void fillCals() {
+        if (calBox == null) return;
+        calBox.removeAllViews();
+        if (!f.events || !CalendarReader.allowed(this)) return;
+        List<CalendarReader.Cal> cals = CalendarReader.list(this);
+        if (cals.isEmpty()) { calBox.addView(label("휴대폰에 캘린더가 없어요.", 13, false, 0xFF4F5A67)); return; }
+        calBox.addView(label("가져올 캘린더", 14, true, 0xFF161C24));
+        final java.util.Set<Long> sel = Store.calSet(f) == null ? new java.util.HashSet<>() : Store.calSet(f);
+        final boolean all = Store.calSet(f) == null;
+        if (all) for (CalendarReader.Cal cl : cals) sel.add(cl.id);
+        for (CalendarReader.Cal cl : cals) {
+            android.widget.CheckBox cb = new android.widget.CheckBox(this);
+            cb.setText(cl.name + "\n" + cl.account);
+            cb.setTextSize(13.5f); cb.setTextColor(0xFF161C24);
+            cb.setChecked(sel.contains(cl.id));
+            if (Build.VERSION.SDK_INT >= 21) cb.setButtonTintList(android.content.res.ColorStateList.valueOf(cl.color | 0xFF000000));
+            cb.setOnCheckedChangeListener((b, on) -> {
+                if (on) sel.add(cl.id); else sel.remove(cl.id);
+                boolean every = true;
+                for (CalendarReader.Cal x : cals) if (!sel.contains(x.id)) { every = false; break; }
+                StringBuilder sb = new StringBuilder();
+                for (Long x : sel) { if (sb.length() > 0) sb.append(','); sb.append(x); }
+                f.cals = every ? "*" : (sel.isEmpty() ? "0" : sb.toString());
+                draw();
+            });
+            calBox.addView(cb, mlp(2));
+        }
     }
 
     void save() {

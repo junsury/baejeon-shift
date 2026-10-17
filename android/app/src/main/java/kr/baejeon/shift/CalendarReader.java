@@ -31,7 +31,39 @@ final class CalendarReader {
     }
 
     /** from~to(날짜 번호, 포함) 사이 일정. 키 = 날짜 번호 */
-    static Map<Integer, List<Ev>> read(Context c, int from, int to) {
+    /** 휴대폰에 있는 캘린더 목록 */
+    static final class Cal {
+        final long id; final String name, account; final int color;
+        Cal(long id, String name, String account, int color) { this.id = id; this.name = name; this.account = account; this.color = color; }
+    }
+
+    static List<Cal> list(Context c) {
+        List<Cal> out = new ArrayList<>();
+        if (!allowed(c)) return out;
+        String[] cols = {CalendarContract.Calendars._ID, CalendarContract.Calendars.CALENDAR_DISPLAY_NAME,
+                CalendarContract.Calendars.ACCOUNT_NAME, CalendarContract.Calendars.ACCOUNT_TYPE, CalendarContract.Calendars.CALENDAR_COLOR};
+        try (Cursor cur = c.getContentResolver().query(CalendarContract.Calendars.CONTENT_URI, cols,
+                CalendarContract.Calendars.VISIBLE + "=1", null, CalendarContract.Calendars.ACCOUNT_TYPE + "," + CalendarContract.Calendars.ACCOUNT_NAME)) {
+            if (cur == null) return out;
+            while (cur.moveToNext()) {
+                String type = cur.getString(3) == null ? "" : cur.getString(3);
+                String acc = cur.getString(2) == null ? "" : cur.getString(2);
+                String where;
+                if (type.equals("com.google")) where = "구글 · " + acc;
+                else if (type.contains("osp") || type.contains("samsung")) where = "삼성 캘린더" + (acc.isEmpty() ? "" : " · " + acc);
+                else if (type.equals(CalendarContract.ACCOUNT_TYPE_LOCAL) || type.isEmpty()) where = "휴대폰";
+                else where = acc.isEmpty() ? type : acc;
+                String name = cur.getString(1) == null ? "(이름 없음)" : cur.getString(1);
+                out.add(new Cal(cur.getLong(0), name, where, cur.getInt(4)));
+            }
+        } catch (Exception ignored) {}
+        return out;
+    }
+
+    static Map<Integer, List<Ev>> read(Context c, int from, int to) { return read(c, from, to, null); }
+
+    /** only = 이 캘린더들만 (null = 전부) */
+    static Map<Integer, List<Ev>> read(Context c, int from, int to, java.util.Set<Long> only) {
         Map<Integer, List<Ev>> out = new HashMap<>();
         if (!allowed(c)) return out;
         TimeZone kst = ShiftData.KST;
@@ -41,11 +73,13 @@ final class CalendarReader {
         ContentUris.appendId(b, start - 86400000L);
         ContentUris.appendId(b, end + 86400000L);
         String[] cols = {CalendarContract.Instances.TITLE, CalendarContract.Instances.BEGIN, CalendarContract.Instances.END,
-                CalendarContract.Instances.ALL_DAY, CalendarContract.Instances.VISIBLE};
+                CalendarContract.Instances.ALL_DAY, CalendarContract.Instances.VISIBLE, CalendarContract.Instances.CALENDAR_ID};
         try (Cursor cur = c.getContentResolver().query(b.build(), cols, CalendarContract.Instances.VISIBLE + "=1", null,
                 CalendarContract.Instances.BEGIN + " ASC")) {
             if (cur == null) return out;
+            java.util.Set<String> seen = new java.util.HashSet<>();
             while (cur.moveToNext()) {
+                if (only != null && !only.contains(cur.getLong(5))) continue;
                 String title = cur.getString(0);
                 if (title == null || title.trim().isEmpty()) title = "(제목 없음)";
                 long bg = cur.getLong(1), en = cur.getLong(2);
@@ -62,6 +96,7 @@ final class CalendarReader {
                     time = String.format(Locale.US, "%02d:%02d", mins / 60, mins % 60);
                 }
                 for (int n = Math.max(d0, from); n <= Math.min(d1, to); n++) {
+                    if (!seen.add(n + "|" + title.trim() + "|" + (n == d0 ? time : ""))) continue;   // 같은 날 같은 제목은 한 번만
                     List<Ev> l = out.get(n);
                     if (l == null) { l = new ArrayList<>(); out.put(n, l); }
                     l.add(new Ev(title.trim(), all || n != d0, bg, n == d0 ? time : ""));

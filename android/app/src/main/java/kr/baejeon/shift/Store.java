@@ -28,7 +28,8 @@ final class Store {
         int theme = 2;         // 0 밝게 1 어둡게 2 휴대폰 설정 따라
         boolean events = true;
         int weekMode = 0;      // 0 이번 주(월~일) 1 오늘부터 7일
-        int open = 0;          // 누르면 열 화면: OPEN_KEYS 순서
+        int open = 0;
+        String cals = "*";     // 가져올 캘린더 id 목록 (쉼표), * = 전부          // 누르면 열 화면: OPEN_KEYS 순서
         int monthOffset = 0;
         long offsetAt = 0;
     }
@@ -50,6 +51,7 @@ final class Store {
         f.events = s.getBoolean(k + "ev", f.events);
         f.weekMode = s.getInt(k + "wm", f.weekMode);
         f.open = s.getInt(k + "oc", defOpen(kind));
+        f.cals = s.getString(k + "cl", "*");
         f.monthOffset = s.getInt(k + "mo", 0);
         f.offsetAt = s.getLong(k + "ma", 0);
         return f;
@@ -59,7 +61,15 @@ final class Store {
         String k = "w" + id + ".";
         p(c).edit().putInt(k + "op", f.opacity).putInt(k + "co", f.corner).putInt(k + "tx", f.text)
                 .putInt(k + "ch", f.chip).putInt(k + "th", f.theme).putBoolean(k + "ev", f.events)
-                .putInt(k + "wm", f.weekMode).putInt(k + "oc", f.open).putInt(k + "mo", f.monthOffset).putLong(k + "ma", f.offsetAt).apply();
+                .putInt(k + "wm", f.weekMode).putInt(k + "oc", f.open).putString(k + "cl", f.cals == null ? "*" : f.cals).putInt(k + "mo", f.monthOffset).putLong(k + "ma", f.offsetAt).apply();
+    }
+
+    /** 고른 캘린더 (null = 전부) */
+    static java.util.Set<Long> calSet(Cfg f) {
+        if (f.cals == null || f.cals.equals("*")) return null;
+        java.util.Set<Long> r = new java.util.HashSet<>();
+        for (String x : f.cals.split(",")) try { if (!x.isEmpty()) r.add(Long.parseLong(x)); } catch (Exception ignored) {}
+        return r;
     }
 
     static void setOffset(Context c, int id, int off) {
@@ -70,7 +80,7 @@ final class Store {
     static void remove(Context c, int id) {
         String k = "w" + id + ".";
         SharedPreferences.Editor e = p(c).edit();
-        for (String x : new String[]{"op", "co", "tx", "ch", "th", "ev", "wm", "oc", "mo", "ma"}) e.remove(k + x);
+        for (String x : new String[]{"op", "co", "tx", "ch", "th", "ev", "wm", "oc", "cl", "mo", "ma"}) e.remove(k + x);
         e.apply();
     }
 }
