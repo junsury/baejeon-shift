@@ -60,6 +60,9 @@ final class Renderer {
         }
     }
 
+    /** 위젯 밖(일정 창)에서 쓰는 근무 칩 색 {배경, 글자} */
+    static int[] chipColors(String code, boolean dark) { return new St(new Store.Cfg(), dark).chip(code); }
+
     static final int RED = 0xFFD92D20, RED_TXT = 0xFFE0362A;
 
     final Canvas cv; final St s; final float W, H;
@@ -202,6 +205,21 @@ final class Renderer {
     }
 
     // ---------- 달력형 4×4 ----------
+    /** 달력 위젯 칸 계산: {first, nextFirst, start(첫 칸 날짜), weeks} — 위젯 터치 칸도 같은 값 사용 */
+    static int[] monthGeom(int offset) {
+        int today = ShiftData.todayNum();
+        java.util.Calendar c = ShiftData.cal(today);
+        c.set(java.util.Calendar.DAY_OF_MONTH, 1);
+        c.add(java.util.Calendar.MONTH, offset);
+        int first = (int) Math.floorDiv(c.getTimeInMillis(), 86400000L);
+        c.add(java.util.Calendar.MONTH, 1);
+        int nextFirst = (int) Math.floorDiv(c.getTimeInMillis(), 86400000L);
+        int start = first - ShiftData.dow(first);
+        return new int[]{first, nextFirst, start, (int) Math.ceil((nextFirst - start) / 7.0)};
+    }
+    /** 달력 칸 영역의 위쪽 여백(dp) */
+    static float monthGridTop(float t) { return 14 + 28 + 6 + 10f * t * 1.3f + 6; }
+
     void month(ShiftData d, Map<Integer, List<CalendarReader.Ev>> evs, int offset) {
         float k = s.r / 26f;
         float padL = 12, padT = 14, padB = 12;

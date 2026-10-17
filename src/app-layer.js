@@ -460,7 +460,7 @@ $('#pendBar').addEventListener('click',e=>{if(e.target.id==='goPend'){ui.tab='ad
   const go=new URLSearchParams(location.search).get('go');
   if(go==='inbox'){ui.tab='attend';ui.attTab='inbox'}
   else if(go==='admin'){ui.tab='admin';ui.adminTab='set'}
-  else if(/^my-(day|week|month)$/.test(go||'')){ui.tab='my';ui.myView=go.slice(3);ui.myDay=todayN;ui.ym=monthOf(todayN)}
+  else if(/^my-(day|week|month)$/.test(go||'')){const q=new URLSearchParams(location.search).get('d');const n=/^\d{4}-\d\d-\d\d$/.test(q||'')?dn(q):todayN;ui.tab='my';ui.myView=go.slice(3);ui.myDay=n;ui.ym=monthOf(n)}
   else if(go==='team-day'||go==='team-month'){ui.tab='team';ui.teamView=go.slice(5);ui.day=todayN;ui.ym=monthOf(todayN);try{boardSel=null}catch(e){}}
   if(go)history.replaceState(null,'',location.pathname);
   const clear=()=>{try{navigator.clearAppBadge&&navigator.clearAppBadge()}catch(e){}};

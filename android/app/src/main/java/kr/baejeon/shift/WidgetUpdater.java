@@ -138,7 +138,9 @@ final class WidgetUpdater {
     }
 
     static RemoteViews views(Context c, int id, String kind, Bitmap bm) {
-        RemoteViews rv = new RemoteViews(c.getPackageName(), R.layout.widget_root);
+        boolean month = "month".equals(kind);
+        boolean linked = ShiftData.parse(Store.data(c)) != null;
+        RemoteViews rv = new RemoteViews(c.getPackageName(), month ? R.layout.widget_month : R.layout.widget_root);
         rv.setImageViewBitmap(R.id.img, bm);
         int fl = PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE;
         Store.Cfg f = Store.cfg(c, id, kind);
@@ -146,16 +148,34 @@ final class WidgetUpdater {
         Intent open = new Intent(Intent.ACTION_VIEW, android.net.Uri.parse("https://baejeon-shift.web.app/?src=twa&go=" + go))
                 .setClass(c, MainActivity.class).setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
         rv.setOnClickPendingIntent(R.id.img, PendingIntent.getActivity(c, 1000 + id, open, fl));
-        if ("month".equals(kind) && ShiftData.parse(Store.data(c)) != null) {
+        if (month && linked) {
             rv.setViewVisibility(R.id.prev, android.view.View.VISIBLE);
             rv.setViewVisibility(R.id.next, android.view.View.VISIBLE);
             rv.setOnClickPendingIntent(R.id.prev, PendingIntent.getBroadcast(c, id * 10 + 1,
                     new Intent(c, MonthWidget.class).setAction(BaseWidget.ACT_PREV).putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, id), fl));
             rv.setOnClickPendingIntent(R.id.next, PendingIntent.getBroadcast(c, id * 10 + 2,
                     new Intent(c, MonthWidget.class).setAction(BaseWidget.ACT_NEXT).putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, id), fl));
+            // 날짜 칸 터치 → 그날 일정 창
+            float dens = c.getResources().getDisplayMetrics().density;
+            float t = new float[]{0.88f, 1f, 1.15f}[Math.max(0, Math.min(2, f.text))];
+            rv.setViewVisibility(R.id.grid, android.view.View.VISIBLE);
+            rv.setViewPadding(R.id.grid, Math.round(12 * dens), Math.round(Renderer.monthGridTop(t) * dens), Math.round(12 * dens), Math.round(12 * dens));
+            int[] g = Renderer.monthGeom(f.monthOffset);
+            int[] rowIds = {R.id.r0, R.id.r1, R.id.r2, R.id.r3, R.id.r4, R.id.r5};
+            for (int r = 0; r < 6; r++) rv.setViewVisibility(rowIds[r], r < g[3] ? android.view.View.VISIBLE : android.view.View.GONE);
+            for (int i = 0; i < g[3] * 7; i++) {
+                int n = g[2] + i;
+                int vid = c.getResources().getIdentifier("c" + i, "id", c.getPackageName());
+                Intent di = new Intent(c, DayActivity.class)
+                        .setData(android.net.Uri.parse("baejeonshift://day/" + id + "/" + n))
+                        .putExtra("day", n).putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, id)
+                        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_MULTIPLE_TASK);
+                rv.setOnClickPendingIntent(vid, PendingIntent.getActivity(c, 200000 + id * 64 + i, di, fl));
+            }
         } else {
             rv.setViewVisibility(R.id.prev, android.view.View.GONE);
             rv.setViewVisibility(R.id.next, android.view.View.GONE);
+            if (month) rv.setViewVisibility(R.id.grid, android.view.View.GONE);
         }
         return rv;
     }

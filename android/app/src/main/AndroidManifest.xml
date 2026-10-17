@@ -3,6 +3,7 @@
 
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.READ_CALENDAR" />
+    <uses-permission android:name="android.permission.WRITE_CALENDAR" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
     <queries>
@@ -70,6 +71,15 @@
         <activity
             android:name="com.google.androidbrowserhelper.trusted.NotificationPermissionRequestActivity"
             android:exported="false" />
+
+        <!-- 달력 위젯에서 날짜를 누르면 뜨는 창: 그날 근무·일정, 일정 추가 -->
+        <activity
+            android:name=".DayActivity"
+            android:exported="false"
+            android:excludeFromRecents="true"
+            android:taskAffinity="kr.baejeon.shift.day"
+            android:windowSoftInputMode="adjustResize"
+            android:theme="@android:style/Theme.DeviceDefault.Light.Dialog.NoActionBar.MinWidth" />
 
         <!-- 웹 알림을 앱 알림으로 보여줌 -->
         <service

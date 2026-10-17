@@ -22,6 +22,7 @@ final class CalendarReader {
 
     static final class Ev {
         final String title; final boolean allDay; final long begin; final String time;
+        long eventId = -1; int color = 0;
         Ev(String title, boolean allDay, long begin, String time) { this.title = title; this.allDay = allDay; this.begin = begin; this.time = time; }
         String text() { return time.isEmpty() ? title : title + " " + time; }
     }
@@ -73,7 +74,8 @@ final class CalendarReader {
         ContentUris.appendId(b, start - 86400000L);
         ContentUris.appendId(b, end + 86400000L);
         String[] cols = {CalendarContract.Instances.TITLE, CalendarContract.Instances.BEGIN, CalendarContract.Instances.END,
-                CalendarContract.Instances.ALL_DAY, CalendarContract.Instances.VISIBLE, CalendarContract.Instances.CALENDAR_ID};
+                CalendarContract.Instances.ALL_DAY, CalendarContract.Instances.VISIBLE, CalendarContract.Instances.CALENDAR_ID,
+                CalendarContract.Instances.EVENT_ID, CalendarContract.Instances.DISPLAY_COLOR};
         try (Cursor cur = c.getContentResolver().query(b.build(), cols, CalendarContract.Instances.VISIBLE + "=1", null,
                 CalendarContract.Instances.BEGIN + " ASC")) {
             if (cur == null) return out;
@@ -99,11 +101,61 @@ final class CalendarReader {
                     if (!seen.add(n + "|" + title.trim() + "|" + (n == d0 ? time : ""))) continue;   // 같은 날 같은 제목은 한 번만
                     List<Ev> l = out.get(n);
                     if (l == null) { l = new ArrayList<>(); out.put(n, l); }
-                    l.add(new Ev(title.trim(), all || n != d0, bg, n == d0 ? time : ""));
+                    Ev ev = new Ev(title.trim(), all || n != d0, bg, n == d0 ? time : "");
+                    ev.eventId = cur.getLong(6); ev.color = cur.getInt(7);
+                    l.add(ev);
                 }
             }
         } catch (Exception ignored) {}
         for (List<Ev> l : out.values()) Collections.sort(l, (x, y) -> x.allDay != y.allDay ? (x.allDay ? -1 : 1) : Long.compare(x.begin, y.begin));
         return out;
+    }
+
+    static boolean canWrite(Context c) {
+        return c.checkSelfPermission(Manifest.permission.WRITE_CALENDAR) == PackageManager.PERMISSION_GRANTED;
+    }
+
+    /** 일정을 넣을 수 있는 캘린더 (휴일 캘린더 등 읽기 전용 제외) */
+    static List<Cal> writable(Context c) {
+        List<Cal> out = new ArrayList<>();
+        if (!allowed(c)) return out;
+        String[] cols = {CalendarContract.Calendars._ID, CalendarContract.Calendars.CALENDAR_DISPLAY_NAME,
+                CalendarContract.Calendars.ACCOUNT_NAME, CalendarContract.Calendars.ACCOUNT_TYPE, CalendarContract.Calendars.CALENDAR_COLOR};
+        String where = CalendarContract.Calendars.VISIBLE + "=1 AND " + CalendarContract.Calendars.CALENDAR_ACCESS_LEVEL + ">=" + CalendarContract.Calendars.CAL_ACCESS_CONTRIBUTOR;
+        try (Cursor cur = c.getContentResolver().query(CalendarContract.Calendars.CONTENT_URI, cols, where, null,
+                CalendarContract.Calendars.IS_PRIMARY + " DESC")) {
+            if (cur == null) return out;
+            while (cur.moveToNext()) {
+                String type = cur.getString(3) == null ? "" : cur.getString(3);
+                String acc = cur.getString(2) == null ? "" : cur.getString(2);
+                String w = type.equals("com.google") ? "구글 · " + acc : (type.contains("osp") || type.contains("samsung")) ? "삼성 캘린더" : (type.equals(CalendarContract.ACCOUNT_TYPE_LOCAL) || type.isEmpty()) ? "휴대폰" : acc;
+                out.add(new Cal(cur.getLong(0), cur.getString(1) == null ? "(이름 없음)" : cur.getString(1), w, cur.getInt(4)));
+            }
+        } catch (Exception ignored) {}
+        return out;
+    }
+
+    /** 일정 넣기. 종일이면 startMin/endMin 무시. 성공하면 true */
+    static boolean insert(Context c, long calId, String title, int day, boolean allDay, int startMin, int endMin, String memo) {
+        try {
+            android.content.ContentValues v = new android.content.ContentValues();
+            v.put(CalendarContract.Events.CALENDAR_ID, calId);
+            v.put(CalendarContract.Events.TITLE, title);
+            if (memo != null && !memo.isEmpty()) v.put(CalendarContract.Events.DESCRIPTION, memo);
+            if (allDay) {
+                v.put(CalendarContract.Events.DTSTART, day * 86400000L);
+                v.put(CalendarContract.Events.DTEND, (day + 1) * 86400000L);
+                v.put(CalendarContract.Events.ALL_DAY, 1);
+                v.put(CalendarContract.Events.EVENT_TIMEZONE, "UTC");
+            } else {
+                long base = day * 86400000L - ShiftData.KST.getOffset(day * 86400000L);
+                long st = base + startMin * 60000L;
+                long en = base + (endMin <= startMin ? endMin + 1440 : endMin) * 60000L;   // 끝이 더 이르면 다음날
+                v.put(CalendarContract.Events.DTSTART, st);
+                v.put(CalendarContract.Events.DTEND, en);
+                v.put(CalendarContract.Events.EVENT_TIMEZONE, "Asia/Seoul");
+            }
+            return c.getContentResolver().insert(CalendarContract.Events.CONTENT_URI, v) != null;
+        } catch (Exception e) { return false; }
     }
 }
