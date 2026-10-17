@@ -1,17 +1,20 @@
 /* =====================================================================
-   앱 연결층: Firebase(구글 로그인 · Firestore)
+   앱 연결층: Firebase(구글 로그인 · 익명 로그인 · Firestore · 푸시)
    - 데이터는 teams/<TEAM_ID>/... 아래에 저장
-   - 역할: main(메인관리자) · sub(서브관리자) · member(팀원) · family(가족)
+   - 역할: main(메인관리자) · sub(서브관리자) · member(팀원) · family(가족, 로그인 없는 링크)
+           pending(승인 대기) · rejected(거절됨)
    ===================================================================== */
 const FBV='10.12.2',FBB='https://www.gstatic.com/firebasejs/'+FBV+'/';
 const TEAM=(window.TEAM_ID||'gyeonggi');
-let FB=null,fsdb=null,auth=null,appRole=null,appUser=null,appUsers=[],claims={},invite=null,famCodes=[],ownMemos={},unsubs=[],dataStarted=false;
-const ROLE_NAME={main:'메인관리자',sub:'서브관리자',member:'팀원',family:'가족'};
+let FB=null,fsdb=null,auth=null,appRole=null,appUser=null,appUsers=[],claims={},famLinks=[],ownMemos={},unsubs=[],dataStarted=false;
+const ROLE_NAME={main:'메인관리자',sub:'서브관리자',member:'팀원',family:'가족',pending:'승인 대기',rejected:'거절됨'};
 const isFamily=()=>appRole==='family';
 const ownMid=()=>appUser&&(appRole==='family'?appUser.familyOf:appUser.memberId)||null;
 const tref=(...p)=>FB.F.doc(fsdb,'teams',TEAM,...p);
 const tcol=(...p)=>FB.F.collection(fsdb,'teams',TEAM,...p);
-const rndCode=n=>{const A='ABCDEFGHJKLMNPQRSTUVWXYZ23456789';let s='';const r=crypto.getRandomValues(new Uint32Array(n));for(const x of r)s+=A[x%A.length];return s};
+const rndCode=n=>{const A='ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789';let s='';const r=crypto.getRandomValues(new Uint32Array(n));for(const x of r)s+=A[x%A.length];return s};
+const famParam=()=>new URLSearchParams(location.search).get('f');
+const pendingUsers=()=>appUsers.filter(x=>x.role==='pending');
 
 /* 기존 코드가 쓰던 db API(collection/doc/onSnapshot)를 Firestore로 연결 */
 function makeDb(){
@@ -21,18 +24,21 @@ function makeDb(){
   const wrapCol=s=>({empty:s.empty,docs:s.docs.map(d=>({id:d.id,data:()=>d.data()}))});
   return {
     collection:name=>({
-      onSnapshot:(cb,err)=>{const u=F.onSnapshot(col(name),s=>cb(wrapCol(s)),e=>{console.warn(name,e);err&&err(e)});unsubs.push(u);return u},
+      onSnapshot:(cb,err)=>{const u=F.onSnapshot(col(name),s=>cb(wrapCol(s)),e=>{console.warn(name,e);listenErr(e);err&&err(e)});unsubs.push(u);return u},
       add:async doc=>{const r=await F.addDoc(col(name),doc);return {id:r.id}}
     }),
     doc:path=>({
       set:d=>F.setDoc(dref(path),d),
       update:d=>F.updateDoc(dref(path),d),
       delete:()=>F.deleteDoc(dref(path)),
-      onSnapshot:(cb,err)=>{const u=F.onSnapshot(dref(path),s=>cb({exists:s.exists(),id:s.id,data:()=>s.data()}),e=>{console.warn(path,e);err&&err(e)});unsubs.push(u);return u}
+      onSnapshot:(cb,err)=>{const u=F.onSnapshot(dref(path),s=>cb({exists:s.exists(),id:s.id,data:()=>s.data()}),e=>{console.warn(path,e);listenErr(e);err&&err(e)});unsubs.push(u);return u}
     })
   };
 }
-function stopListeners(){for(const u of unsubs)try{u()}catch(e){}unsubs=[];dataStarted=false}
+function stopListeners(){for(const u of unsubs)try{u()}catch(e){}unsubs=[];for(const u of roleUnsubs)try{u()}catch(e){}roleUnsubs=[];dataStarted=false}
+/* 가족 링크가 끊기면 읽기 권한이 사라짐 */
+function listenErr(e){if(isFamily()&&e&&/permission/.test(e.code||'')){stopListeners();gate(famGoneHtml())}}
+const famGoneHtml=()=>'<div class="g-logo">근</div><h2>링크가 끊겼어요</h2><p class="note">이 근무표 링크는 더 이상 쓸 수 없어요. 가족에게 새 링크를 받아 주세요.</p>';
 
 /* 파일 저장 · 공유 (휴대폰에서는 공유창 → 카카오톡 선택 가능) */
 async function appDownloads(){
@@ -49,34 +55,38 @@ async function appDownloads(){
   }};
 }
 
-/* ---------- 시작 화면 (로그인 · 초대 코드 · 본인 선택 · 팀 만들기) ---------- */
+/* ---------- 시작 화면 ---------- */
 function gate(html){const g=$('#gate');if(html==null){g.hidden=true;document.body.classList.remove('gated');return}g.hidden=false;document.body.classList.add('gated');$('#gateBody').innerHTML=html}
 const gLoading=t=>'<div class="g-spin"></div><p class="note">'+esc(t||'불러오는 중…')+'</p>';
 function gErr(e){console.error(e);gate('<h2>문제가 생겼어요</h2><p class="note">'+esc(errText(e))+'</p><div class="btns"><button class="btn" data-g="reload">다시 시도</button><button class="btn ghost" data-g="logout">로그아웃</button></div>')}
 function errText(e){const c=e&&e.code||'';
-  if(/permission-denied/.test(c))return '권한이 없어요. 코드가 맞는지, 관리자가 권한을 바꾸지 않았는지 확인하세요.';
+  if(/permission-denied/.test(c))return '권한이 없어요. 관리자 승인이나 권한이 바뀌었는지 확인하세요.';
   if(/unavailable|network/.test(c))return '인터넷 연결을 확인하고 다시 시도하세요.';
   if(/popup-closed|cancelled-popup/.test(c))return '로그인 창이 닫혔어요. 다시 눌러 주세요.';
   if(/unauthorized-domain/.test(c))return '이 주소가 Firebase 로그인 허용 도메인에 없어요. Firebase 콘솔 → Authentication → 설정 → 승인된 도메인에 추가하세요.';
+  if(/admin-restricted-operation|operation-not-allowed/.test(c))return 'Firebase에서 이 로그인 방식이 꺼져 있어요. (관리자: Authentication → 로그인 방법에서 켜 주세요)';
   return (e&&e.message)||String(e)}
-const loginHtml=()=>'<div class="g-logo">근</div><h2>배전센터 근무표</h2><p class="note">팀원과 가족만 쓸 수 있어요. 구글 계정으로 로그인하세요.</p><button class="btn g-google" data-g="google"><span class="g-g">G</span>구글로 로그인</button><p class="note g-small">처음이면 로그인한 뒤 팀 초대 코드나 가족 초대 코드를 입력해요.</p>';
-function joinHtml(msg){
-  const q=new URLSearchParams(location.search);const pre=(q.get('join')||q.get('family')||'').toUpperCase();
-  return '<h2>초대 코드 입력</h2><p class="note">팀원은 관리자에게 받은 <b>팀 초대 코드</b>, 가족은 가족에게 받은 <b>가족 초대 코드</b>를 입력하세요.</p>'+(msg?'<div class="msg bad">'+esc(msg)+'</div>':'')+
-    '<input id="gCode" class="g-code" maxlength="12" autocomplete="off" autocapitalize="characters" placeholder="예: K7P2QX" value="'+esc(pre)+'">'+
-    '<button class="btn" data-g="join">확인</button><p class="note g-small">'+esc(auth&&auth.currentUser?auth.currentUser.email:'')+' 계정으로 로그인했어요 · <button class="link" data-g="logout">다른 계정</button></p>';
-}
-function pickHtml(){
+const loginHtml=()=>'<div class="g-logo">근</div><h2>배전센터 근무표</h2><p class="note">팀원 전용이에요. 구글 계정으로 로그인한 뒤 본인 이름을 고르면, 관리자가 승인하면 쓸 수 있어요.</p><button class="btn g-google" data-g="google"><span class="g-g">G</span>구글로 로그인</button>';
+function pickHtml(msg){
   const taken=new Set(Object.keys(claims));
   const list=byName().filter(m=>!taken.has(m.id));
-  return '<h2>누구인가요?</h2><p class="note">본인 이름을 고르면 이 계정이 그 근무자로 연결돼요. 한 번만 고르면 되고, 잘못 골랐으면 관리자가 풀어줄 수 있어요.</p>'+
+  const admin=appRole==='main'||appRole==='sub';
+  return '<h2>누구인가요?</h2><p class="note">'+(admin?'관리자 계정과 연결할 근무자를 고르세요.':'본인 이름을 고르면 관리자에게 승인 요청이 가요. 승인되면 바로 쓸 수 있어요.')+'</p>'+(msg?'<div class="msg bad">'+esc(msg)+'</div>':'')+
     (list.length?'<div class="pick">'+list.map(m=>'<button data-g="pick" data-id="'+m.id+'">'+esc(m.name)+'<small>'+teamLabel(m,todayN)+'</small></button>').join('')+'</div>':'<div class="msg warn">고를 수 있는 이름이 없어요. 관리자에게 문의하세요.</div>')+
-    (appRole==='main'||appRole==='sub'?'<button class="link" data-g="nopick" style="align-self:center">근무자가 아니에요 (관리만 해요)</button>':'');
+    (admin?'<button class="link" data-g="nopick" style="align-self:center">근무자가 아니에요 (관리만 해요)</button>':'')+
+    '<p class="note g-small">'+esc(auth.currentUser.email||'')+' · <button class="link" data-g="logout">다른 계정</button></p>';
+}
+function waitHtml(){
+  const rej=appRole==='rejected';
+  return '<div class="g-logo">근</div><h2>'+(rej?'승인이 거절됐어요':'승인을 기다리는 중이에요')+'</h2>'+
+    '<p class="note"><b style="color:var(--fg)">'+esc(nm(appUser.requestedMemberId)||'')+'</b> 님으로 '+(rej?'보낸 요청을 관리자가 거절했어요. 이름을 잘못 골랐다면 다시 요청하세요.':'승인 요청을 보냈어요. 관리자(메인·서브)가 승인하면 이 화면이 자동으로 바뀌어요.')+'</p>'+
+    '<div class="btns"><button class="btn ghost" data-g="repick">'+(rej?'다시 요청하기':'다른 이름으로 다시 요청')+'</button></div>'+
+    '<p class="note g-small">'+esc(auth.currentUser.email||'')+' · <button class="link" data-g="logout">로그아웃</button></p>';
 }
 function setupHtml(){
   return '<h2>팀 만들기</h2><p class="note">아직 팀이 없어요. 지금 로그인한 계정이 <b>메인관리자</b>가 돼요.</p>'+
     '<label class="g-lab">팀 이름<input id="gTeamName" value="경기배전센터"></label>'+
-    '<label class="g-lab">기존 근무표 데이터 (선택)<input id="gImport" type="file" accept=".json,application/json"><small>근무표 아티팩트의 관리 → 설정 → "앱으로 옮기기"에서 받은 파일이에요. 없으면 비워 두세요.</small></label>'+
+    '<label class="g-lab">기존 근무표 데이터 (선택)<input id="gImport" type="file" accept=".json,application/json"><small>근무표 아티팩트의 관리 → 설정 → "데이터 내보내기"에서 받은 파일이에요. 없으면 비워 두세요.</small></label>'+
     '<button class="btn" data-g="setup">팀 만들기</button><p class="note g-small">'+esc(auth.currentUser.email||'')+' · <button class="link" data-g="logout">다른 계정</button></p>';
 }
 
@@ -86,11 +96,11 @@ $('#gate').addEventListener('click',async e=>{
     if(act==='reload')location.reload();
     else if(act==='logout'){stopListeners();await FB.Au.signOut(auth)}
     else if(act==='google'){b.disabled=true;await googleLogin()}
-    else if(act==='join'){b.disabled=true;await joinWithCode(($('#gCode').value||'').trim().toUpperCase());b.disabled=false}
-    else if(act==='pick'){b.disabled=true;await claimMember(b.dataset.id)}
+    else if(act==='pick'){b.disabled=true;await pickMember(b.dataset.id)}
+    else if(act==='repick'){b.disabled=true;await FB.F.deleteDoc(tref('users',auth.currentUser.uid))}
     else if(act==='nopick'){sessionSkipPick=true;gate(null);me='';render()}
     else if(act==='setup'){b.disabled=true;await createTeam()}
-  }catch(err){b.disabled=false;if(act==='join'){gate(joinHtml(/permission|not-found/.test(err&&err.code||'')?'코드가 맞지 않아요. 다시 확인해 주세요.':errText(err)))}else if(act==='pick'){gate(pickHtml());alertMsg(/permission|already/.test(err&&err.code||'')?'방금 다른 계정이 그 이름을 골랐어요. 관리자에게 문의하세요.':errText(err))}else gErr(err)}
+  }catch(err){b.disabled=false;if(act==='pick')gate(pickHtml(/permission/.test(err&&err.code||'')?'방금 다른 사람이 그 이름으로 연결됐어요. 관리자에게 문의하세요.':errText(err)));else gErr(err)}
 });
 function alertMsg(t){const g=$('#gateBody');const d=document.createElement('div');d.className='msg bad';d.textContent=t;g.prepend(d)}
 
@@ -100,20 +110,12 @@ async function googleLogin(){
   catch(e){if(/popup-blocked|operation-not-supported/.test(e.code||''))await FB.Au.signInWithRedirect(auth,p);else throw e}
 }
 
-/* 팀 초대 코드 → 팀원, 가족 초대 코드 → 가족 */
-async function joinWithCode(code){
-  if(!code){gate(joinHtml('코드를 입력하세요.'));return}
-  const F=FB.F,u=auth.currentUser;const base={name:u.displayName||'',email:u.email||'',photo:u.photoURL||'',createdAt:Date.now(),joinCode:code};
-  let fam=null;try{const s=await F.getDoc(tref('familyCodes',code));if(s.exists())fam=s.data()}catch(e){}
-  if(fam&&fam.memberId){await F.setDoc(tref('users',u.uid),{...base,role:'family',familyOf:fam.memberId,memberId:null})}
-  else await F.setDoc(tref('users',u.uid),{...base,role:'member',memberId:null});
-  /* 이후는 내 사용자 문서 구독이 이어받음 */
-}
-async function claimMember(mid){
-  const F=FB.F,b=F.writeBatch(fsdb);
-  b.set(tref('claims',mid),{uid:auth.currentUser.uid,at:Date.now()});
-  b.update(tref('users',auth.currentUser.uid),{memberId:mid});
-  await b.commit();
+/* 본인 선택 → 승인 요청 (관리자는 바로 연결) */
+async function pickMember(mid){
+  const F=FB.F,u=auth.currentUser;
+  if(appUser&&(appRole==='main'||appRole==='sub')){
+    const w=F.writeBatch(fsdb);w.set(tref('claims',mid),{uid:u.uid,at:Date.now()});w.update(tref('users',u.uid),{memberId:mid});await w.commit();return}
+  await F.setDoc(tref('users',u.uid),{role:'pending',requestedMemberId:mid,memberId:null,name:u.displayName||'',email:u.email||'',photo:u.photoURL||'',createdAt:Date.now()});
 }
 async function createTeam(){
   const F=FB.F,u=auth.currentUser;const name=($('#gTeamName').value||'').trim()||'경기배전센터';
@@ -123,7 +125,6 @@ async function createTeam(){
   const b=F.writeBatch(fsdb);
   b.set(tref(),{name,mainUid:u.uid,createdAt:Date.now()});
   b.set(tref('users',u.uid),{role:'main',name:u.displayName||'',email:u.email||'',photo:u.photoURL||'',memberId:null,createdAt:Date.now()});
-  b.set(tref('private','invite'),{code:rndCode(6),at:Date.now()});
   await b.commit();
   if(data)await importData(data);
   location.reload();
@@ -139,38 +140,64 @@ async function importData(d){
   for(const x of d.requests||[]){const{_id,...r}=x;put(['requests',_id||rndCode(20)],r)}
   if(Array.isArray(d.holidays))put(['config','holidays'],{dates:d.holidays});
   for(let i=0;i<ops.length;i+=400){const b=F.writeBatch(fsdb);for(const[p,doc]of ops.slice(i,i+400))b.set(tref(...p),doc);await b.commit()}
-  if(d.memos&&d.memoOwner)pendingMemoImport={owner:d.memoOwner,notes:d.memos};
-  try{localStorage.setItem('bj-memo-import',JSON.stringify(pendingMemoImport))}catch(e){}
+  if(d.memos&&d.memoOwner){try{localStorage.setItem('bj-memo-import',JSON.stringify({owner:d.memoOwner,notes:d.memos}))}catch(e){}}
 }
-let pendingMemoImport=null;
 
 /* ---------- 로그인 후 ---------- */
+let sessionSkipPick=false,membersLoaded=false,roleUnsubs=[];
 async function afterLogin(u){
   gate(gLoading());
   const F=FB.F;
+  if(u.isAnonymous)return familyLogin(u);
   const ts=await F.getDoc(tref());
   if(!ts.exists()){gate(setupHtml());return}
-  let first=true;
   unsubs.push(F.onSnapshot(tref('users',u.uid),s=>{
-    if(!s.exists()){appUser=null;appRole=null;stopListeners();gate(joinHtml(first?'':'팀에서 나가졌거나 연결이 해제됐어요. 초대 코드를 다시 입력하세요.'));first=false;watchMe(u);return}
-    first=false;const d=s.data();const prevRole=appRole,prevMid=appUser&&appUser.memberId;appUser=d;appRole=d.role;
+    const prevRole=appRole,prevMid=appUser&&appUser.memberId;
+    appUser=s.exists()?s.data():null;appRole=appUser?appUser.role:null;
     isAdmin=appRole==='main'||appRole==='sub';canWrite=isAdmin;live=true;
-    if(isFamily()){me=d.familyOf}else if(d.memberId){me=d.memberId}
+    if(!appUser||appRole==='pending'||appRole==='rejected'){
+      stopRoleData();
+      if(!membersLoaded)watchPickData();
+      gate(appUser?waitHtml():(membersLoaded?pickHtml():gLoading()));
+      return}
+    if(appUser.memberId)me=appUser.memberId;
     if(!dataStarted)startData();
-    else if(prevRole!==appRole||prevMid!==d.memberId){restartRoleData()}
+    else if(prevRole!==appRole||prevMid!==appUser.memberId)restartRoleData();
     checkPick();dataChanged();
+    if(prevRole==='pending'&&appRole==='member')setTimeout(()=>offerPush(true),600);
   },e=>gErr(e)));
 }
-function watchMe(u){ /* 가입 전: 내 문서가 생기면 다시 시작 */
-  const F=FB.F;const un=F.onSnapshot(tref('users',u.uid),s=>{if(s.exists()){un();afterLogin(u)}},()=>{});
+/* 승인 전: 이름 고르기에 필요한 근무자·연결 목록만 */
+let pickUnsubs=[];
+function watchPickData(){
+  if(pickUnsubs.length)return;const F=FB.F;
+  pickUnsubs.push(F.onSnapshot(tcol('members'),s=>{membersLoaded=true;if(!s.empty)members=s.docs.map(x=>({id:x.id,...x.data()}));refreshPick()},()=>{membersLoaded=true;refreshPick()}));
+  pickUnsubs.push(F.onSnapshot(tcol('claims'),s=>{claims={};s.docs.forEach(x=>claims[x.id]=x.data());refreshPick()},()=>{}));
+  unsubs.push(()=>{for(const u of pickUnsubs)try{u()}catch(e){}pickUnsubs=[]});
 }
+function refreshPick(){if(!appUser)gate(pickHtml());else if(appRole==='pending'||appRole==='rejected')gate(waitHtml())}
 function checkPick(){
-  if(!appUser)return;
-  if(isFamily()||appUser.memberId||sessionSkipPick){gate(null);return}
-  if(!membersLoaded){gate(gLoading());return}
-  gate(pickHtml());
+  if(!appUser||isFamily())return gate(null);
+  if(appUser.memberId||sessionSkipPick)return gate(null);
+  if(!membersLoaded)return gate(gLoading());
+  gate(pickHtml()); /* 관리자인데 아직 근무자 연결 전 */
 }
-let sessionSkipPick=false,membersLoaded=false,roleUnsubs=[];
+
+/* 가족: 로그인 없는 보기 전용 링크 (?f=토큰) */
+async function familyLogin(u){
+  const F=FB.F;
+  let us=await F.getDoc(tref('users',u.uid));
+  const tok=famParam();
+  if(tok&&(!us.exists()||us.data().linkToken!==tok)){
+    let link=null;try{const s=await F.getDoc(tref('familyLinks',tok));if(s.exists())link=s.data()}catch(e){}
+    if(!link){gate(famGoneHtml());return}
+    await F.setDoc(tref('users',u.uid),{role:'family',familyOf:link.memberId,linkToken:tok,createdAt:Date.now()});
+    us=await F.getDoc(tref('users',u.uid));
+  }
+  if(!us.exists()){gate(famGoneHtml());return}
+  appUser=us.data();appRole='family';isAdmin=false;canWrite=false;live=true;me=appUser.familyOf;
+  startData();gate(null);dataChanged();
+}
 
 function startData(){
   dataStarted=true;
@@ -181,128 +208,196 @@ function startData(){
   db.doc('config/holidays').onSnapshot(s=>{if(s.exists&&Array.isArray(s.data().dates)){holidays=new Set(s.data().dates);dataChanged()}});
   restartRoleData();
 }
+function stopRoleData(){for(const u of roleUnsubs)try{u()}catch(e){}roleUnsubs=[]}
 function restartRoleData(){
-  for(const u of roleUnsubs)try{u()}catch(e){}roleUnsubs=[];
+  stopRoleData();
   const keep=u=>{roleUnsubs.push(u);return u};
-  requests=[];appUsers=[];claims={};invite=null;famCodes=[];ownMemos={};memos={};
+  requests=[];appUsers=[];claims={};famLinks=[];ownMemos={};memos={};
   const F=FB.F;
   if(!isFamily()){
     keep(db.collection('requests').onSnapshot(s=>{requests=s.docs.map(x=>({_id:x.id,...x.data()}));dataChanged()}));
-    keep(db.collection('users').onSnapshot(s=>{appUsers=s.docs.map(x=>({uid:x.id,...x.data()}));dataChanged()}));
+    keep(db.collection('users').onSnapshot(s=>{const before=pendingUsers().length;appUsers=s.docs.map(x=>({uid:x.id,...x.data()}));dataChanged()}));
     keep(db.collection('claims').onSnapshot(s=>{claims={};s.docs.forEach(x=>claims[x.id]=x.data());checkPick();dataChanged()}));
-    if(isAdmin)keep(db.doc('private/invite').onSnapshot(s=>{invite=s.exists?s.data():null;dataChanged()}));
-    if(appUser.memberId)keep(F.onSnapshot(F.query(tcol('familyCodes'),F.where('by','==',uid)),s=>{famCodes=s.docs.map(x=>({code:x.id,...x.data()}));renderAcct()},()=>{}));
+    if(appUser.memberId)keep(F.onSnapshot(F.query(tcol('familyLinks'),F.where('by','==',uid)),s=>{famLinks=s.docs.map(x=>({token:x.id,...x.data()})).sort((a,b)=>b.at-a.at);renderAcct()},()=>{}));
   }
   const mm=ownMid();
   if(mm)keep(db.doc('memos/'+mm).onSnapshot(s=>{ownMemos=(s.exists&&s.data().notes)||{};syncMemos();dataChanged()}));
-  /* 아티팩트에서 옮겨온 메모 한 번 넣기 */
   try{const p=JSON.parse(localStorage.getItem('bj-memo-import')||'null');if(p&&mm&&p.owner===mm&&!isFamily()){localStorage.removeItem('bj-memo-import');F.setDoc(tref('memos',mm),{notes:p.notes},{merge:true}).catch(()=>{})}}catch(e){}
+  if(!isFamily())setTimeout(()=>offerPush(false),1500);
 }
 function syncMemos(){memos=me&&me===ownMid()?ownMemos:{}}
 
 /* ---------- 부팅 ---------- */
 (async()=>{
-  /* 카카오톡 안에서 열면 구글 로그인이 막혀서 바깥 브라우저로 */
-  if(/KAKAOTALK/i.test(navigator.userAgent)){location.href='kakaotalk://web/openExternal?url='+encodeURIComponent(location.href);gate('<h2>브라우저에서 열어 주세요</h2><p class="note">카카오톡 안에서는 로그인이 안 돼요. 오른쪽 아래 ⋮ → "다른 브라우저로 열기"를 눌러 주세요.</p>');return}
-  if(/NAVER|Instagram|FBAN|FBAV|Line\//i.test(navigator.userAgent)){gate('<h2>브라우저에서 열어 주세요</h2><p class="note">이 앱 안의 화면에서는 구글 로그인이 막혀 있어요. 메뉴에서 "다른 브라우저로 열기"(크롬·사파리)를 눌러 주세요.</p>');return}
+  const fam=!!famParam();
+  /* 카카오톡 안에서 열면 구글 로그인이 막혀서 바깥 브라우저로 (가족 링크는 그대로 열림) */
+  if(!fam&&/KAKAOTALK/i.test(navigator.userAgent)){location.href='kakaotalk://web/openExternal?url='+encodeURIComponent(location.href);gate('<h2>브라우저에서 열어 주세요</h2><p class="note">카카오톡 안에서는 로그인이 안 돼요. 오른쪽 아래 ⋮ → "다른 브라우저로 열기"를 눌러 주세요.</p>');return}
+  if(!fam&&/NAVER|Instagram|FBAN|FBAV|Line\//i.test(navigator.userAgent)){gate('<h2>브라우저에서 열어 주세요</h2><p class="note">이 앱 안의 화면에서는 구글 로그인이 막혀 있어요. 메뉴에서 "다른 브라우저로 열기"(크롬·사파리)를 눌러 주세요.</p>');return}
   const cfg=window.FIREBASE_CONFIG;
   if(!cfg||!cfg.apiKey||/YOUR|여기/.test(cfg.apiKey)){gate('<h2>설정이 필요해요</h2><p class="note">config.js에 Firebase 설정값이 아직 없어요.</p>');return}
   gate(gLoading());
   try{const [A,Au,F]=await Promise.all([import(FBB+'firebase-app.js'),import(FBB+'firebase-auth.js'),import(FBB+'firebase-firestore.js')]);FB={A,Au,F}}
   catch(e){gate('<h2>연결할 수 없어요</h2><p class="note">인터넷 연결을 확인하고 다시 열어 주세요.</p><button class="btn" data-g="reload">다시 시도</button>');return}
-  const app=FB.A.initializeApp(cfg);
-  auth=FB.Au.getAuth(app);auth.languageCode='ko';
-  try{fsdb=FB.F.initializeFirestore(app,{ignoreUndefinedProperties:true,localCache:FB.F.persistentLocalCache({tabManager:FB.F.persistentMultipleTabManager()})})}
-  catch(e){fsdb=FB.F.initializeFirestore(app,{ignoreUndefinedProperties:true})}
+  FB.app=FB.A.initializeApp(cfg);
+  auth=FB.Au.getAuth(FB.app);auth.languageCode='ko';
+  try{fsdb=FB.F.initializeFirestore(FB.app,{ignoreUndefinedProperties:true,localCache:FB.F.persistentLocalCache({tabManager:FB.F.persistentMultipleTabManager()})})}
+  catch(e){fsdb=FB.F.initializeFirestore(FB.app,{ignoreUndefinedProperties:true})}
   db=makeDb();
   try{await FB.Au.getRedirectResult(auth)}catch(e){}
+  let first=true;
   FB.Au.onAuthStateChanged(auth,u=>{
-    stopListeners();for(const x of roleUnsubs)try{x()}catch(e){}roleUnsubs=[];
-    appUser=null;appRole=null;
-    if(!u){uid=null;gate(loginHtml());return}
+    stopListeners();appUser=null;appRole=null;membersLoaded=false;
+    if(!u){uid=null;
+      if(fam&&first){first=false;FB.Au.signInAnonymously(auth).catch(gErr);gate(gLoading());return}
+      gate(loginHtml());return}
+    first=false;
+    /* 팀원이 가족 링크를 열었으면 링크 쪽을 보여줌 */
+    if(fam&&!u.isAnonymous){gate('<h2>가족 보기 링크예요</h2><p class="note">이 링크는 로그인 없이 보는 가족용이에요. 지금 이 기기는 팀원 계정으로 로그인돼 있어서 내 근무표가 열려요.</p><button class="btn" data-g="reload" onclick="history.replaceState(null,\'\',location.pathname)">내 근무표 열기</button>');return}
     uid=u.uid;afterLogin(u).catch(gErr);
   });
 })();
 
-/* ---------- 내 정보 (가족 초대 · 로그아웃) ---------- */
+/* ---------- 푸시 알림 ---------- */
+const pushSupported=()=>'Notification' in window&&'serviceWorker' in navigator&&'PushManager' in window&&!!window.VAPID_KEY;
+const isIOS=/iPhone|iPad|iPod/i.test(navigator.userAgent);
+const standalone=()=>matchMedia('(display-mode: standalone)').matches||navigator.standalone===true;
+let pushState='';
+async function enablePush(){
+  if(!pushSupported()){alert(isIOS&&!standalone()?'아이폰은 사파리에서 공유 → "홈 화면에 추가"로 설치한 앱에서만 알림을 받을 수 있어요. 설치한 앱으로 열어서 다시 눌러 주세요.':'이 브라우저에서는 알림을 쓸 수 없어요.');return}
+  const perm=await Notification.requestPermission();
+  if(perm!=='granted'){pushState='denied';renderAcct();alert('알림이 꺼져 있어요. 휴대폰 설정 → 알림에서 이 앱(또는 브라우저)의 알림을 허용해 주세요.');return}
+  try{
+    if(!FB.M)FB.M=await import(FBB+'firebase-messaging.js');
+    const reg=await navigator.serviceWorker.ready;
+    const messaging=FB.M.getMessaging(FB.app);
+    const token=await FB.M.getToken(messaging,{vapidKey:window.VAPID_KEY,serviceWorkerRegistration:reg});
+    if(!token)throw new Error('토큰을 받지 못했어요');
+    await FB.F.setDoc(tref('users',uid,'tokens',token),{at:Date.now(),ua:navigator.userAgent.slice(0,120)});
+    try{localStorage.setItem('bj-push',token)}catch(e){}
+    pushState='on';
+    FB.M.onMessage(messaging,p=>{const d=(p&&p.data)||{};toast((d.title||'알림')+(d.body?' · '+d.body:''))});
+    renderAcct();toast('알림을 켰어요');
+  }catch(e){console.error(e);alert('알림을 켜지 못했어요: '+errText(e))}
+}
+async function disablePush(){
+  try{const t=localStorage.getItem('bj-push');if(t){await FB.F.deleteDoc(tref('users',uid,'tokens',t));localStorage.removeItem('bj-push')}
+    if(FB.M){await FB.M.deleteToken(FB.M.getMessaging(FB.app)).catch(()=>{})}}catch(e){}
+  pushState='off';renderAcct();toast('이 기기 알림을 껐어요');
+}
+function pushOn(){try{return 'Notification' in window&&Notification.permission==='granted'&&!!localStorage.getItem('bj-push')}catch(e){return false}}
+/* 처음 한 번: 알림 켜기 권하기 (켜져 있으면 토큰만 새로고침) */
+function offerPush(force){
+  if(!appUser||isFamily()||!pushSupported())return;
+  if(pushOn()){enablePushSilently();return}
+  let asked=false;try{asked=localStorage.getItem('bj-push-asked')==='1'}catch(e){}
+  if(asked&&!force)return;
+  try{localStorage.setItem('bj-push-asked','1')}catch(e){}
+  const b=$('#pushAsk');if(b)b.hidden=false;
+}
+async function enablePushSilently(){try{if(Notification.permission==='granted'){await enablePushQuiet()}}catch(e){}}
+async function enablePushQuiet(){
+  if(!FB.M)FB.M=await import(FBB+'firebase-messaging.js');
+  const reg=await navigator.serviceWorker.ready;const messaging=FB.M.getMessaging(FB.app);
+  const token=await FB.M.getToken(messaging,{vapidKey:window.VAPID_KEY,serviceWorkerRegistration:reg});
+  if(token){await FB.F.setDoc(tref('users',uid,'tokens',token),{at:Date.now(),ua:navigator.userAgent.slice(0,120)});try{localStorage.setItem('bj-push',token)}catch(e){}}
+  FB.M.onMessage(messaging,p=>{const d=(p&&p.data)||{};toast((d.title||'알림')+(d.body?' · '+d.body:''))});
+}
+$('#pushAsk').addEventListener('click',async e=>{const b=e.target.closest('[data-pa]');if(!b)return;$('#pushAsk').hidden=true;if(b.dataset.pa==='on')await enablePush()});
+function toast(t){const d=document.createElement('div');d.className='toast';d.textContent=t;document.body.appendChild(d);setTimeout(()=>d.classList.add('on'),10);setTimeout(()=>{d.classList.remove('on');setTimeout(()=>d.remove(),300)},3500)}
+
+/* ---------- 내 정보 (가족 링크 · 알림 · 로그아웃) ---------- */
 $('#acctBtn').onclick=()=>{$('#acct').hidden=false;renderAcct()};
 $('#acct').addEventListener('click',async e=>{
   if(e.target.id==='acct'||e.target.closest('[data-ac=close]')){$('#acct').hidden=true;return}
   const b=e.target.closest('[data-ac]');if(!b)return;const F=FB.F;
   try{
     if(b.dataset.ac==='logout'){$('#acct').hidden=true;stopListeners();await FB.Au.signOut(auth)}
-    else if(b.dataset.ac==='famNew'){b.disabled=true;const code=rndCode(8);await F.setDoc(tref('familyCodes',code),{memberId:appUser.memberId,by:uid,at:Date.now()})}
-    else if(b.dataset.ac==='famDel'){if(confirm('이 초대 코드를 지울까요? 이미 가입한 가족은 그대로예요.'))await F.deleteDoc(tref('familyCodes',b.dataset.code))}
-    else if(b.dataset.ac==='famShare'){shareInvite('family',b.dataset.code)}
-    else if(b.dataset.ac==='famOut'){if(confirm('이 가족의 연결을 끊을까요? 더 이상 근무표를 볼 수 없어요.'))await F.deleteDoc(tref('users',b.dataset.uid))}
+    else if(b.dataset.ac==='famNew'){b.disabled=true;const tok=rndCode(16);await F.setDoc(tref('familyLinks',tok),{memberId:appUser.memberId,by:uid,at:Date.now()});shareFamily(tok)}
+    else if(b.dataset.ac==='famDel'){if(confirm('이 링크를 끊을까요? 이 링크로 보던 가족은 바로 못 보게 돼요.'))await F.deleteDoc(tref('familyLinks',b.dataset.tok))}
+    else if(b.dataset.ac==='famShare'){shareFamily(b.dataset.tok)}
+    else if(b.dataset.ac==='pushOn'){await enablePush()}
+    else if(b.dataset.ac==='pushOff'){await disablePush()}
+    else if(b.dataset.ac==='famLeave'){if(confirm('이 기기에서 근무표 보기를 그만둘까요? 다시 보려면 링크를 다시 눌러야 해요.')){await F.deleteDoc(tref('users',uid)).catch(()=>{});await FB.Au.signOut(auth);location.replace(location.pathname)}}
   }catch(err){alert(errText(err))}
 });
-function shareInvite(kind,code){
-  const url=location.origin+location.pathname+'?'+(kind==='family'?'family':'join')+'='+code;
-  const text=kind==='family'?'배전센터 근무표 가족 초대예요. 구글로 로그인하고 코드 '+code+' 를 입력하세요.':'배전센터 근무표 팀 초대예요. 구글로 로그인하고 코드 '+code+' 를 입력하세요.';
+function famUrl(tok){return location.origin+location.pathname+'?f='+tok}
+function shareFamily(tok){
+  const url=famUrl(tok);const text=nm(appUser.memberId)+' 근무표예요. 링크를 누르면 로그인 없이 볼 수 있어요.';
   if(navigator.share)navigator.share({title:'배전센터 근무표',text,url}).catch(()=>{});
-  else{navigator.clipboard&&navigator.clipboard.writeText(text+'\n'+url);alert('초대 문구를 복사했어요. 카톡에 붙여 넣으세요.\n\n'+text+'\n'+url)}
+  else{navigator.clipboard&&navigator.clipboard.writeText(text+'\n'+url).catch(()=>{});alert('링크를 복사했어요. 카톡에 붙여 넣으세요.\n\n'+url)}
 }
 function renderAcct(){
   const box=$('#acctBody');if(!box||$('#acct').hidden)return;
   if(!appUser){box.innerHTML='';return}
   const u=auth&&auth.currentUser;
+  if(isFamily()){
+    box.innerHTML='<h3 style="margin:0">'+esc(nm(appUser.familyOf))+' 님 근무표</h3><p class="note" style="margin:0">가족이 보내 준 보기 전용 링크로 보고 있어요. 근무와 메모만 볼 수 있고 바꿀 수는 없어요.</p>'+
+      '<h3>홈 화면에 추가</h3><p class="note" style="margin:0">아이폰: 사파리 공유 버튼 → "홈 화면에 추가". 안드로이드: 크롬 ⋮ → "홈 화면에 추가".</p>'+
+      '<div class="btns" style="margin-top:6px"><button class="btn ghost" data-ac="famLeave">이 기기에서 그만 보기</button><button class="btn ghost" data-ac="close">닫기</button></div>';return}
   let h='<div class="acct-me">'+(u&&u.photoURL?'<img src="'+esc(u.photoURL)+'" alt="">':'')+'<div><b>'+esc((u&&u.displayName)||'')+'</b><small>'+esc((u&&u.email)||'')+'</small></div><span class="tag 변경">'+ROLE_NAME[appRole]+'</span></div>';
-  if(isFamily())h+='<p class="note">'+esc(nm(appUser.familyOf))+' 님의 근무를 보고 있어요.</p>';
-  else h+='<p class="note">연결된 근무자: <b style="color:var(--fg)">'+(appUser.memberId?esc(nm(appUser.memberId)):'없음')+'</b></p>';
-  if(!isFamily()&&appUser.memberId){
-    const fams=appUsers.filter(x=>x.role==='family'&&x.familyOf===appUser.memberId);
-    h+='<h3>가족과 공유</h3><p class="note" style="margin:0">가족은 내 근무(일·주·월)와 내 메모만 볼 수 있어요. 코드는 한 가족에 하나씩 만들어 보내세요.</p>';
-    h+=famCodes.length?'<div class="list">'+famCodes.map(c=>'<div class="item"><div class="t"><b class="mono">'+c.code+'</b><small>'+new Date(c.at).toLocaleDateString('ko-KR')+' 만듦</small></div><span class="btns"><button class="btn" data-ac="famShare" data-code="'+c.code+'">보내기</button><button class="btn ghost" data-ac="famDel" data-code="'+c.code+'">삭제</button></span></div>').join('')+'</div>':'';
-    h+='<button class="btn ghost" data-ac="famNew">가족 초대 코드 만들기</button>';
-    if(fams.length)h+='<div class="list">'+fams.map(f=>'<div class="item"><div class="t"><b>'+esc(f.name||'가족')+'</b><small>'+esc(f.email||'')+'</small></div><button class="btn ghost" data-ac="famOut" data-uid="'+f.uid+'">연결 끊기</button></div>').join('')+'</div>';
+  h+='<p class="note">연결된 근무자: <b style="color:var(--fg)">'+(appUser.memberId?esc(nm(appUser.memberId)):'없음')+'</b></p>';
+  h+='<h3>알림</h3>';
+  if(!window.VAPID_KEY)h+='<p class="note" style="margin:0">알림 기능을 준비하고 있어요.</p>';
+  else if(pushOn())h+='<p class="note" style="margin:0">이 기기에서 알림을 받고 있어요. 요청·승인·근태 변경이 있으면 알려 드려요.</p><button class="btn ghost" data-ac="pushOff">이 기기 알림 끄기</button>';
+  else h+='<p class="note" style="margin:0">'+(isIOS&&!standalone()?'아이폰은 "홈 화면에 추가"한 앱으로 열어야 알림을 받을 수 있어요.':'근무변경·대근 요청, 승인·거절, 근태 변경을 휴대폰 알림으로 받아요.')+'</p><button class="btn" data-ac="pushOn">알림 켜기</button>';
+  if(appUser.memberId){
+    h+='<h3>가족과 공유</h3><p class="note" style="margin:0">링크를 받은 가족은 로그인 없이 내 근무(일·주·월)와 내 메모를 볼 수 있어요. 링크를 끊으면 바로 못 봐요.</p>';
+    h+=famLinks.length?'<div class="list">'+famLinks.map(l=>'<div class="item"><div class="t"><b>가족 링크</b><small>'+new Date(l.at).toLocaleDateString('ko-KR')+' 만듦</small></div><span class="btns"><button class="btn" data-ac="famShare" data-tok="'+l.token+'">보내기</button><button class="btn ghost" data-ac="famDel" data-tok="'+l.token+'">끊기</button></span></div>').join('')+'</div>':'';
+    h+='<button class="btn ghost" data-ac="famNew">'+(famLinks.length?'새 링크 만들기':'가족 링크 만들기')+'</button>';
   }
   h+='<h3>홈 화면에 추가</h3><p class="note" style="margin:0">아이폰: 사파리 아래 공유 버튼 → "홈 화면에 추가". 안드로이드: 크롬 ⋮ → "홈 화면에 추가" 또는 "앱 설치".</p>';
   h+='<div class="btns" style="margin-top:6px"><button class="btn ghost" data-ac="logout">로그아웃</button><button class="btn ghost" data-ac="close">닫기</button></div>';
   box.innerHTML=h;
 }
 
-/* ---------- 관리: 팀 초대 코드 · 사용자와 권한 ---------- */
+/* ---------- 관리: 승인 대기 · 사용자와 권한 ---------- */
 async function renderLinks(){
   const box=$('#linkCard');if(!box)return;
   if(!appUser){box.innerHTML='';return}
-  const order={main:0,sub:1,member:2,family:3};
-  const rows=appUsers.slice().sort((a,b)=>(order[a.role]-order[b.role])||String(a.memberId?nm(a.memberId):a.name).localeCompare(String(b.memberId?nm(b.memberId):b.name),'ko'));
-  let h='<h2>팀 초대</h2>';
-  if(invite)h+='<div class="invite"><span class="note">팀 초대 코드</span><b class="mono">'+esc(invite.code)+'</b><span class="btns"><button class="btn" data-ad="inviteShare">보내기</button><button class="btn ghost" data-ad="inviteNew">새 코드</button></span></div><p class="note" style="margin:0">팀원은 구글로 로그인한 뒤 이 코드를 넣고 본인 이름을 골라요. 새 코드를 만들면 예전 코드는 더 이상 안 돼요(이미 가입한 사람은 그대로).</p>';
-  h+='<h2 style="margin-top:6px">사용자 · 권한</h2><p class="note" style="margin:0">메인관리자는 서브관리자를 지정·해제하고, 메인관리자를 다른 사람에게 넘길 수 있어요. 관리자는 연결 해제와 내보내기를 할 수 있어요.</p>';
+  const order={pending:0,main:1,sub:2,member:3,rejected:4};
+  const pend=pendingUsers();
+  const rows=appUsers.filter(x=>x.role!=='family'&&x.role!=='pending').sort((a,b)=>(order[a.role]-order[b.role])||String(a.memberId?nm(a.memberId):a.name).localeCompare(String(b.memberId?nm(b.memberId):b.name),'ko'));
+  let h='<h2>가입 승인 '+(pend.length?'<span class="badge">'+pend.length+'</span>':'')+'</h2>';
+  h+=pend.length?'<div class="list">'+pend.map(x=>{const taken=claims[x.requestedMemberId];
+    return '<div class="item" style="flex-wrap:wrap"><div class="t"><b>'+esc(nm(x.requestedMemberId))+'</b> 님으로 요청<small>'+esc(x.name||'')+' · '+esc(x.email||'')+' · '+new Date(x.createdAt).toLocaleDateString('ko-KR')+'</small>'+(taken?'<span class="msg bad" style="margin-top:4px">이미 다른 계정이 이 이름으로 연결돼 있어요</span>':'')+'</div><span class="btns"><button class="btn" data-ad="approve" data-uid="'+x.uid+'"'+(taken?' disabled':'')+'>승인</button><button class="btn ghost" data-ad="reject" data-uid="'+x.uid+'">거절</button></span></div>'}).join('')+'</div>':'<p class="empty" style="margin:0">기다리는 가입 요청이 없어요.</p>';
+  h+='<p class="note" style="margin:0">팀원에게 앱 주소만 알려 주세요. 구글로 로그인해서 본인 이름을 고르면 여기 요청이 와요.</p>';
+  h+='<div class="btns"><button class="btn ghost" data-ad="shareApp">앱 주소 보내기</button></div>';
+  h+='<h2 style="margin-top:6px">사용자 · 권한</h2><p class="note" style="margin:0">메인관리자는 서브관리자를 지정·해제하고, 메인관리자를 다른 사람에게 넘길 수 있어요. 관리자는 팀원을 내보낼 수 있어요(다시 쓰려면 승인 요청부터).</p>';
   h+='<div class="list">'+rows.map(x=>{
-    const self=x.uid===uid;const who=x.role==='family'?esc(x.name||'가족')+' <small style="display:inline">('+esc(nm(x.familyOf))+' 가족)</small>':(x.memberId?esc(nm(x.memberId)):'<span class="note">근무자 미선택</span>');
+    const self=x.uid===uid;const who=x.memberId?esc(nm(x.memberId)):(x.role==='rejected'?esc(nm(x.requestedMemberId)||x.name||''):'<span class="note">근무자 미연결</span>');
     const acts=[];
-    if(!self&&appRole==='main'&&x.role!=='family'){
+    if(!self&&appRole==='main'&&x.role!=='rejected'){
       if(x.role==='member')acts.push('<button class="btn ghost" data-ad="toSub" data-uid="'+x.uid+'">서브관리자로</button>');
       if(x.role==='sub')acts.push('<button class="btn ghost" data-ad="toMember" data-uid="'+x.uid+'">서브 해제</button>');
       acts.push('<button class="btn ghost" data-ad="toMain" data-uid="'+x.uid+'">메인 넘기기</button>');
     }
-    const canManage=!self&&(appRole==='main'||(appRole==='sub'&&(x.role==='member'||x.role==='family')));
-    if(canManage&&x.memberId)acts.push('<button class="btn ghost" data-ad="unlink" data-uid="'+x.uid+'">연결 해제</button>');
-    if(canManage)acts.push('<button class="btn ghost" data-ad="remove" data-uid="'+x.uid+'">내보내기</button>');
-    return '<div class="item" style="flex-wrap:wrap"><div class="t"><b>'+who+'</b> <span class="tag '+(x.role==='main'?'대근':x.role==='sub'?'변경':'지원')+'">'+ROLE_NAME[x.role]+'</span>'+(self?' <span class="tag 미정">나</span>':'')+'<small>'+esc(x.email||'')+'</small></div>'+(acts.length?'<span class="btns">'+acts.join('')+'</span>':'')+'</div>'}).join('')+'</div>';
+    const canManage=!self&&(appRole==='main'||(appRole==='sub'&&(x.role==='member'||x.role==='rejected')));
+    if(canManage)acts.push('<button class="btn ghost" data-ad="remove" data-uid="'+x.uid+'">'+(x.role==='rejected'?'지우기':'내보내기')+'</button>');
+    return '<div class="item" style="flex-wrap:wrap"><div class="t"><b>'+who+'</b> <span class="tag '+(x.role==='main'?'대근':x.role==='sub'?'변경':x.role==='rejected'?'미정':'지원')+'">'+ROLE_NAME[x.role]+'</span>'+(self?' <span class="tag 미정">나</span>':'')+'<small>'+esc(x.email||'')+'</small></div>'+(acts.length?'<span class="btns">'+acts.join('')+'</span>':'')+'</div>'}).join('')+'</div>';
+  const fams=appUsers.filter(x=>x.role==='family');
+  if(fams.length)h+='<p class="note" style="margin:0">가족 링크로 보는 기기: '+[...new Set(fams.map(f=>f.familyOf))].map(mid=>esc(nm(mid))+' '+fams.filter(f=>f.familyOf===mid).length+'대').join(' · ')+'</p>';
   box.innerHTML=h;
 }
 $('#linkCard').addEventListener('click',async e=>{
-  const b=e.target.closest('[data-ad]');if(!b||b.disabled)return;const F=FB.F;const x=appUsers.find(u=>u.uid===b.dataset.uid);const who=x?(x.memberId?nm(x.memberId):(x.name||x.email)):'';
+  const b=e.target.closest('[data-ad]');if(!b||b.disabled)return;const F=FB.F;const x=appUsers.find(u=>u.uid===b.dataset.uid);
+  const who=x?(x.memberId?nm(x.memberId):(nm(x.requestedMemberId)||x.name||x.email)):'';
   try{
     switch(b.dataset.ad){
-      case 'inviteShare':shareInvite('team',invite.code);break;
-      case 'inviteNew':if(confirm('새 초대 코드를 만들까요? 예전 코드는 더 이상 쓸 수 없어요.'))await F.setDoc(tref('private','invite'),{code:rndCode(6),at:Date.now()});break;
+      case 'shareApp':{const url=location.origin+location.pathname;const text='배전센터 근무표 앱이에요. 구글로 로그인하고 본인 이름을 고르면 관리자가 승인해 드려요.';
+        if(navigator.share)navigator.share({title:'배전센터 근무표',text,url}).catch(()=>{});else{navigator.clipboard&&navigator.clipboard.writeText(text+'\n'+url).catch(()=>{});alert('주소를 복사했어요. 단톡방에 붙여 넣으세요.\n\n'+url)}break}
+      case 'approve':{b.disabled=true;const mid=x.requestedMemberId;const w=F.writeBatch(fsdb);w.set(tref('claims',mid),{uid:x.uid,at:Date.now(),by:uid});w.update(tref('users',x.uid),{role:'member',memberId:mid,approvedAt:Date.now(),approvedBy:uid});await w.commit();toast(who+' 님을 승인했어요');break}
+      case 'reject':if(confirm(who+' 님으로 온 요청을 거절할까요?'))await F.updateDoc(tref('users',x.uid),{role:'rejected'});break;
       case 'toSub':if(confirm(who+' 님을 서브관리자로 지정할까요?'))await F.updateDoc(tref('users',x.uid),{role:'sub'});break;
       case 'toMember':if(confirm(who+' 님의 서브관리자 권한을 회수할까요?'))await F.updateDoc(tref('users',x.uid),{role:'member'});break;
       case 'toMain':if(confirm(who+' 님에게 메인관리자를 넘길까요?\n넘기면 나는 서브관리자가 돼요.')){const w=F.writeBatch(fsdb);w.update(tref('users',x.uid),{role:'main'});w.update(tref(),{mainUid:x.uid});w.update(tref('users',uid),{role:'sub'});await w.commit()}break;
-      case 'unlink':if(confirm(who+' 님 계정과 근무자 연결을 풀까요? 다음에 들어오면 이름을 다시 골라요.')){const w=F.writeBatch(fsdb);w.update(tref('users',x.uid),{memberId:null});if(claims[x.memberId]&&claims[x.memberId].uid===x.uid)w.delete(tref('claims',x.memberId));await w.commit()}break;
-      case 'remove':if(confirm(who+' 님을 팀에서 내보낼까요? 다시 들어오려면 초대 코드가 필요해요.')){const w=F.writeBatch(fsdb);if(x.memberId&&claims[x.memberId]&&claims[x.memberId].uid===x.uid)w.delete(tref('claims',x.memberId));w.delete(tref('users',x.uid));await w.commit()}break;
+      case 'remove':if(confirm(who+' 님을 '+(x.role==='rejected'?'목록에서 지울까요?':'팀에서 내보낼까요? 다시 쓰려면 승인 요청부터 해야 해요.'))){const w=F.writeBatch(fsdb);if(x.memberId&&claims[x.memberId]&&claims[x.memberId].uid===x.uid)w.delete(tref('claims',x.memberId));w.delete(tref('users',x.uid));await w.commit()}break;
     }
-  }catch(err){alert('처리하지 못했어요: '+errText(err))}
+  }catch(err){b.disabled=false;alert('처리하지 못했어요: '+errText(err))}
 });
 
-/* 앱에서 "나" 고르기는 화면 전환만 (관리자) — 계정 연결은 가입할 때 한 번 */
+/* 앱에서 "나" 고르기: 관리자만, 화면 전환만 (메모 등 개인 정보는 본인 것만) */
 async function linkMe(id){
-  if(appUser&&!isAdmin&&!isFamily()&&appUser.memberId&&id!==appUser.memberId)return;
+  if(appUser&&!isAdmin)return;
   me=id;syncMemos();render();
 }
 async function saveMemo(day,text){
@@ -318,4 +413,18 @@ function applyRoleUI(){
   const sel=$('#meSel');sel.disabled=!!appUser&&!isAdmin;
   $('#meLab').hidden=fam;
   $('#famLab').hidden=!fam;if(fam)$('#famLab').textContent=nm(appUser.familyOf)+' 님 근무';
+  /* 관리자: 승인 대기 표시 */
+  const pend=isAdmin?pendingUsers().length:0;const ta=$('#tabAdmin');
+  if(ta)ta.innerHTML='관리'+(pend?'<span class="badge">'+pend+'</span>':'');
+  const pb=$('#pendBar');if(pb){pb.hidden=!pend||viewerPreview;if(pend)pb.innerHTML='<span>가입 승인을 기다리는 사람이 <b>'+pend+'명</b> 있어요.</span><button class="link" id="goPend">승인하러 가기</button>'}
 }
+$('#pendBar').addEventListener('click',e=>{if(e.target.id==='goPend'){ui.tab='admin';ui.adminTab='set';render();setTimeout(()=>{const c=$('#linkCard');c&&c.scrollIntoView({behavior:'smooth',block:'start'})},50)}});
+/* 알림을 눌러 들어오면 해당 화면으로 (?go=inbox|admin), 앱을 열면 아이콘 숫자 지우기 */
+(()=>{
+  const go=new URLSearchParams(location.search).get('go');
+  if(go==='inbox'){ui.tab='attend';ui.attTab='inbox'}
+  else if(go==='admin'){ui.tab='admin';ui.adminTab='set'}
+  if(go)history.replaceState(null,'',location.pathname);
+  const clear=()=>{try{navigator.clearAppBadge&&navigator.clearAppBadge()}catch(e){}};
+  clear();document.addEventListener('visibilitychange',()=>{if(!document.hidden)clear()});
+})();

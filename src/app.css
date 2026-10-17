@@ -30,3 +30,7 @@ body.gated{overflow:hidden}
 .invite b{font-size:22px}
 .invite .btns{margin-left:auto}
 body.family #tab-my .wk .ds{display:grid}
+.pushask{position:fixed;left:12px;right:12px;bottom:calc(12px + env(safe-area-inset-bottom));z-index:80;max-width:480px;margin:0 auto;background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:14px 16px;display:flex;flex-direction:column;gap:6px;box-shadow:0 10px 30px rgba(0,0,0,.18)}
+.pushask span{font-size:13px;color:var(--muted)}
+.toast{position:fixed;left:50%;bottom:calc(24px + env(safe-area-inset-bottom));transform:translate(-50%,20px);opacity:0;z-index:120;background:var(--fg);color:var(--surface);padding:10px 16px;border-radius:999px;font-size:14px;font-weight:600;transition:.25s;max-width:90vw;text-align:center}
+.toast.on{opacity:1;transform:translate(-50%,0)}

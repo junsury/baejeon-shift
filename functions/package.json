@@ -1,0 +1,11 @@
+{
+  "name": "baejeon-shift-functions",
+  "private": true,
+  "description": "배전센터 근무표 푸시 알림",
+  "main": "index.js",
+  "engines": { "node": "20" },
+  "dependencies": {
+    "firebase-admin": "^12.6.0",
+    "firebase-functions": "^5.1.1"
+  }
+}

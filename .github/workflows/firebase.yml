@@ -1,0 +1,32 @@
+# 보안 규칙(firestore.rules)과 알림 서버(functions/)를 Firebase에 자동 배포
+# 필요: 저장소 Settings → Secrets → Actions 에 FIREBASE_SERVICE_ACCOUNT (서비스 계정 키 JSON 전체)
+name: Firebase 배포
+on:
+  push:
+    branches: [main]
+    paths: ['functions/**', 'firestore.rules', 'firebase.json', '.github/workflows/firebase.yml']
+  workflow_dispatch:
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    env:
+      SA: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+    steps:
+      - name: 서비스 계정 키 확인
+        if: env.SA == ''
+        run: echo "::warning::FIREBASE_SERVICE_ACCOUNT 비밀값이 없어서 Firebase 배포를 건너뛰어요."
+      - uses: actions/checkout@v4
+        if: env.SA != ''
+      - uses: actions/setup-node@v4
+        if: env.SA != ''
+        with:
+          node-version: 20
+      - name: 알림 서버 준비
+        if: env.SA != ''
+        run: cd functions && npm install --no-audit --no-fund
+      - name: 배포 (규칙 + 알림 서버)
+        if: env.SA != ''
+        run: |
+          echo "$SA" > "$RUNNER_TEMP/sa.json"
+          export GOOGLE_APPLICATION_CREDENTIALS="$RUNNER_TEMP/sa.json"
+          npx --yes firebase-tools@13 deploy --only firestore:rules,functions --project baejeon-shift --force --non-interactive

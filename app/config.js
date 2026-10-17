@@ -8,5 +8,7 @@ window.FIREBASE_CONFIG = {
   messagingSenderId: "222465525681",
   appId: "1:222465525681:web:ce3721aad36f43aeb01f90"
 };
+// 웹 푸시 키 (Firebase 콘솔 → 프로젝트 설정 → 클라우드 메시징 → 웹 푸시 인증서). 비어 있으면 알림 기능이 숨겨져요.
+window.VAPID_KEY = "";
 // 팀 구분 이름 (바꾸지 않아도 돼요)
 window.TEAM_ID = "gyeonggi";

@@ -7,7 +7,7 @@
 /* Layout: one-column phone app — sticky header with date + "나", tab bar, then a working panel per tab */
 :root{
   --bg:#edf0f3; --surface:#ffffff; --sunk:#e4e8ec; --line:#d2d8df;
-  --fg:#161c24; --muted:#5a6573; --accent:#1d5d8f; --accent-fg:#ffffff;
+  --fg:#161c24; --muted:#5a6573; --accent:#1d5d8f; --accent-fg:#ffffff; --today:#d92d20;
   --day:#9a5d00; --day-solid:#f4ad00; --day-ink:#2b1d00;
   --night:#2b3990; --night-solid:#2b3990; --night-ink:#ffffff;
   --after:#5e4a86; --after-bg:#e6def3;
@@ -287,9 +287,19 @@ table.grid th.name2 small{color:var(--muted);font-weight:500;margin-left:4px;fon
 table.grid th.mecell{background:var(--accent);color:var(--accent-fg)}
 table.grid th.mecell small{color:var(--accent-fg)}
 table.grid td.mecell{background:color-mix(in srgb,var(--accent) 20%,var(--surface))}
-table.grid td.today,table.grid th.today{background:color-mix(in srgb,var(--accent) 16%,var(--surface))}
-table.grid thead th.today b{color:var(--accent)}
-table.grid td.sel{outline:2px solid var(--fg);outline-offset:-2px}
+/* 오늘: 빨간 머리칸 + 양옆 빨간 선 (내 줄 파란색과 구분) */
+table.grid thead th.today{background:var(--today);color:#fff}
+table.grid thead th.today b{color:#fff}
+table.grid thead th.today .tdy{display:block;font-style:normal;font-size:9px;font-weight:800;line-height:1;letter-spacing:.05em}
+table.grid td.today{background:color-mix(in srgb,var(--today) 9%,var(--surface));box-shadow:inset 2px 0 0 var(--today),inset -2px 0 0 var(--today)}
+table.grid td.today.mecell{background:color-mix(in srgb,var(--accent) 22%,color-mix(in srgb,var(--today) 10%,var(--surface)))}
+/* 고른 날짜 열: 검은 네모 */
+table.grid thead th[data-n]{cursor:pointer}
+table.grid thead th.colsel{background:var(--fg);color:var(--surface)}
+table.grid thead th.colsel b{color:var(--surface)}
+table.grid td.colsel{background:color-mix(in srgb,var(--fg) 10%,var(--surface));box-shadow:inset 3px 0 0 var(--fg),inset -3px 0 0 var(--fg)}
+table.grid tbody tr:last-child td.colsel{box-shadow:inset 3px 0 0 var(--fg),inset -3px 0 0 var(--fg),inset 0 -3px 0 var(--fg)}
+table.grid td.sel{outline:3px solid var(--accent);outline-offset:-3px}
 table.grid td .c{min-width:28px;height:28px;font-size:13px}
 .tbadge{display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;border-radius:5px;background:var(--fg);color:var(--surface);font-size:11px;font-weight:700;margin-right:6px}
 .detail{min-height:44px;font-size:14px;padding:10px 12px;border-radius:10px;background:var(--sunk);display:flex;align-items:center;gap:8px;flex-wrap:wrap}
@@ -475,6 +485,7 @@ table.grid td.shiftday{box-shadow:inset 3px 0 0 var(--accent)}
         <button class="iconbtn" id="mPrev" aria-label="이전 달">‹</button>
         <div class="lbl" id="mLbl" style="flex:1"></div>
         <button class="iconbtn" id="mNext" aria-label="다음 달">›</button>
+        <button class="btn ghost" id="mToday" style="padding:0 12px;height:40px">오늘</button>
       </div>
       <div id="boardBody"></div>
       <div class="legend">
@@ -891,6 +902,7 @@ function renderToday(){
     if(c.code==='T')groups.t.push([m,c]);
     if(c.code==='연')groups.l.push([m,c]);
   }
+  const byRank=arr=>arr.sort((x,y)=>slotRank(x[0],x[1],x[2],n)-slotRank(y[0],y[1],y[2],n));byRank(groups.d);byRank(groups.n);
   const person=(m,inner)=>{const tm=m.role!=='TSO'?'<span class="tm">'+(teamAt(m,n).team||'')+'조</span>':'';return '<span class="person'+(m.id===me?' is-me':'')+'">'+tm+esc(m.name)+inner+'</span>'};
   const shiftPpl=(arr)=>arr.length?arr.map(([m,c,s])=>{
     let t='';
@@ -940,7 +952,8 @@ function rangeTable(a,b){
   tsos().forEach((m,i)=>rowsDef.push({tso:m,first:i===0}));
   const shiftDays=new Set(cuts.slice(1));
   const isM1=n=>new Date(n*864e5).getUTCDate()===1;
-  const cls=n=>(n===todayN?'today ':'')+(shiftDays.has(n)?'shiftday ':'')+(isM1(n)&&n!==a?'m1 ':'')+(dow(n)===1?'wk1 ':'')+(new Date(n*864e5).getUTCMonth()%2?'modd ':'');
+  const selN=boardSel?boardSel[1]:null;
+  const cls=n=>(n===todayN?'today ':'')+(n===selN?'colsel ':'')+(shiftDays.has(n)?'shiftday ':'')+(isM1(n)&&n!==a?'m1 ':'')+(dow(n)===1?'wk1 ':'')+(new Date(n*864e5).getUTCMonth()%2?'modd ':'');
   /* 바뀐 이유 */
   const whyOf=st=>{const r=[];if(assignments.some(x=>dn(x.date)===st))r.push('조 편성 변경');
     for(const m of members){if(m.joinDate&&dn(m.joinDate)===st)r.push(m.name+' 전입');if(m.leaveDate&&dn(m.leaveDate)===st)r.push(m.name+' 전출')}
@@ -957,7 +970,7 @@ function rangeTable(a,b){
   }else h+='<thead><tr>';
   segs.forEach(([st,en],si)=>{
     h+='<th class="'+(si?'name2':'name')+'" style="z-index:'+(3+si)+'">'+(si?'<span class="chg">'+md2(st)+'부터<b>'+esc(whyOf(st))+'</b></span>':'이름')+'</th>';
-    for(let n=st;n<en;n++){const we=dow(n)===0||dow(n)===6||holidays.has(ds(n));const d=new Date(n*864e5);h+='<th class="'+(we?'we ':'')+cls(n)+'">'+(isM1(n)?'<em class="mon">'+(d.getUTCMonth()+1)+'월</em>':'')+'<b>'+d.getUTCDate()+'</b>'+WD[dow(n)]+'</th>'}
+    for(let n=st;n<en;n++){const we=dow(n)===0||dow(n)===6||holidays.has(ds(n));const d=new Date(n*864e5);h+='<th class="'+(we?'we ':'')+cls(n)+'" data-n="'+n+'">'+(n===todayN?'<i class="tdy">오늘</i>':'')+(isM1(n)?'<em class="mon">'+(d.getUTCMonth()+1)+'월</em>':'')+'<b>'+d.getUTCDate()+'</b>'+WD[dow(n)]+'</th>'}
   });
   h+='</tr></thead><tbody>';
   for(const r of rowsDef){
@@ -986,17 +999,29 @@ function renderBoard(){
   else h+='<div class="note" style="margin-bottom:-4px">위쪽 "나"에서 본인을 고르면 내 근무가 강조돼요. 조 편성이 바뀌는 날부터는 이름 열이 다시 나와요.</div>';
   const a=monthRange(ym)[0],b=monthRange(last)[1];
   h+=rangeTable(a,b);
-  let det='칸을 누르면 그날 근무 내용이 여기 보여요.';
+  let det='날짜나 칸을 누르면 그날 근무 내용이 여기 보여요.';
   if(boardSel&&byId(boardSel[0]))det=describe(byId(boardSel[0]),boardSel[1],dayCells(boardSel[1])[boardSel[0]]);
+  else if(boardSel&&boardSel[1]!=null)det='<b>'+fmt(boardSel[1])+'</b>'+(boardSel[1]===todayN?' 오늘':'')+' <button class="link" data-dayview="'+boardSel[1]+'">이날 근무자 자세히 보기 ›</button>';
   h+='<div class="detail" id="cellDetail">'+det+'</div>';
   const old=document.querySelector('#boardBody .tablebox');const sl=old?old.scrollLeft:null;
   const body=$('#boardBody');body.style.display='flex';body.style.flexDirection='column';body.style.gap='14px';
   body.innerHTML=h;
   const box=document.querySelector('#boardBody .tablebox');
   if(boardSel&&sl!=null)box.scrollLeft=sl;
-  else{const td=box.querySelector('th.today');if(td)box.scrollLeft=Math.max(0,td.offsetLeft-150)}
+  else scrollBoardTo(todayN,false);
 }
-$('#boardBody').addEventListener('click',e=>{const td=e.target.closest('td[data-m]');if(!td)return;boardSel=[td.dataset.m,+td.dataset.n];renderBoard()});
+/* 표를 그 날짜 열로 이동 (이름 열 바로 옆에 오도록) */
+function scrollBoardTo(n,smooth){
+  const box=document.querySelector('#boardBody .tablebox');if(!box)return;
+  const th=box.querySelector('thead tr:last-child th[data-n="'+n+'"]');if(!th)return;
+  let nameW=0;box.querySelectorAll('thead tr:last-child th.name,thead tr:last-child th.name2').forEach(x=>{if(x.offsetLeft<=th.offsetLeft)nameW=Math.max(nameW,x.offsetWidth)});
+  const left=Math.max(0,th.offsetLeft-nameW-th.offsetWidth*2);
+  if(smooth&&box.scrollTo)box.scrollTo({left,behavior:'smooth'});else box.scrollLeft=left;
+}
+$('#boardBody').addEventListener('click',e=>{
+  const dv=e.target.closest('[data-dayview]');if(dv){ui.day=+dv.dataset.dayview;ui.teamView='day';render();window.scrollTo(0,0);return}
+  const th=e.target.closest('thead th[data-n]');if(th){const n=+th.dataset.n;boardSel=boardSel&&boardSel[0]==null&&boardSel[1]===n?null:[null,n];renderBoard();return}
+  const td=e.target.closest('td[data-m]');if(!td)return;boardSel=[td.dataset.m,+td.dataset.n];renderBoard()});
 
 /* 등록: 공통 */
 function renderAddSelects(){
@@ -1315,7 +1340,16 @@ function shiftLine(c){
   if(c.part)return ['TSO 근무',SH_TIME['T']+' · 시간휴가 '+c.part.from+'~'+c.part.to];
   return [SH_NAME[c.code]||c.code,SH_TIME[c.code]||(c.code==='비'?'야간 끝난 날':'')];
 }
-function peopleOn(n,s,ex){const cells=dayCells(n);return activeMembers().filter(m=>m.id!==ex&&(hasShift(cells[m.id],s)||(s==='주'&&cells[m.id].code==='지원'))).map(m=>{const c=cells[m.id];const why=c.cover?'대근':c.code==='지원'?'지원':c.tags.includes('변경')?'변경':'';return {name:m.name,why}})}
+/* 근무 자리 순서: 조장 → 조원 → TSO. 대근·변경으로 들어온 사람은 빠진 사람 자리에 */
+function slotRank(m,c,s,n){
+  let slot=m;
+  if(s==='지원'||(c.code==='지원'&&s==='주'))slot=byId(c.for)||m;
+  else if(c.cover===s)slot=byId(c.for)||m;
+  else if(c.tags.includes('변경')&&c.code===s)slot=byId(c.with)||m;
+  const role=slot.role==='TSO'?'TSO':(teamAt(slot,n).role||slot.role);
+  return (role==='조장'?0:role==='TSO'?2:1)*1000+(slot.order||0);
+}
+function peopleOn(n,s,ex){const cells=dayCells(n);return activeMembers().filter(m=>m.id!==ex&&(hasShift(cells[m.id],s)||(s==='주'&&cells[m.id].code==='지원'))).sort((x,y)=>slotRank(x,cells[x.id],s,n)-slotRank(y,cells[y.id],s,n)).map(m=>{const c=cells[m.id];const why=c.cover?'대근':c.code==='지원'?'지원':c.tags.includes('변경')?'변경':'';return {name:m.name,why}})}
 function myShifts(c){const r=[];if(hasShift(c,'주')||c.code==='지원')r.push('주');if(hasShift(c,'야'))r.push('야');return r}
 /* 같이 근무 · 앞 근무 · 뒤 근무 */
 function relay(n,s,id){
@@ -1940,7 +1974,7 @@ async function saveMemo(day,text){
 /* ---------- 저장 ---------- */
 let localId=0;
 async function addEvent(ev){
-  ev.createdAt=Date.now();
+  ev.createdAt=Date.now();ev.byMember=me||null;if(ui.tab==='attend'&&ui.attTab==='add')ev.src='admin';
   if(db){try{const r=await db.collection('events').add(ev);return r.id}catch(e){reqFail(e);return null}}
   else{ev._id='local'+(++localId);events.push(ev);dataChanged();return ev._id}
 }
@@ -1974,7 +2008,8 @@ $('#dutyCard').addEventListener('click',e=>{const b=e.target.closest('[data-goto
 $('#meSel').addEventListener('change',e=>linkMe(e.target.value));
 $('#dPrev').onclick=()=>{ui.day--;render()};$('#dNext').onclick=()=>{ui.day++;render()};
 $('#dLbl').onclick=()=>{ui.day=todayN;render()};
-$('#mPrev').onclick=()=>{ui.ym=shiftMonth(ui.ym,-1);render()};$('#mNext').onclick=()=>{ui.ym=shiftMonth(ui.ym,1);render()};
+$('#mPrev').onclick=()=>{ui.ym=shiftMonth(ui.ym,-1);render()};
+$('#mToday').onclick=()=>{ui.ym=monthOf(todayN);boardSel=null;render()};$('#mNext').onclick=()=>{ui.ym=shiftMonth(ui.ym,1);render()};
 $('#sPrev').onclick=()=>{ui.sumYm=shiftMonth(ui.sumYm,-1);budgetMsg='';budgetEdit=false;render()};$('#sNext').onclick=()=>{ui.sumYm=shiftMonth(ui.sumYm,1);budgetMsg='';budgetEdit=false;render()};
 $('#mySeg').addEventListener('click',e=>{const b=e.target.closest('[data-mv]');if(!b)return;ui.myView=b.dataset.mv;try{localStorage.setItem('shift-myview',ui.myView)}catch(x){}render()});
 $('#myPrev').onclick=()=>{ui.myDay=stepMy(-1);render()};$('#myNext').onclick=()=>{ui.myDay=stepMy(1);render()};

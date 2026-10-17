@@ -41,6 +41,7 @@ s = HEAD + s
 rep('</style>\n\n<header class="top">', css + '</style>\n</head><body>\n'
     '<div id="gate" hidden><div id="gateBody"></div></div>\n'
     '<div id="acct" hidden><div id="acctBody" role="dialog" aria-label="내 정보"></div></div>\n'
+    '<div id="pushAsk" class="pushask" hidden><b>휴대폰 알림을 켤까요?</b><span>근무변경·대근 요청, 승인·거절, 근태 변경을 알림으로 받아요.</span><div class="btns"><button class="btn" data-pa="on">알림 켜기</button><button class="btn ghost" data-pa="later">나중에</button></div></div>\n'
     '<header class="top">')
 
 # 2) 머리줄: "나" 선택 + 가족 표시 + 내 정보 버튼
@@ -63,6 +64,11 @@ rep("  const admin=isAdmin&&!viewerPreview;\n  $('#tabAdmin').hidden=!admin;",
     "  if(isFamily())ui.tab='my';\n  syncMemos();\n  const admin=isAdmin&&!viewerPreview;\n  $('#tabAdmin').hidden=!admin;")
 rep("  else if(!live){b.hidden=false;b.textContent='미리보기 모드예요. 여기서 등록한 내용은 저장되지 않고 팀원에게도 보이지 않아요.'}\n  else b.hidden=true;\n}",
     "  else b.hidden=true;\n  applyRoleUI();renderAcct();\n}")
+
+rep('  <div id="banner" class="banner" hidden></div>', '  <div id="banner" class="banner" hidden></div>\n  <div id="pendBar" class="msg warn" style="align-items:center;justify-content:space-between" hidden></div>')
+
+rep('      <div class="card form" id="linkCard"></div>\n', '')
+rep('    <div id="adm-set" class="panel" style="padding-top:0" hidden>\n', '    <div id="adm-set" class="panel" style="padding-top:0" hidden>\n      <div class="card form" id="linkCard"></div>\n')
 
 # 5) 메모: 가족은 읽기 전용
 m = re.search(r"    h\+='<div class=\"card form\" style=\"gap:8px\"><div class=\"period\"><h3>내 메모</h3>.*?\n", s)

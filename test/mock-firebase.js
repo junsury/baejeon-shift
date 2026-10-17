@@ -12,6 +12,7 @@ export async function signInWithPopup() { G.user = G.nextUser || window.__fbNext
 export async function signInWithRedirect() { return signInWithPopup(); }
 export async function getRedirectResult() { return null; }
 export function onAuthStateChanged(a, cb) { G.authCbs.add(cb); setTimeout(() => cb(G.user), 0); return () => G.authCbs.delete(cb); }
+export async function signInAnonymously() { G.user = { uid: 'anon' + Math.random().toString(36).slice(2, 8), isAnonymous: true }; persist(); G.authCbs.forEach(cb => cb(G.user)); return { user: G.user }; }
 export async function signOut() { G.user = null; persist(); G.authCbs.forEach(cb => cb(null)); }
 // ---------- firestore ----------
 const clone = v => (v === undefined ? undefined : JSON.parse(JSON.stringify(v)));
