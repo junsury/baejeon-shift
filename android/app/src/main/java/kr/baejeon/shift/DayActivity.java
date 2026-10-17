@@ -117,6 +117,13 @@ public class DayActivity extends Activity {
         col.addView(head);
         List<String> mates = d != null ? d.mates(day) : new ArrayList<>();
         if (!mates.isEmpty()) col.addView(label("같이 근무: " + android.text.TextUtils.join(", ", mates), 13.5f, false, 0xFF4F5A67), mlp(4));
+        String memoTxt = d != null ? d.memo(day) : "";
+        if (!memoTxt.isEmpty()) {
+            TextView mt = label("📝 " + memoTxt, 14, false, 0xFF161C24);
+            GradientDrawable mg = new GradientDrawable(); mg.setColor(0x2EF4AD00); mg.setCornerRadius(px(8));
+            mt.setBackground(mg); mt.setPadding(px(10), px(6), px(10), px(6));
+            col.addView(mt, mlp(8));
+        }
 
         // 그날 일정
         col.addView(label("일정", 14, true, 0xFF4F5A67), mlp(16));
@@ -164,7 +171,7 @@ public class DayActivity extends Activity {
             return;
         }
         Store.Cfg f = Store.cfg(this, wid, "month");
-        Map<Integer, List<CalendarReader.Ev>> m = CalendarReader.read(this, day, day, Store.calSet(f));
+        Map<Integer, List<CalendarReader.Ev>> m = CalendarReader.read(this, day, day, Store.calExcluded(this));
         List<CalendarReader.Ev> evs = m.get(day);
         if (evs == null || evs.isEmpty()) { list.addView(label("일정 없음", 13.5f, false, 0xFF8A94A0)); return; }
         for (CalendarReader.Ev e : evs) {
@@ -276,6 +283,7 @@ public class DayActivity extends Activity {
         boolean ok = CalendarReader.insert(this, calId, t, day, allDay.isChecked(), startMin, endMin, memo.getText().toString().trim());
         if (!ok) { Toast.makeText(this, "일정을 저장하지 못했어요", Toast.LENGTH_LONG).show(); return; }
         Store.p(this).edit().putLong("lastCal", calId).apply();
+        CalendarReader.syncCalendar(this, calId);   // 구글로 바로 올라가게
         Toast.makeText(this, ShiftData.mdw(day) + " 일정을 추가했어요", Toast.LENGTH_SHORT).show();
         WidgetUpdater.renderAll(this);
         finish();

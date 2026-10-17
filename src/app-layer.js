@@ -224,6 +224,9 @@ function restartRoleData(){
   }
   const mm=ownMid();
   if(mm)keep(db.doc('memos/'+mm).onSnapshot(s=>{ownMemos=(s.exists&&s.data().notes)||{};syncMemos();dataChanged()}));
+  // 갤럭시 앱이 올린 내 휴대폰 캘린더 일정 → '내 근무 · 월'에 보이기 (본인 것만)
+  if(mm&&!isFamily())keep(db.doc('calcache/'+mm).onSnapshot(s=>{const m={};if(s.exists)for(const x of (s.data().items||[])){(m[x.d]=m[x.d]||[]).push((x.h?x.h+' ':'')+x.t)}
+    window.__calLines=k=>me===mm?m[ds(k)]:null;dataChanged()},()=>{}));
   try{const p=JSON.parse(localStorage.getItem('bj-memo-import')||'null');if(p&&mm&&p.owner===mm&&!isFamily()){localStorage.removeItem('bj-memo-import');F.setDoc(tref('memos',mm),{notes:p.notes},{merge:true}).catch(()=>{})}}catch(e){}
   if(!isFamily())setTimeout(()=>offerPush(false),1500);
   startExtras();

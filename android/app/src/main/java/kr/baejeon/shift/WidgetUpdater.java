@@ -59,7 +59,7 @@ final class WidgetUpdater {
     static void refreshAsync(Context ctx, Runnable done) {
         final Context c = ctx.getApplicationContext();
         new Thread(() -> {
-            try { fetch(c); renderAll(c); scheduleMidnight(c); }
+            try { CalendarReader.syncAllGoogle(c); fetch(c); renderAll(c); scheduleMidnight(c); CalUpload.upload(c, false); }
             finally { if (done != null) done.run(); }
         }).start();
     }
@@ -120,7 +120,7 @@ final class WidgetUpdater {
         Map<Integer, List<CalendarReader.Ev>> evs = null;
         if (f.events && d != null) {
             int n0 = ShiftData.todayNum();
-            evs = CalendarReader.read(c, n0 - 50 + f.monthOffset * 31, n0 + 50 + f.monthOffset * 31, Store.calSet(f));
+            evs = CalendarReader.read(c, n0 - 50 + f.monthOffset * 31, n0 + 50 + f.monthOffset * 31, Store.calExcluded(c));
         }
         RemoteViews rv;
         if (f.theme == 2 && Build.VERSION.SDK_INT >= 31) {

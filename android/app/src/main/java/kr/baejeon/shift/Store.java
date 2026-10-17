@@ -64,6 +64,44 @@ final class Store {
                 .putInt(k + "wm", f.weekMode).putInt(k + "oc", f.open).putString(k + "cl", f.cals == null ? "*" : f.cals).putInt(k + "mo", f.monthOffset).putLong(k + "ma", f.offsetAt).apply();
     }
 
+    /** 위젯에서 뺄 캘린더 (모든 위젯 공통). 새로 생긴 캘린더는 기본으로 보여요. */
+    static java.util.Set<Long> calExcluded(Context c) {
+        SharedPreferences s = p(c);
+        if (!s.contains("calExcl")) migrateExcl(c);
+        java.util.Set<Long> r = new java.util.HashSet<>();
+        for (String x : s.getString("calExcl", "").split(",")) try { if (!x.isEmpty()) r.add(Long.parseLong(x)); } catch (Exception ignored) {}
+        return r;
+    }
+    static void setCalExcluded(Context c, java.util.Set<Long> ex) {
+        StringBuilder sb = new StringBuilder();
+        for (Long x : ex) { if (sb.length() > 0) sb.append(','); sb.append(x); }
+        p(c).edit().putString("calExcl", sb.toString()).apply();
+    }
+    /** 예전 버전(위젯마다 '고른 캘린더')에서 옮기기: 그때 있던 캘린더 중 안 고른 것만 빼요 */
+    private static void migrateExcl(Context c) {
+        java.util.Set<Long> ex = new java.util.HashSet<>();
+        try {
+            java.util.Set<Long> sel = null;
+            for (java.util.Map.Entry<String, ?> e : p(c).getAll().entrySet())
+                if (e.getKey().endsWith(".cl") && e.getValue() instanceof String && !"*".equals(e.getValue())) {
+                    sel = calSet((String) e.getValue()); if (e.getKey().startsWith("w")) break;
+                }
+            if (sel != null && !sel.isEmpty()) {
+                long max = 0; for (Long x : sel) max = Math.max(max, x);
+                for (CalendarReader.Cal cl : CalendarReader.list(c)) if (cl.id <= max && !sel.contains(cl.id)) ex.add(cl.id);
+            }
+        } catch (Exception ignored) {}
+        setCalExcluded(c, ex);
+    }
+
+    /** (예전 형식) 고른 캘린더 (null = 전부) */
+    static java.util.Set<Long> calSet(String cals) {
+        if (cals == null || cals.equals("*")) return null;
+        java.util.Set<Long> r = new java.util.HashSet<>();
+        for (String x : cals.split(",")) try { if (!x.isEmpty()) r.add(Long.parseLong(x)); } catch (Exception ignored) {}
+        return r;
+    }
+
     /** 고른 캘린더 (null = 전부) */
     static java.util.Set<Long> calSet(Cfg f) {
         if (f.cals == null || f.cals.equals("*")) return null;

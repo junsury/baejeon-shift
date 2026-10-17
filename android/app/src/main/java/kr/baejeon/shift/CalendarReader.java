@@ -22,7 +22,7 @@ final class CalendarReader {
 
     static final class Ev {
         final String title; final boolean allDay; final long begin; final String time;
-        long eventId = -1; int color = 0;
+        long eventId = -1; int color = 0; boolean memo = false;
         Ev(String title, boolean allDay, long begin, String time) { this.title = title; this.allDay = allDay; this.begin = begin; this.time = time; }
         String text() { return time.isEmpty() ? title : title + " " + time; }
     }
@@ -61,10 +61,10 @@ final class CalendarReader {
         return out;
     }
 
-    static Map<Integer, List<Ev>> read(Context c, int from, int to) { return read(c, from, to, null); }
+    static Map<Integer, List<Ev>> read(Context c, int from, int to) { return read(c, from, to, Store.calExcluded(c)); }
 
-    /** only = 이 캘린더들만 (null = 전부) */
-    static Map<Integer, List<Ev>> read(Context c, int from, int to, java.util.Set<Long> only) {
+    /** excl = 뺄 캘린더 */
+    static Map<Integer, List<Ev>> read(Context c, int from, int to, java.util.Set<Long> excl) {
         Map<Integer, List<Ev>> out = new HashMap<>();
         if (!allowed(c)) return out;
         TimeZone kst = ShiftData.KST;
@@ -81,7 +81,7 @@ final class CalendarReader {
             if (cur == null) return out;
             java.util.Set<String> seen = new java.util.HashSet<>();
             while (cur.moveToNext()) {
-                if (only != null && !only.contains(cur.getLong(5))) continue;
+                if (excl != null && excl.contains(cur.getLong(5))) continue;
                 String desc = cur.getString(8);
                 if (desc != null && desc.contains(ShiftSync.TAG)) continue;   // 앱이 넣은 근무 일정은 위젯에선 칩으로 보여서 빼요
                 String title = cur.getString(0);
@@ -159,5 +159,34 @@ final class CalendarReader {
             }
             return c.getContentResolver().insert(CalendarContract.Events.CONTENT_URI, v) != null;
         } catch (Exception e) { return false; }
+    }
+
+    /** 그 캘린더의 계정을 지금 동기화해 달라고 (넣은 일정이 구글로 바로 올라가게) */
+    static void syncCalendar(Context c, long calId) {
+        String[] cols = {CalendarContract.Calendars.ACCOUNT_NAME, CalendarContract.Calendars.ACCOUNT_TYPE};
+        try (Cursor cur = c.getContentResolver().query(android.content.ContentUris.withAppendedId(CalendarContract.Calendars.CONTENT_URI, calId), cols, null, null, null)) {
+            if (cur != null && cur.moveToFirst()) requestSync(cur.getString(0), cur.getString(1));
+        } catch (Exception ignored) {}
+    }
+
+    /** 휴대폰의 구글 계정 캘린더를 모두 동기화 요청 (가족이 넣은 일정을 빨리 받기) */
+    static void syncAllGoogle(Context c) {
+        if (!allowed(c)) return;
+        java.util.Set<String> done = new java.util.HashSet<>();
+        String[] cols = {CalendarContract.Calendars.ACCOUNT_NAME, CalendarContract.Calendars.ACCOUNT_TYPE};
+        try (Cursor cur = c.getContentResolver().query(CalendarContract.Calendars.CONTENT_URI, cols,
+                CalendarContract.Calendars.ACCOUNT_TYPE + "='com.google'", null, null)) {
+            if (cur != null) while (cur.moveToNext()) if (done.add(cur.getString(0))) requestSync(cur.getString(0), cur.getString(1));
+        } catch (Exception ignored) {}
+    }
+
+    static void requestSync(String name, String type) {
+        if (name == null || type == null || CalendarContract.ACCOUNT_TYPE_LOCAL.equals(type)) return;
+        try {
+            android.os.Bundle b = new android.os.Bundle();
+            b.putBoolean(android.content.ContentResolver.SYNC_EXTRAS_MANUAL, true);
+            b.putBoolean(android.content.ContentResolver.SYNC_EXTRAS_EXPEDITED, true);
+            android.content.ContentResolver.requestSync(new android.accounts.Account(name, type), CalendarContract.AUTHORITY, b);
+        } catch (Exception ignored) {}
     }
 }

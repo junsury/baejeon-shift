@@ -36,6 +36,7 @@ public class RenderTest {
             d.put("c", c);
             if (n == t + 1) { d.put("c", "야"); d.put("ch", 1); }
             if (n == t + 9) d.put("c", "연");
+            if (n == t + 2 || n == t) d.put("n", "아이 학교 행사");
             if (n == t + 12 && c.equals("휴")) { d.put("cv", "야"); d.put("ch", 1); }
             if (n == t + 5 && c.equals("주")) { d.put("cv", "야"); d.put("ch", 1); }
             if (n >= t - 1 && n <= t + 7 && (c.equals("주") || c.equals("야"))) d.put("m", new JSONArray().put("홍길동"));

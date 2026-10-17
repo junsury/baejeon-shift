@@ -196,6 +196,8 @@ exports.widgetData = functions.region(REGION).https.onRequest(async (req, res) =
     const hol = await db.collection('teams').doc(t).collection('config').doc('holidays').get();
     const holSet = new Set(hol.exists && Array.isArray(hol.data().dates) ? hol.data().dates : []);
     const others = members.filter(m => m.active !== false && m.id !== memberId);
+    const memoDoc = await db.collection('teams').doc(t).collection('memos').doc(memberId).get();
+    const notes = (memoDoc.exists && memoDoc.data().notes) || {};
     const days = {};
     for (let n = today - 45; n <= today + 80; n++) {
       const cells = E.dayCells(n); const c = cells[memberId]; if (!c) continue;
@@ -204,6 +206,7 @@ exports.widgetData = functions.region(REGION).https.onRequest(async (req, res) =
       if ((c.tags && (c.tags.includes('변경') || c.tags.includes('대근'))) || c.code === '지원') d.ch = 1;
       if (holSet.has(E.ds(n))) d.h = 1;
       if (c.part) d.p = c.part.from + '~' + c.part.to;
+      if (notes[E.ds(n)]) d.n = String(notes[E.ds(n)]).slice(0, 200);
       if (n >= today - 1 && n <= today + 7) {
         const s = c.cover || (c.code === '지원' ? '주' : c.code);
         if (s === '주' || s === '야') d.m = others.filter(m => { const x = cells[m.id]; return E.hasShift(x, s) || (s === '주' && x.code === '지원'); }).map(m => m.name);
@@ -212,5 +215,26 @@ exports.widgetData = functions.region(REGION).https.onRequest(async (req, res) =
     }
     res.set('Cache-Control', 'no-store');
     res.json({ v: 1, name: me ? me.name : '', gen: Date.now(), days });
+  } catch (e) { console.error(e); res.status(500).json({ error: 'server' }); }
+});
+
+/* ---------------- 갤럭시 앱 → 내 휴대폰 캘린더 일정 (근무표 앱 '내 근무 · 월'에 보이기) ---------------- */
+// 본인만 읽을 수 있는 곳(teams/{t}/calcache/{memberId})에 저장. 관리자도 못 봐요.
+exports.widgetEvents = functions.region(REGION).https.onRequest(async (req, res) => {
+  try {
+    if (req.method !== 'POST') { res.status(405).end(); return; }
+    const b = typeof req.body === 'object' && req.body ? req.body : JSON.parse(req.body || '{}');
+    const tok = String(b.t || ''); const t = String(b.team || 'gyeonggi');
+    if (!/^[A-Za-z0-9]{12,40}$/.test(tok)) { res.status(404).json({ error: 'bad token' }); return; }
+    const link = await db.collection('teams').doc(t).collection('widgetLinks').doc(tok).get();
+    if (!link.exists) { res.status(404).json({ error: 'unlinked' }); return; }
+    const { memberId } = link.data();
+    const ref = db.collection('teams').doc(t).collection('calcache').doc(memberId);
+    if (!Array.isArray(b.items) || b.off) { await ref.delete(); res.json({ ok: true, cleared: true }); return; }
+    const items = b.items.slice(0, 800).map(x => ({
+      d: String(x.d || '').slice(0, 10), t: String(x.t || '').slice(0, 80), h: String(x.h || '').slice(0, 5), c: Number(x.c) || 0,
+    })).filter(x => /^\d{4}-\d\d-\d\d$/.test(x.d));
+    await ref.set({ at: Date.now(), from: String(b.from || ''), to: String(b.to || ''), items });
+    res.json({ ok: true, n: items.length });
   } catch (e) { console.error(e); res.status(500).json({ error: 'server' }); }
 });

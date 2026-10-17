@@ -90,6 +90,7 @@ final class Renderer {
         r.background();
         if (d == null) { r.notLinked(unlinked); return bm; }
         if (evs == null || !f.events) evs = Collections.emptyMap();
+        evs = withMemos(d, evs);
         switch (kind) {
             case "month": r.month(d, evs, f.monthOffset); break;
             case "today": r.today(d, evs); break;
@@ -98,6 +99,26 @@ final class Renderer {
         }
         return bm;
     }
+
+    /** 근무표 앱에 적은 내 메모를 그날 맨 앞에 끼워 넣어요 */
+    static Map<Integer, List<CalendarReader.Ev>> withMemos(ShiftData d, Map<Integer, List<CalendarReader.Ev>> evs) {
+        Map<Integer, List<CalendarReader.Ev>> m = new java.util.HashMap<>();
+        for (Map.Entry<Integer, List<CalendarReader.Ev>> e : evs.entrySet()) m.put(e.getKey(), new java.util.ArrayList<>(e.getValue()));
+        int t = ShiftData.todayNum();
+        for (int n = t - 50; n <= t + 100; n++) {
+            String memo = d.memo(n);
+            if (memo.isEmpty()) continue;
+            CalendarReader.Ev ev = new CalendarReader.Ev(memo.replace('\n', ' '), true, 0, "");
+            ev.memo = true;
+            List<CalendarReader.Ev> l = m.get(n);
+            if (l == null) { l = new java.util.ArrayList<>(); m.put(n, l); }
+            l.add(0, ev);
+        }
+        return m;
+    }
+
+    int memoBg() { return s.dark ? Color.argb(80, 244, 173, 0) : Color.argb(Math.round(Math.max(s.a, 0.85f) * 255), 255, 240, 196); }
+    int memoFg() { return s.dark ? 0xFFFFE2A0 : 0xFF6B4A00; }
 
     // ---------- 공통 그리기 도구 ----------
     void background() {
@@ -181,6 +202,16 @@ final class Renderer {
     }
 
     void dot(float cx, float cy, float rad) { fill.setColor(s.dot); cv.drawCircle(cx, cy, rad, fill); }
+
+    /** 일정 점(보라)·메모 점(노랑) */
+    void dots(List<CalendarReader.Ev> el, float cx, float cy, float rad) {
+        if (el == null || el.isEmpty()) return;
+        boolean memo = false, ev = false;
+        for (CalendarReader.Ev e : el) { if (e.memo) memo = true; else ev = true; }
+        if (memo && ev) { fill.setColor(0xFFF4AD00); cv.drawCircle(cx - rad * 1.4f, cy, rad, fill); fill.setColor(s.dot); cv.drawCircle(cx + rad * 1.4f, cy, rad, fill); }
+        else if (memo) { fill.setColor(0xFFF4AD00); cv.drawCircle(cx, cy, rad, fill); }
+        else dot(cx, cy, rad);
+    }
 
     int dayColor(ShiftData d, int n, int normal) {
         int w = ShiftData.dow(n);
@@ -302,7 +333,7 @@ final class Renderer {
                     for (CalendarReader.Ev e : list) {
                         boolean last = ey + eh * 2 + 2 > b - 2 && shown < list.size() - 1;
                         if (ey + eh > b - 2) break;
-                        rr(l + 2, ey, r - 2, ey + eh, 3, s.evBg);
+                        rr(l + 2, ey, r - 2, ey + eh, 3, e.memo ? memoBg() : s.evBg);
                         float tw = cw - 8;
                         if (last) {   // 마지막 줄: 제목 + 남은 개수
                             String more = "+" + (list.size() - shown - 1);
@@ -310,7 +341,7 @@ final class Renderer {
                             text(more, r - 4 - mw, ey + 1 + asc(evSz, BOLD), evSz, BOLD, s.evFg, false);
                             tw -= mw + 2;
                         }
-                        text(fit(e.title, evSz, MED, tw), l + 4, ey + 1 + asc(evSz, MED), evSz, MED, s.evFg, false);
+                        text(fit(e.title, evSz, MED, tw), l + 4, ey + 1 + asc(evSz, MED), evSz, MED, e.memo ? memoFg() : s.evFg, false);
                         ey += eh + 2; shown++;
                         if (last) break;
                     }
@@ -377,7 +408,7 @@ final class Renderer {
         rr(panelL, pad, panelR, topB, 14 * k, s.soft);
         float px = panelL + 10, pmax = panelR - 10 - px, py = pad + 8;
         float h1 = fs, h2 = fs * 1.2f, h3 = fs * 1.1f;
-        text("오늘 일정", px, py + asc(h1, BOLD), h1, BOLD, s.muted, true);
+        text("오늘 일정 · 메모", px, py + asc(h1, BOLD), h1, BOLD, s.muted, true);
         py += lineH(h1) + 4;
         float lastY = topB - 8 - lineH(h3);
         List<CalendarReader.Ev> list = evs.get(n0);
@@ -387,8 +418,9 @@ final class Renderer {
             for (int i = 0; i < list.size(); i++) {
                 if (py + lineH(h2) > lastY) break;
                 boolean more = py + lineH(h2) * 2 + 4 > lastY && i < list.size() - 1;
-                String str = more ? list.get(i).text() + "  +" + (list.size() - i - 1) : list.get(i).text();
-                text(fit(str, h2, MED, pmax), px, py + asc(h2, MED), h2, MED, s.evFg, true);
+                CalendarReader.Ev ev = list.get(i);
+                String str = (ev.memo ? "📝 " : "") + (more ? ev.text() + "  +" + (list.size() - i - 1) : ev.text());
+                text(fit(str, h2, MED, pmax), px, py + asc(h2, MED), h2, MED, ev.memo ? memoFg() : s.evFg, true);
                 py += lineH(h2) + 4;
                 if (more) break;
             }
@@ -416,7 +448,7 @@ final class Renderer {
             if (cd != null && !"없".equals(cd)) chip(cd, cx - chW / 2f, yy, chW, chH, 7 * s.c * k, 13 * s.c, d.changed(n));
             yy += chH + 3;
             List<CalendarReader.Ev> el = evs.get(n);
-            if (el != null && !el.isEmpty()) dot(cx, yy + 2.5f, 2.5f);
+            dots(el, cx, yy + 2.5f, 2.5f);
         }
     }
 
@@ -457,7 +489,7 @@ final class Renderer {
             if (cd != null && !"없".equals(cd)) chip(cd, cx - chW / 2f, y, chW, chH, 7 * s.c * kr, 13 * s.c, d.changed(n));
             y += chH + 3;
             List<CalendarReader.Ev> el = evs.get(n);
-            if (el != null && !el.isEmpty()) dot(cx, y + 2, 2);
+            dots(el, cx, y + 2, 2);
         }
     }
 

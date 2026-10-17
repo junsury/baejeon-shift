@@ -70,12 +70,19 @@ final class ShiftSync {
 
     /** 근무 → 공유 캘린더. 바뀐 것만 고쳐요. */
     static synchronized void sync(Context c) {
-        if (!Store.p(c).getBoolean("famShifts", true)) return;
-        if (!CalendarReader.canWrite(c)) return;
+        if (syncInner(c)) { long cal = localId(c); if (cal >= 0) CalendarReader.syncCalendar(c, cal); }
+    }
+
+    /** 바뀐 게 있으면 true */
+    private static boolean syncInner(Context c) {
+        if (Store.p(c).getString("famCalId", "").isEmpty()) return false;
+        if (!Store.p(c).getBoolean("famShifts", true)) return false;
+        if (!CalendarReader.canWrite(c)) return false;
         ShiftData d = ShiftData.parse(Store.data(c));
-        if (d == null) return;
+        if (d == null) return false;
         long cal = localId(c);
-        if (cal < 0) { requestSync(c); return; }
+        if (cal < 0) { requestSync(c); return false; }
+        boolean changed = false;
         int from = ShiftData.todayNum() - 1, to = from + 1 + AHEAD;
 
         // 원하는 상태
@@ -100,12 +107,13 @@ final class ShiftSync {
                 if (have.containsKey(n)) { cr.delete(ContentUris.withAppendedId(CalendarContract.Events.CONTENT_URI, cur.getLong(0)), null, null); continue; }
                 have.put(n, cur.getString(2)); ids.put(n, cur.getLong(0));
             }
-        } catch (Exception e) { return; }
+        } catch (Exception e) { return false; }
 
         for (Map.Entry<Integer, Long> e : ids.entrySet()) {
             String w = want.get(e.getKey());
-            if (w == null) cr.delete(ContentUris.withAppendedId(CalendarContract.Events.CONTENT_URI, e.getValue()), null, null);
+            if (w == null) { cr.delete(ContentUris.withAppendedId(CalendarContract.Events.CONTENT_URI, e.getValue()), null, null); changed = true; }
             else if (!w.equals(have.get(e.getKey()))) {
+                changed = true;
                 ContentValues v = new ContentValues();
                 v.put(CalendarContract.Events.TITLE, w);
                 cr.update(ContentUris.withAppendedId(CalendarContract.Events.CONTENT_URI, e.getValue()), v, null, null);
@@ -123,8 +131,9 @@ final class ShiftSync {
             v.put(CalendarContract.Events.EVENT_TIMEZONE, "UTC");
             v.put(CalendarContract.Events.AVAILABILITY, CalendarContract.Events.AVAILABILITY_FREE);
             v.put(CalendarContract.Events.HAS_ALARM, 0);
-            try { cr.insert(CalendarContract.Events.CONTENT_URI, v); } catch (Exception ignored) {}
+            try { cr.insert(CalendarContract.Events.CONTENT_URI, v); changed = true; } catch (Exception ignored) {}
         }
+        return changed;
     }
 
     /** 앱이 넣은 근무 일정을 모두 지워요 (근무 넣기를 끌 때) */

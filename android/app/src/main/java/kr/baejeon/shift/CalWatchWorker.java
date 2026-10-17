@@ -36,6 +36,7 @@ public class CalWatchWorker extends Worker {
     public Result doWork() {
         Context c = getApplicationContext();
         try { WidgetUpdater.renderAll(c); } catch (Exception ignored) {}
+        try { CalUpload.upload(c, false); } catch (Exception ignored) {}
         // 다음 변경도 계속 지켜보기 (지금 작업이 끝난 뒤 이어서)
         try {
             Constraints cons = new Constraints.Builder()

@@ -239,7 +239,7 @@ public class ConfigActivity extends Activity {
         boolean dk = f.theme == 1 || (f.theme == 2 && WidgetUpdater.systemDark(this));
         ShiftData d = ShiftData.parse(Store.data(this));
         Map<Integer, List<CalendarReader.Ev>> evs = null;
-        if (f.events && d != null) { int n0 = ShiftData.todayNum(); evs = CalendarReader.read(this, n0 - 45, n0 + 45, Store.calSet(f)); }
+        if (f.events && d != null) { int n0 = ShiftData.todayNum(); evs = CalendarReader.read(this, n0 - 45, n0 + 45, Store.calExcluded(this)); }
         Store.Cfg pf = Store.cfg(this, id, kind);
         f.monthOffset = pf.monthOffset; f.offsetAt = pf.offsetAt;
         Bitmap bm = Renderer.make(kind, sz[0], sz[1], dp, new Renderer.St(f, dk), d, evs, f, Store.unlinked(this));
@@ -264,34 +264,38 @@ public class ConfigActivity extends Activity {
         draw();
     }
 
-    /** 가져올 캘린더 고르기 (체크한 것만 위젯에 보여요) */
+    /** 가져올 캘린더 고르기 (모든 위젯 공통, 체크 해제한 것만 빠져요) */
     void fillCals() {
         if (calBox == null) return;
         calBox.removeAllViews();
         if (!f.events || !CalendarReader.allowed(this)) return;
         List<CalendarReader.Cal> cals = CalendarReader.list(this);
         if (cals.isEmpty()) { calBox.addView(label("휴대폰에 캘린더가 없어요.", 13, false, 0xFF4F5A67)); return; }
-        calBox.addView(label("가져올 캘린더", 14, true, 0xFF161C24));
-        final java.util.Set<Long> sel = Store.calSet(f) == null ? new java.util.HashSet<>() : Store.calSet(f);
-        final boolean all = Store.calSet(f) == null;
-        if (all) for (CalendarReader.Cal cl : cals) sel.add(cl.id);
+        calBox.addView(label("가져올 캘린더 (모든 위젯 공통 · 새 캘린더는 자동으로 보여요)", 14, true, 0xFF161C24));
+        final java.util.Set<Long> ex = Store.calExcluded(this);
         for (CalendarReader.Cal cl : cals) {
             android.widget.CheckBox cb = new android.widget.CheckBox(this);
             cb.setText(cl.name + "\n" + cl.account);
             cb.setTextSize(13.5f); cb.setTextColor(0xFF161C24);
-            cb.setChecked(sel.contains(cl.id));
-            if (Build.VERSION.SDK_INT >= 21) cb.setButtonTintList(android.content.res.ColorStateList.valueOf(cl.color | 0xFF000000));
+            cb.setChecked(!ex.contains(cl.id));
+            cb.setButtonTintList(android.content.res.ColorStateList.valueOf(cl.color | 0xFF000000));
             cb.setOnCheckedChangeListener((b, on) -> {
-                if (on) sel.add(cl.id); else sel.remove(cl.id);
-                boolean every = true;
-                for (CalendarReader.Cal x : cals) if (!sel.contains(x.id)) { every = false; break; }
-                StringBuilder sb = new StringBuilder();
-                for (Long x : sel) { if (sb.length() > 0) sb.append(','); sb.append(x); }
-                f.cals = every ? "*" : (sel.isEmpty() ? "0" : sb.toString());
+                if (on) ex.remove(cl.id); else ex.add(cl.id);
+                Store.setCalExcluded(this, ex);
                 draw();
             });
             calBox.addView(cb, mlp(2));
         }
+        Switch app = new Switch(this);
+        app.setText("근무표 앱 '내 근무 · 월'에도 이 일정 보이기");
+        app.setTextColor(0xFF161C24);
+        app.setChecked(Store.p(this).getBoolean("appCal", true));
+        app.setOnCheckedChangeListener((b, on) -> {
+            Store.p(this).edit().putBoolean("appCal", on).putString("calHash", "").apply();
+            new Thread(() -> CalUpload.upload(this, true)).start();
+        });
+        calBox.addView(app, mlp(10));
+        calBox.addView(label("켜면 위 캘린더 일정 제목·시간이 내 계정에만 저장돼서 근무표 앱 달력에 보여요. 관리자도 볼 수 없어요.", 12.5f, false, 0xFF4F5A67), mlp(2));
     }
 
     void save() {

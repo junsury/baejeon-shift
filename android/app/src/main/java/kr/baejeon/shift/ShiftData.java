@@ -69,6 +69,7 @@ final class ShiftData {
 
     boolean changed(int n) { JSONObject d = raw(n); return d != null && d.optInt("ch", 0) == 1; }
     boolean holiday(int n) { JSONObject d = raw(n); return d != null && d.optInt("h", 0) == 1; }
+    String memo(int n) { JSONObject d = raw(n); return d == null ? "" : d.optString("n", ""); }
     String part(int n) { JSONObject d = raw(n); return d == null ? "" : d.optString("p", ""); }
 
     List<String> mates(int n) {

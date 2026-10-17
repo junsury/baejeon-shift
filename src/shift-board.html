@@ -130,6 +130,8 @@ nav.tabs button[aria-selected="true"]{color:var(--fg);border-bottom-color:var(--
 .mtop .c-24{font-size:9px!important}
 .ml{font-size:10px;line-height:1.25;font-weight:600;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow-wrap:anywhere}
 .ml.cv{color:var(--cover)}.ml.tso{color:var(--tso)}.ml.sw{color:var(--accent)}.ml.lv{color:var(--leave)}.ml.mm{color:var(--fg);font-weight:500;background:var(--sunk);border-radius:4px;padding:1px 3px}
+.ml.ce{color:#4a2f93;font-weight:500;background:#efe9fb;border-radius:4px;padding:1px 3px;-webkit-line-clamp:1}
+@media (prefers-color-scheme:dark){.ml.ce{color:#efe6ff;background:rgba(160,130,240,.28)}}
 @media (max-width:380px){.tl{grid-template-columns:1fr;}.tl .arr{transform:rotate(90deg);justify-self:center}}
 .hmon{font-size:12px;font-weight:700;color:var(--muted);padding:10px 2px 4px;border-bottom:1px solid var(--line)}
 .hmon:first-child{padding-top:2px}
@@ -1485,6 +1487,7 @@ function renderMy(){
       if(c.code==='연')lines.push(['lv',(c.leaveType&&c.leaveType!=='연차'?LT_NAME[c.leaveType]+' ':'')+(c.by?'→ '+nm(c.by):'')]);
       if(c.part)lines.push(['lv','시간 '+c.part.from+'~'+c.part.to]);
       if(memos[ds(k)])lines.push(['mm',memos[ds(k)]]);
+      if(typeof window.__calLines==='function')for(const t of (window.__calLines(k)||[]))lines.push(['ce',t]);
       h+='<div class="mday'+(inM?'':' out')+(k===todayN?' today':'')+'" data-day="'+k+'"><div class="mtop"><span class="mn'+(hol?' red':sat?' blue':'')+'">'+new Date(k*864e5).getUTCDate()+'</span>'+chip(c)+'</div>'+lines.map(([cl,t])=>'<span class="ml '+cl+'">'+esc(t)+'</span>').join('')+'</div>'}
     h+='</div>';
     body.innerHTML=pendHtml+h+'<div class="card" style="display:flex;gap:18px;flex-wrap:wrap;font-size:14px"><span>야간 <b>'+nt+'회</b></span><span>대근 <b>'+cov+'회</b></span><span>휴가 <b>'+lv+'회</b></span></div>';
