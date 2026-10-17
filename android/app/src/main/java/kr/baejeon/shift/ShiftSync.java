@@ -55,17 +55,14 @@ final class ShiftSync {
         } catch (Exception ignored) {}
     }
 
+    /** 가족에게는 주간·야간만 간단하게 (휴가·비번·휴무는 안 넣어요) */
     static String titleOf(String code, boolean changed) {
-        String t;
         switch (code) {
-            case "주": t = "주간 근무"; break;
-            case "야": t = "야간 근무"; break;
-            case "24": t = "24시간 근무"; break;
-            case "지원": t = "근무지원"; break;
-            case "연": t = "휴가"; break;
+            case "주": case "지원": return "주간";
+            case "야": return "야간";
+            case "24": return "주간·야간";
             default: return null;
         }
-        return changed ? t + " (변경)" : t;
     }
 
     /** 근무 → 공유 캘린더. 바뀐 것만 고쳐요. */

@@ -98,7 +98,7 @@ public class FamilyActivity extends Activity {
             String acc = Store.p(this).getString("famAccount", "");
             c.addView(label((acc.isEmpty() ? "" : acc + "\n") + (ShiftSync.localId(this) >= 0 ? "✓ 이 휴대폰에 동기화됐어요" : "휴대폰에 동기화되는 중이에요 (몇 분 걸릴 수 있어요)"), 13.5f, false, 0xFF4F5A67), mlp(4));
             Switch sw = new Switch(this);
-            sw.setText("내 근무 자동으로 넣기 (주간·야간·휴가, 종일 일정)");
+            sw.setText("내 근무 자동으로 넣기 (주간·야간만, 종일 일정)");
             sw.setTextColor(0xFF161C24);
             sw.setChecked(Store.p(this).getBoolean("famShifts", true));
             sw.setOnCheckedChangeListener((bt, on) -> {
