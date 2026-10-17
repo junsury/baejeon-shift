@@ -279,15 +279,24 @@ final class Renderer {
                 if (list != null && !list.isEmpty()) {
                     float ey = ct + chH + 3, eh = lineH(evSz) + 2;
                     int shown = 0;
+                    cv.save();
+                    cv.clipRect(l + 2, t, r - 2, b);
                     for (CalendarReader.Ev e : list) {
                         boolean last = ey + eh * 2 + 2 > b - 2 && shown < list.size() - 1;
                         if (ey + eh > b - 2) break;
-                        String str = last ? "+" + (list.size() - shown) : e.title;
                         rr(l + 2, ey, r - 2, ey + eh, 3, s.evBg);
-                        text(fit(str, evSz, MED, cw - 8), l + 4, ey + 1 + asc(evSz, MED), evSz, MED, s.evFg, false);
+                        float tw = cw - 8;
+                        if (last) {   // 마지막 줄: 제목 + 남은 개수
+                            String more = "+" + (list.size() - shown - 1);
+                            float mw = width(more, evSz, BOLD);
+                            text(more, r - 4 - mw, ey + 1 + asc(evSz, BOLD), evSz, BOLD, s.evFg, false);
+                            tw -= mw + 2;
+                        }
+                        text(fit(e.title, evSz, MED, tw), l + 4, ey + 1 + asc(evSz, MED), evSz, MED, s.evFg, false);
                         ey += eh + 2; shown++;
                         if (last) break;
                     }
+                    cv.restore();
                 }
                 cv.restoreToCount(save);
             }
