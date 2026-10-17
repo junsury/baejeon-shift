@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="ko"><head><script>window.APP_BUILD="11602d0a3f"</script>
+<html lang="ko"><head><script>window.APP_BUILD="288652f154"</script>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>배전센터 근무표</title>
@@ -428,6 +428,27 @@ table.grid td.shiftday{box-shadow:inset 3px 0 0 var(--accent)}
 @media (max-width:420px){.teams{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media (max-width:420px){.row{grid-template-columns:1fr}.duty{grid-template-columns:60px 1fr}}
 @media (prefers-reduced-motion:reduce){*{transition:none!important}}
+
+/* 내 근무 · 일: 스크롤 없이 한 화면에 */
+.myday{display:flex;flex-direction:column;gap:8px}
+.myday .card{padding:10px 12px}
+.myday .mycard{gap:8px}
+.myday .bigshift .c{min-width:52px;height:52px;font-size:24px}
+.myday .bigshift .t1{font-size:19px}
+.dayrow{display:grid;grid-template-columns:minmax(0,2fr) minmax(0,1fr);gap:8px;align-items:stretch}
+.dayrow.solo{grid-template-columns:1fr}
+.dayrow .card{gap:6px}
+.dayrow h3{font-size:15px}
+.btn.sm{padding:6px 12px;font-size:13px;min-height:0}
+.dcal{display:flex!important;flex-direction:column;min-width:0}
+.dcal .period{display:block}
+.dcal .list{display:flex;flex-direction:column;gap:2px}
+.dcal .item{display:flex;align-items:flex-start}
+.dcal .item .t{min-width:0;flex:1}
+.dcal .dot-ev{margin-top:5px}
+.dcal .item{padding:4px 0;gap:6px;border:0;font-size:13px}
+.dcal .item b{font-size:13px;line-height:1.3}
+.myday .wk .r{padding-top:6px;padding-bottom:6px}
 /* ---- 앱 전용: 시작 화면 · 내 정보 ---- */
 body.gated{overflow:hidden}
 #gate{position:fixed;inset:0;z-index:100;background:var(--bg);display:flex;align-items:flex-start;justify-content:center;overflow:auto;padding:max(48px,env(safe-area-inset-top)) 16px 32px}
@@ -1522,12 +1543,13 @@ function renderMy(){
     h+=dayNotes(c).map(x=>'<div class="msg ok" style="font-size:14px">'+esc(x)+'</div>').join('');
     if(holidays.has(ds(n))&&(hasShift(c,'주')||hasShift(c,'야')))h+='<div class="msg ok">'+holWorkText(ds(n),c)+'</div>';
     h+='</div>';
-    if(typeof window.__dayCal==='function')h+=window.__dayCal(n);
     const mm=memos[ds(n)]||'';
+    const calCol=typeof window.__dayCal==='function'?window.__dayCal(n):'';
+    // 메모(2/3) + 일정(1/3) 한 줄로
     if(isFamily()){if(mm)h+='<div class="card form" style="gap:6px"><h3>메모</h3><p style="margin:0;white-space:pre-wrap">'+esc(mm)+'</p></div>'}
-    else if(me&&me===ownMid())h+='<div class="card form" style="gap:8px"><div class="period"><h3>내 메모</h3><span class="note">팀원은 볼 수 없고, 가족과 함께 봐요</span></div><textarea id="pmemo" rows="3" placeholder="예: 아이 학교 행사, 병원 예약" style="font:inherit;font-size:15px;color:var(--fg);background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:10px;resize:vertical;width:100%">'+esc(mm)+'</textarea><div class="btns"><button class="btn ghost" id="pmSave" data-day="">메모 저장</button>'+(mm?'<button class="btn ghost" id="pmDel">메모 지우기</button>':'')+'</div></div>';
-    h+='<div class="card"><h3 style="margin-bottom:6px">다음 3일</h3><div class="wk">'+WK_HEAD+[1,2,3].map(i=>weekRow(n+i)).join('')+'</div></div>';
-    body.innerHTML=pendHtml+h;
+    else if(me&&me===ownMid())h+='<div class="dayrow'+(calCol?'':' solo')+'"><div class="card form dmemo"><div class="period"><h3>내 메모</h3><span class="note">가족과 함께 봐요</span></div><textarea id="pmemo" rows="2" placeholder="예: 아이 학교 행사" style="font:inherit;font-size:15px;color:var(--fg);background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:8px 10px;resize:vertical;width:100%">'+esc(mm)+'</textarea><div class="btns"><button class="btn ghost sm" id="pmSave" data-day="">저장</button>'+(mm?'<button class="btn ghost sm" id="pmDel">지우기</button>':'')+'</div></div>'+(calCol?'<div class="card form dcal">'+calCol+'</div>':'')+'</div>';
+    h+='<div class="card"><h3 style="margin-bottom:4px">다음 3일</h3><div class="wk">'+WK_HEAD+[1,2,3].map(i=>weekRow(n+i)).join('')+'</div></div>';
+    body.innerHTML=pendHtml+'<div class="myday">'+h+'</div>';
   }else if(ui.myView==='week'){
     const w=weekStart(n);
     $('#myLbl').innerHTML=fmt(w)+' – '+fmt(w+6)+'<span>'+(w<=todayN&&todayN<w+7?'이번 주':(w>todayN?(Math.round((w-weekStart(todayN))/7))+'주 뒤':(Math.round((weekStart(todayN)-w)/7))+'주 전'))+'</span>';
@@ -2418,12 +2440,13 @@ function restartRoleData(){
   window.__dayCal=k=>{
     if(!mm||me!==mm||isFamily())return '';
     const list=(window.__calItems||{})[ds(k)]||[];
-    let h='<div class="card form" style="gap:8px"><div class="period"><h3>일정</h3><span class="note">휴대폰 캘린더 · 가족 공유 캘린더</span></div>';
-    h+=list.length?'<div class="list">'+list.map(x=>'<div class="item"><span class="dot-ev"'+(x.c?' style="background:'+x.c+'"':'')+'></span><div class="t"><b style="font-weight:500">'+(x.w?'<span class="note" style="font-weight:600">'+esc(x.w)+' · </span>':'')+esc(x.t)+'</b></div></div>').join('')+'</div>':'<p class="note" style="margin:0">이 날 일정이 없어요.</p>';
-    if(isTWA)h+='<div class="btns"><a class="btn" href="intent://day?d='+ds(k)+'#Intent;scheme=baejeonshift;package=kr.baejeon.shift;end">＋ 일정 추가</a></div><p class="note" style="margin:0">"근무표" 가족 공유 캘린더를 고르면 가족에게 바로 보여요.</p>';
-    else h+='<p class="note" style="margin:0">일정 추가는 갤럭시 근무표 앱에서 할 수 있어요.</p>';
-    return h+'</div>';
+    let h='<div class="period"><h3>일정</h3></div>';
+    h+=list.length?'<div class="list">'+list.map(x=>'<div class="item"><span class="dot-ev"'+(x.c?' style="background:'+x.c+'"':'')+'></span><div class="t"><b style="font-weight:500">'+(x.w&&x.w!=='나'?'<span class="note" style="font-weight:600">'+esc(x.w)+' · </span>':'')+esc(x.t)+'</b></div></div>').join('')+'</div>':'<p class="note" style="margin:0;font-size:13px">없음</p>';
+    if(isTWA)h+='<div class="btns" style="margin-top:auto"><a class="btn sm" href="intent://day?d='+ds(k)+'#Intent;scheme=baejeonshift;package=kr.baejeon.shift;end">＋ 일정</a></div>';
+    else h+='<p class="note" style="margin:auto 0 0;font-size:12px">추가는 갤럭시 앱에서</p>';
+    return h;
   };
+
   try{const p=JSON.parse(localStorage.getItem('bj-memo-import')||'null');if(p&&mm&&p.owner===mm&&!isFamily()){localStorage.removeItem('bj-memo-import');F.setDoc(tref('memos',mm),{notes:p.notes},{merge:true}).catch(()=>{})}}catch(e){}
   if(!isFamily())setTimeout(()=>offerPush(false),1500);
   startExtras();

@@ -76,12 +76,12 @@ rep('<div class="list" id="histPast"></div></div>\n', '<div class="list" id="his
 rep('      <div class="card form" id="linkCard"></div>\n', '      <div class="card form" id="linkCard"></div>\n      <div class="card form" id="backupCard" hidden></div>\n')
 
 # 5) 메모: 가족은 읽기 전용
-m = re.search(r"    h\+='<div class=\"card form\" style=\"gap:8px\"><div class=\"period\"><h3>내 메모</h3>.*?\n", s)
+m = re.search(r"    h\+='<div class=\"dayrow.*?\n", s)
 assert m
 memo_line = m.group(0)
 s = s.replace(memo_line,
     "    if(isFamily()){if(mm)h+='<div class=\"card form\" style=\"gap:6px\"><h3>메모</h3><p style=\"margin:0;white-space:pre-wrap\">'+esc(mm)+'</p></div>'}\n"
-    "    else if(me&&me===ownMid())" + memo_line.lstrip().replace('팀원은 볼 수 없어요 · 앱에서는 가족과 함께 봐요', '팀원은 볼 수 없고, 가족과 함께 봐요'))
+    "    else if(me&&me===ownMid())" + memo_line.lstrip().replace('팀원 비공개', '가족과 함께 봐요'))
 
 # 6) 계정 연결·메모 저장은 앱 연결층으로 교체
 a = s.index('/* 나 = 계정 연결 */\nasync function linkMe(id){')

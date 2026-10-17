@@ -232,12 +232,13 @@ function restartRoleData(){
   window.__dayCal=k=>{
     if(!mm||me!==mm||isFamily())return '';
     const list=(window.__calItems||{})[ds(k)]||[];
-    let h='<div class="card form" style="gap:8px"><div class="period"><h3>일정</h3><span class="note">휴대폰 캘린더 · 가족 공유 캘린더</span></div>';
-    h+=list.length?'<div class="list">'+list.map(x=>'<div class="item"><span class="dot-ev"'+(x.c?' style="background:'+x.c+'"':'')+'></span><div class="t"><b style="font-weight:500">'+(x.w?'<span class="note" style="font-weight:600">'+esc(x.w)+' · </span>':'')+esc(x.t)+'</b></div></div>').join('')+'</div>':'<p class="note" style="margin:0">이 날 일정이 없어요.</p>';
-    if(isTWA)h+='<div class="btns"><a class="btn" href="intent://day?d='+ds(k)+'#Intent;scheme=baejeonshift;package=kr.baejeon.shift;end">＋ 일정 추가</a></div><p class="note" style="margin:0">"근무표" 가족 공유 캘린더를 고르면 가족에게 바로 보여요.</p>';
-    else h+='<p class="note" style="margin:0">일정 추가는 갤럭시 근무표 앱에서 할 수 있어요.</p>';
-    return h+'</div>';
+    let h='<div class="period"><h3>일정</h3></div>';
+    h+=list.length?'<div class="list">'+list.map(x=>'<div class="item"><span class="dot-ev"'+(x.c?' style="background:'+x.c+'"':'')+'></span><div class="t"><b style="font-weight:500">'+(x.w&&x.w!=='나'?'<span class="note" style="font-weight:600">'+esc(x.w)+' · </span>':'')+esc(x.t)+'</b></div></div>').join('')+'</div>':'<p class="note" style="margin:0;font-size:13px">없음</p>';
+    if(isTWA)h+='<div class="btns" style="margin-top:auto"><a class="btn sm" href="intent://day?d='+ds(k)+'#Intent;scheme=baejeonshift;package=kr.baejeon.shift;end">＋ 일정</a></div>';
+    else h+='<p class="note" style="margin:auto 0 0;font-size:12px">추가는 갤럭시 앱에서</p>';
+    return h;
   };
+
   try{const p=JSON.parse(localStorage.getItem('bj-memo-import')||'null');if(p&&mm&&p.owner===mm&&!isFamily()){localStorage.removeItem('bj-memo-import');F.setDoc(tref('memos',mm),{notes:p.notes},{merge:true}).catch(()=>{})}}catch(e){}
   if(!isFamily())setTimeout(()=>offerPush(false),1500);
   startExtras();

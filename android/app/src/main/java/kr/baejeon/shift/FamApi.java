@@ -94,7 +94,11 @@ final class FamApi {
                     } else {
                         String s = st.optString("dateTime"), x = en != null ? en.optString("dateTime", s) : s;
                         o.put("d0", s.substring(0, 10)).put("h", s.length() >= 16 ? s.substring(11, 16) : "");
-                        o.put("e", x.length() >= 10 ? x.substring(0, 10) : s.substring(0, 10));
+                        // 끝이 자정(00:00)이면 그날은 포함하지 않아요 (예: 20일 23:00~21일 00:00 → 20일만)
+                        String endDay = x.length() >= 10 ? x.substring(0, 10) : s.substring(0, 10);
+                        if (x.length() >= 16 && x.substring(11, 16).equals("00:00") && !endDay.equals(s.substring(0, 10)))
+                            endDay = ShiftData.ymd(dayNum(endDay) - 1);
+                        o.put("e", endDay);
                     }
                     out.put(o);
                 }
