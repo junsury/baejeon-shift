@@ -13,5 +13,17 @@ admin.initializeApp({ credential: admin.credential.cert(JSON.parse(fs.readFileSy
     const list = toks.docs.map(t => { const x = t.data(); const ua = x.ua || ''; return (/Android/.test(ua) ? 'Android' : /iPhone|iPad/.test(ua) ? 'iOS' : /Windows/.test(ua) ? 'Windows' : 'other') + '@' + new Date(x.at || 0).toISOString().slice(0, 16); });
     console.log(`::notice::user#${++i} role=${u.role} createdAt=${u.at ? new Date(u.at).toISOString().slice(0,16) : '-'} tokens=${toks.size} [${list.join(', ')}]`);
   }
+  // 안드로이드 앱 서명 지문 종류와 OAuth 클라이언트 (공개돼도 되는 정보만)
+  try {
+    const pm = admin.projectManagement();
+    for (const a of await pm.listAndroidApps()) {
+      const m = await a.getMetadata(); if (m.packageName !== 'kr.baejeon.shift') continue;
+      const certs = await a.getShaCertificates();
+      console.log('::notice::android certs: ' + certs.map(c => c.certType).join(','));
+      const cfg = JSON.parse(await a.getConfig());
+      const cl = (cfg.client || []).flatMap(c => c.oauth_client || []);
+      console.log('::notice::oauth clients: ' + cl.map(c => 'type' + c.client_type + (c.android_info ? '(android)' : '')).join(','));
+    }
+  } catch (e) { console.log('::warning::' + e.message); }
   process.exit(0);
 })().catch(e => { console.log('::error::' + e.message); process.exit(1); });
