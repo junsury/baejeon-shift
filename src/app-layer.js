@@ -13,7 +13,9 @@ const ownMid=()=>appUser&&(appRole==='family'?appUser.familyOf:appUser.memberId)
 const tref=(...p)=>FB.F.doc(fsdb,'teams',TEAM,...p);
 const tcol=(...p)=>FB.F.collection(fsdb,'teams',TEAM,...p);
 const rndCode=n=>{const A='ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789';let s='';const r=crypto.getRandomValues(new Uint32Array(n));for(const x of r)s+=A[x%A.length];return s};
-const famParam=()=>new URLSearchParams(location.search).get('f');
+const famParam=()=>{const q=new URLSearchParams(location.search).get('f');if(q){try{localStorage.setItem('bj-fam',q)}catch(e){}return q}
+  /* 홈 화면 아이콘으로 열면 주소에 토큰이 없어서, 한 번 연 링크를 기억해 둠 */
+  try{return auth&&auth.currentUser&&!auth.currentUser.isAnonymous?null:localStorage.getItem('bj-fam')}catch(e){return null}};
 const pendingUsers=()=>appUsers.filter(x=>x.role==='pending');
 
 /* 기존 코드가 쓰던 db API(collection/doc/onSnapshot)를 Firestore로 연결 */
@@ -252,7 +254,8 @@ function syncMemos(){memos=me&&me===ownMid()?ownMemos:{}}
       gate(loginHtml());return}
     first=false;
     /* 팀원이 가족 링크를 열었으면 링크 쪽을 보여줌 */
-    if(fam&&!u.isAnonymous){gate('<h2>가족 보기 링크예요</h2><p class="note">이 링크는 로그인 없이 보는 가족용이에요. 지금 이 기기는 팀원 계정으로 로그인돼 있어서 내 근무표가 열려요.</p><button class="btn" data-g="reload" onclick="history.replaceState(null,\'\',location.pathname)">내 근무표 열기</button>');return}
+    if(fam&&!u.isAnonymous&&!new URLSearchParams(location.search).get('f')){try{localStorage.removeItem('bj-fam')}catch(e){}}
+    else if(fam&&!u.isAnonymous){gate('<h2>가족 보기 링크예요</h2><p class="note">이 링크는 로그인 없이 보는 가족용이에요. 지금 이 기기는 팀원 계정으로 로그인돼 있어서 내 근무표가 열려요.</p><button class="btn" data-g="reload" onclick="history.replaceState(null,\'\',location.pathname)">내 근무표 열기</button>');return}
     uid=u.uid;afterLogin(u).catch(gErr);
   });
 })();
@@ -317,7 +320,7 @@ $('#acct').addEventListener('click',async e=>{
     else if(b.dataset.ac==='famShare'){shareFamily(b.dataset.tok)}
     else if(b.dataset.ac==='pushOn'){await enablePush()}
     else if(b.dataset.ac==='pushOff'){await disablePush()}
-    else if(b.dataset.ac==='famLeave'){if(confirm('이 기기에서 근무표 보기를 그만둘까요? 다시 보려면 링크를 다시 눌러야 해요.')){await F.deleteDoc(tref('users',uid)).catch(()=>{});await FB.Au.signOut(auth);location.replace(location.pathname)}}
+    else if(b.dataset.ac==='famLeave'){if(confirm('이 기기에서 근무표 보기를 그만둘까요? 다시 보려면 링크를 다시 눌러야 해요.')){try{localStorage.removeItem('bj-fam')}catch(e){}await F.deleteDoc(tref('users',uid)).catch(()=>{});await FB.Au.signOut(auth);location.replace(location.pathname)}}
   }catch(err){alert(errText(err))}
 });
 function famUrl(tok){return location.origin+location.pathname+'?f='+tok}
