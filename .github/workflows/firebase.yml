@@ -29,4 +29,8 @@ jobs:
         run: |
           echo "$SA" > "$RUNNER_TEMP/sa.json"
           export GOOGLE_APPLICATION_CREDENTIALS="$RUNNER_TEMP/sa.json"
-          npx --yes firebase-tools@13 deploy --only firestore:rules,functions --project baejeon-shift --force --non-interactive
+          set +e
+          npx --yes firebase-tools@13 deploy --only firestore:rules,functions --project baejeon-shift --force --non-interactive > "$RUNNER_TEMP/out.txt" 2>&1
+          code=$?
+          cat "$RUNNER_TEMP/out.txt"
+          if [ $code -ne 0 ]; then grep -v '^\s*$' "$RUNNER_TEMP/out.txt" | tail -25 | while IFS= read -r l; do echo "::error::$l"; done; exit $code; fi
