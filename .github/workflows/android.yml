@@ -48,11 +48,13 @@ jobs:
           mkdir -p app/.well-known
           printf '[{"relation":["delegate_permission/common.handle_all_urls"],"target":{"namespace":"android_app","package_name":"kr.baejeon.shift","sha256_cert_fingerprints":["%s"]}}]\n' "$fp" > app/.well-known/assetlinks.json
           cat app/.well-known/assetlinks.json
+          NODE_PATH="$RUNNER_TEMP/ks/node_modules" node android/ci/register.js "$RUNNER_TEMP/sa.json" "$fp"
           if [ -n "$(git status --porcelain app/.well-known)" ]; then
             git config user.name "github-actions"; git config user.email "github-actions@users.noreply.github.com"
             git add app/.well-known/assetlinks.json && git commit -m "assetlinks 갱신" && git push
             export GOOGLE_APPLICATION_CREDENTIALS="$RUNNER_TEMP/sa.json"
-            npx --yes firebase-tools@13 deploy --only hosting --project baejeon-shift --non-interactive || echo "::warning::호스팅 배포 실패"
+            npx --yes firebase-tools@13 deploy --only hosting --project baejeon-shift --non-interactive > "$RUNNER_TEMP/h.txt" 2>&1 || { tail -5 "$RUNNER_TEMP/h.txt" | while IFS= read -r l; do echo "::warning::$l"; done; }
+            grep -i "file" "$RUNNER_TEMP/h.txt" | head -3 | while IFS= read -r l; do echo "::notice::$l"; done
           fi
       - name: 릴리스에 올리기
         env:
