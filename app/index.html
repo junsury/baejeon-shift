@@ -1748,7 +1748,7 @@ function renderSheet(){
   const y=new Date(a*864e5).getUTCFullYear();
   let h='<div class="sh-top">근무지원 : '+esc(tsoNames.join(', ')||'-')+'</div><div class="sh-title"><span>'+y+'년</span><h1>근무편성표</h1><span>경기배전센터</span></div>';
   h+='<table><colgroup><col style="width:82px"><col style="width:42px"><col style="width:28px"><col><col><col style="width:28px"><col><col><col style="width:112px"></colgroup>';
-  h+='<thead><tr><th>월일</th><th style="letter-spacing:0">요일</th><th colspan="3">일 근</th><th colspan="3">야 근</th><th>비 고</th></tr></thead><tbody>';
+  h+='<thead><tr><th>월일</th><th style="letter-spacing:0">요일</th><th colspan="3">주 간</th><th colspan="3">야 간</th><th>비 고</th></tr></thead><tbody>';
   const asgDays=new Set(assignments.map(x=>x.date));
   for(let n=a;n<b;n++){
     const d=new Date(n*864e5),key=ds(n),hol=holidays.has(key);
