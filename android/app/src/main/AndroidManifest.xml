@@ -20,28 +20,19 @@
 
         <meta-data android:name="asset_statements" android:resource="@string/asset_statements" />
 
-        <!-- 앱 아이콘: 알림 권한을 먼저 받고 근무표 화면(TwaActivity)을 열어요 -->
+        <!-- 근무표 화면: 크롬 엔진으로 웹앱을 앱처럼 띄움 (처음 한 번 알림 허용을 먼저 물어요) -->
         <activity
             android:name=".MainActivity"
-            android:exported="true"
-            android:label="@string/app_name"
-            android:excludeFromRecents="true"
-            android:theme="@android:style/Theme.Translucent.NoTitleBar">
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.LAUNCHER" />
-            </intent-filter>
-        </activity>
-
-        <!-- 근무표 화면: 크롬 엔진으로 웹앱을 앱처럼 띄움 (로그인·알림 그대로) -->
-        <activity
-            android:name=".TwaActivity"
             android:exported="true"
             android:label="@string/app_name"
             android:theme="@style/LaunchTheme">
             <meta-data android:name="android.support.customtabs.trusted.DEFAULT_URL" android:value="@string/launch_url" />
             <meta-data android:name="android.support.customtabs.trusted.STATUS_BAR_COLOR" android:resource="@color/brand" />
             <meta-data android:name="android.support.customtabs.trusted.NAVIGATION_BAR_COLOR" android:resource="@color/white" />
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
             <intent-filter android:autoVerify="true">
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />

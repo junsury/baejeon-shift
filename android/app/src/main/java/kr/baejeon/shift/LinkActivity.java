@@ -95,7 +95,7 @@ public class LinkActivity extends Activity {
     void reopen() {
         if (granted() && notificationsOn())
             Toast.makeText(this, "알림이 허용됐어요. 👤 메뉴에서 [알림 켜기]를 한 번 더 눌러 주세요", Toast.LENGTH_LONG).show();
-        Intent i = new Intent(this, TwaActivity.class).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
+        Intent i = new Intent(this, MainActivity.class).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
         startActivity(i);
         finish();
     }
