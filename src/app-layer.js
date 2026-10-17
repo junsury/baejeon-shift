@@ -68,7 +68,7 @@ function errText(e){const c=e&&e.code||'';
   if(/unauthorized-domain/.test(c))return '이 주소가 Firebase 로그인 허용 도메인에 없어요. Firebase 콘솔 → Authentication → 설정 → 승인된 도메인에 추가하세요.';
   if(/admin-restricted-operation|operation-not-allowed/.test(c))return 'Firebase에서 이 로그인 방식이 꺼져 있어요. (관리자: Authentication → 로그인 방법에서 켜 주세요)';
   return (e&&e.message)||String(e)}
-const loginHtml=()=>'<div class="g-logo">근</div><h2>배전센터 근무표</h2><p class="note">팀원 전용이에요. 구글 계정으로 로그인한 뒤 본인 이름을 고르면, 관리자가 승인하면 쓸 수 있어요.</p><button class="btn g-google" data-g="google"><span class="g-g">G</span>구글로 로그인</button>';
+const loginHtml=()=>'<div class="g-logo">근</div><h2>배전센터 근무표</h2><p class="note">팀원 전용이에요. 구글 계정으로 로그인한 뒤 본인 이름을 고르면, 관리자가 승인하면 쓸 수 있어요.</p><button class="btn g-google" data-g="google"><span class="g-g">G</span>구글로 로그인</button><p class="note g-small"><a href="guide.html" target="_blank" rel="noopener">처음이세요? 사용 설명서 보기</a></p>';
 function pickHtml(msg){
   const taken=new Set(Object.keys(claims));
   const list=byName().filter(m=>!taken.has(m.id));
@@ -319,10 +319,17 @@ $('#acct').addEventListener('click',async e=>{
     else if(b.dataset.ac==='famDel'){if(confirm('이 링크를 끊을까요? 이 링크로 보던 가족은 바로 못 보게 돼요.'))await F.deleteDoc(tref('familyLinks',b.dataset.tok))}
     else if(b.dataset.ac==='famShare'){shareFamily(b.dataset.tok)}
     else if(b.dataset.ac==='pushOn'){await enablePush()}
+    else if(b.dataset.ac==='shareGuide'){shareGuide()}
     else if(b.dataset.ac==='pushOff'){await disablePush()}
     else if(b.dataset.ac==='famLeave'){if(confirm('이 기기에서 근무표 보기를 그만둘까요? 다시 보려면 링크를 다시 눌러야 해요.')){try{localStorage.removeItem('bj-fam')}catch(e){}await F.deleteDoc(tref('users',uid)).catch(()=>{});await FB.Au.signOut(auth);location.replace(location.pathname)}}
   }catch(err){alert(errText(err))}
 });
+function shareGuide(){
+  const base=location.origin+location.pathname.replace(/[^/]*$/,'');const url=base+'guide.html';
+  const text='배전센터 근무표 사용 설명서예요. 설치 → 구글 로그인 → 내 이름 선택 → 관리자 승인 순서로 시작해요.';
+  if(navigator.share)navigator.share({title:'배전센터 근무표 사용 설명서',text,url}).catch(()=>{});
+  else{navigator.clipboard&&navigator.clipboard.writeText(text+'\n'+url).catch(()=>{});alert('설명서 링크를 복사했어요. 단톡방에 붙여 넣으세요.\n\n'+url)}
+}
 function famUrl(tok){return location.origin+location.pathname+'?f='+tok}
 function shareFamily(tok){
   const url=famUrl(tok);const text=nm(appUser.memberId)+' 근무표예요. 링크를 누르면 로그인 없이 볼 수 있어요.';
@@ -348,6 +355,7 @@ function renderAcct(){
     h+=famLinks.length?'<div class="list">'+famLinks.map(l=>'<div class="item"><div class="t"><b>가족 링크</b><small>'+new Date(l.at).toLocaleDateString('ko-KR')+' 만듦</small></div><span class="btns"><button class="btn" data-ac="famShare" data-tok="'+l.token+'">보내기</button><button class="btn ghost" data-ac="famDel" data-tok="'+l.token+'">끊기</button></span></div>').join('')+'</div>':'';
     h+='<button class="btn ghost" data-ac="famNew">'+(famLinks.length?'새 링크 만들기':'가족 링크 만들기')+'</button>';
   }
+  h+='<h3>도움말</h3><div class="btns"><a class="btn ghost" href="guide.html" target="_blank" rel="noopener">사용 설명서</a><button class="btn ghost" data-ac="shareGuide">설명서 보내기</button></div>';
   h+='<h3>홈 화면에 추가</h3><p class="note" style="margin:0">아이폰: 사파리 아래 공유 버튼 → "홈 화면에 추가". 안드로이드: 크롬 ⋮ → "홈 화면에 추가" 또는 "앱 설치".</p>';
   h+='<div class="btns" style="margin-top:6px"><button class="btn ghost" data-ac="logout">로그아웃</button><button class="btn ghost" data-ac="close">닫기</button></div>';
   box.innerHTML=h;
@@ -386,7 +394,7 @@ $('#linkCard').addEventListener('click',async e=>{
   const who=x?(x.memberId?nm(x.memberId):(nm(x.requestedMemberId)||x.name||x.email)):'';
   try{
     switch(b.dataset.ad){
-      case 'shareApp':{const url=location.origin+location.pathname;const text='배전센터 근무표 앱이에요. 구글로 로그인하고 본인 이름을 고르면 관리자가 승인해 드려요.';
+      case 'shareApp':{const url=location.origin+location.pathname;const text='배전센터 근무표 앱이에요. 구글로 로그인하고 본인 이름을 고르면 관리자가 승인해 드려요.\n사용 설명서: '+location.origin+location.pathname.replace(/[^/]*$/,'')+'guide.html';
         if(navigator.share)navigator.share({title:'배전센터 근무표',text,url}).catch(()=>{});else{navigator.clipboard&&navigator.clipboard.writeText(text+'\n'+url).catch(()=>{});alert('주소를 복사했어요. 단톡방에 붙여 넣으세요.\n\n'+url)}break}
       case 'approve':{b.disabled=true;const mid=x.requestedMemberId;const w=F.writeBatch(fsdb);w.set(tref('claims',mid),{uid:x.uid,at:Date.now(),by:uid});w.update(tref('users',x.uid),{role:'member',memberId:mid,approvedAt:Date.now(),approvedBy:uid});await w.commit();toast(who+' 님을 승인했어요');break}
       case 'reject':if(confirm(who+' 님으로 온 요청을 거절할까요?'))await F.updateDoc(tref('users',x.uid),{role:'rejected'});break;
