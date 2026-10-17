@@ -34,7 +34,7 @@ final class CalUpload {
                 JSONArray items = new JSONArray();
                 for (Map.Entry<Integer, List<CalendarReader.Ev>> e : m.entrySet())
                     for (CalendarReader.Ev ev : e.getValue())
-                        items.put(new JSONObject().put("d", ShiftData.ymd(e.getKey())).put("t", ev.title).put("h", ev.time).put("c", ev.color));
+                        items.put(new JSONObject().put("d", ShiftData.ymd(e.getKey())).put("t", ev.title).put("h", ev.time).put("c", ev.color).put("w", ev.who));
                 body.put("items", items).put("from", ShiftData.ymd(from)).put("to", ShiftData.ymd(to));
             }
             String key = on ? body.optJSONArray("items").toString() : "off";

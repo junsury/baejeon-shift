@@ -123,6 +123,8 @@ public class FamilyActivity extends Activity {
             LinearLayout s = card();
             s.addView(label("2. 가족에게 공유", 16, true, 0xFF161C24));
             s.addView(label("가족의 구글 계정 이메일을 넣으면 공유 초대 메일이 가요. 가족도 일정을 넣고 고칠 수 있어요(쓰기 권한).", 13.5f, false, 0xFF4F5A67), mlp(4));
+            s.addView(label("일정 색은 앱이 작성자별로 자동으로 칠해요 (구글 캘린더 앱에서 보여요). 근무는 주간 노랑, 야간 남색이에요. 색 버튼을 누르면 바뀌어요.", 13, false, 0xFF4F5A67), mlp(4));
+            s.addView(personRow(Store.p(this).getString("famAccount", ""), "나", null), mlp(6));
             shareBox = new LinearLayout(this); shareBox.setOrientation(LinearLayout.VERTICAL);
             s.addView(shareBox, mlp(6));
             Button load = new Button(this);
@@ -258,6 +260,45 @@ public class FamilyActivity extends Activity {
         });
     }
 
+    /** 사람 한 줄: 색 버튼 · 이름 · (이름 바꾸기) */
+    LinearLayout personRow(String email, String fixedName, String role) {
+        LinearLayout row = new LinearLayout(this);
+        row.setOrientation(LinearLayout.HORIZONTAL); row.setGravity(Gravity.CENTER_VERTICAL);
+        Button col = new Button(this);
+        Runnable paint = () -> {
+            int id = FamColors.colorOf(this, email);
+            GradientDrawable g = new GradientDrawable(); g.setColor(FamColors.hex(id)); g.setCornerRadius(px(8));
+            col.setBackground(g); col.setText(FamColors.NAMES[id]); col.setTextColor(0xFFFFFFFF); col.setTextSize(12);
+        };
+        paint.run();
+        col.setOnClickListener(v -> {
+            FamColors.set(this, email, FamColors.next(FamColors.colorOf(this, email)));
+            paint.run();
+            bg.execute(() -> { FamApi.refresh(this); WidgetUpdater.renderAll(this); });   // 이미 있는 일정 색도 바꿔요
+        });
+        LinearLayout.LayoutParams cl = new LinearLayout.LayoutParams(px(72), px(40)); cl.rightMargin = px(10);
+        row.addView(col, cl);
+        String name = fixedName != null ? fixedName : FamColors.who(this, email);
+        TextView t = label(name + (fixedName == null ? "\n" + email : "") + (role != null && !"writer".equals(role) ? " (" + role + ")" : ""), 14, false, 0xFF161C24);
+        row.addView(t, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
+        if (fixedName == null) {
+            Button nm = new Button(this);
+            nm.setText("이름");
+            nm.setOnClickListener(v -> {
+                EditText in = new EditText(this);
+                in.setText(FamColors.who(this, email));
+                new android.app.AlertDialog.Builder(this).setTitle("위젯에 보일 이름 (예: 아내)").setView(in)
+                        .setPositiveButton("저장", (d, w) -> {
+                            Store.p(this).edit().putString("famName." + email.toLowerCase(), in.getText().toString().trim()).apply();
+                            t.setText(FamColors.who(this, email) + "\n" + email);
+                            bg.execute(() -> { FamApi.refresh(this); WidgetUpdater.renderAll(this); });
+                        }).setNegativeButton("취소", null).show();
+            });
+            row.addView(nm);
+        }
+        return row;
+    }
+
     void loadShares() {
         bg.execute(() -> {
             try {
@@ -266,10 +307,7 @@ public class FamilyActivity extends Activity {
                     shareBox.removeAllViews();
                     if (list.isEmpty()) shareBox.addView(label("아직 공유한 사람이 없어요.", 13.5f, false, 0xFF8A94A0));
                     for (GoogleCal.Share sh : list) {
-                        LinearLayout row = new LinearLayout(this);
-                        row.setOrientation(LinearLayout.HORIZONTAL); row.setGravity(Gravity.CENTER_VERTICAL);
-                        row.addView(label(sh.email + ("writer".equals(sh.role) ? "" : " (" + sh.role + ")"), 14.5f, false, 0xFF161C24),
-                                new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
+                        LinearLayout row = personRow(sh.email, null, sh.role);
                         Button del = new Button(this);
                         del.setText("공유 끊기");
                         del.setOnClickListener(v -> withToken(() -> bg.execute(() -> {

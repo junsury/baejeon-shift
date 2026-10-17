@@ -232,7 +232,7 @@ exports.widgetEvents = functions.region(REGION).https.onRequest(async (req, res)
     const ref = db.collection('teams').doc(t).collection('calcache').doc(memberId);
     if (!Array.isArray(b.items) || b.off) { await ref.delete(); res.json({ ok: true, cleared: true }); return; }
     const items = b.items.slice(0, 800).map(x => ({
-      d: String(x.d || '').slice(0, 10), t: String(x.t || '').slice(0, 80), h: String(x.h || '').slice(0, 5), c: Number(x.c) || 0,
+      d: String(x.d || '').slice(0, 10), t: String(x.t || '').slice(0, 80), h: String(x.h || '').slice(0, 5), c: Number(x.c) || 0, w: String(x.w || '').slice(0, 20),
     })).filter(x => /^\d{4}-\d\d-\d\d$/.test(x.d));
     await ref.set({ at: Date.now(), from: String(b.from || ''), to: String(b.to || ''), items });
     res.json({ ok: true, n: items.length });

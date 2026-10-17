@@ -225,7 +225,7 @@ function restartRoleData(){
   const mm=ownMid();
   if(mm)keep(db.doc('memos/'+mm).onSnapshot(s=>{ownMemos=(s.exists&&s.data().notes)||{};syncMemos();dataChanged()}));
   // 갤럭시 앱이 올린 내 휴대폰 캘린더 일정 → '내 근무 · 월'에 보이기 (본인 것만)
-  if(mm&&!isFamily())keep(db.doc('calcache/'+mm).onSnapshot(s=>{const m={};if(s.exists)for(const x of (s.data().items||[])){(m[x.d]=m[x.d]||[]).push((x.h?x.h+' ':'')+x.t)}
+  if(mm&&!isFamily())keep(db.doc('calcache/'+mm).onSnapshot(s=>{const m={};const hx=n=>n?'#'+((n>>>0)&0xffffff).toString(16).padStart(6,'0'):'';if(s.exists)for(const x of (s.data().items||[])){(m[x.d]=m[x.d]||[]).push({t:(x.h?x.h+' ':'')+x.t,c:hx(x.c),w:x.w||''})}
     window.__calLines=k=>me===mm?m[ds(k)]:null;
     window.__calItems=m;dataChanged()},()=>{}));
   // '내 근무 · 일': 그날 캘린더 일정 + 일정 추가 (갤럭시 앱 → 가족 공유 캘린더에 저장)
@@ -233,7 +233,7 @@ function restartRoleData(){
     if(!mm||me!==mm||isFamily())return '';
     const list=(window.__calItems||{})[ds(k)]||[];
     let h='<div class="card form" style="gap:8px"><div class="period"><h3>일정</h3><span class="note">휴대폰 캘린더 · 가족 공유 캘린더</span></div>';
-    h+=list.length?'<div class="list">'+list.map(t=>'<div class="item"><span class="dot-ev"></span><div class="t"><b style="font-weight:500">'+esc(t)+'</b></div></div>').join('')+'</div>':'<p class="note" style="margin:0">이 날 일정이 없어요.</p>';
+    h+=list.length?'<div class="list">'+list.map(x=>'<div class="item"><span class="dot-ev"'+(x.c?' style="background:'+x.c+'"':'')+'></span><div class="t"><b style="font-weight:500">'+(x.w?'<span class="note" style="font-weight:600">'+esc(x.w)+' · </span>':'')+esc(x.t)+'</b></div></div>').join('')+'</div>':'<p class="note" style="margin:0">이 날 일정이 없어요.</p>';
     if(isTWA)h+='<div class="btns"><a class="btn" href="intent://day?d='+ds(k)+'#Intent;scheme=baejeonshift;package=kr.baejeon.shift;end">＋ 일정 추가</a></div><p class="note" style="margin:0">"근무표" 가족 공유 캘린더를 고르면 가족에게 바로 보여요.</p>';
     else h+='<p class="note" style="margin:0">일정 추가는 갤럭시 근무표 앱에서 할 수 있어요.</p>';
     return h+'</div>';

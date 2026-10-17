@@ -26,7 +26,8 @@ final class GoogleCal {
 
     static JSONObject call(String token, String method, String path, JSONObject body) throws Exception {
         HttpURLConnection con = (HttpURLConnection) new URL(BASE + path).openConnection();
-        con.setRequestMethod(method);
+        if ("PATCH".equals(method)) { con.setRequestMethod("POST"); con.setRequestProperty("X-HTTP-Method-Override", "PATCH"); }
+        else con.setRequestMethod(method);
         con.setConnectTimeout(10000); con.setReadTimeout(15000);
         con.setRequestProperty("Authorization", "Bearer " + token);
         if (body != null) {

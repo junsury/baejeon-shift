@@ -117,6 +117,9 @@ final class Renderer {
         return m;
     }
 
+    /** 일정 색을 옅게 깐 배경 */
+    int tint(int col) { int a = s.dark ? 0x66 : 0x38; return (a << 24) | (col & 0xFFFFFF); }
+
     int memoBg() { return s.dark ? Color.argb(80, 244, 173, 0) : Color.argb(Math.round(Math.max(s.a, 0.85f) * 255), 255, 240, 196); }
     int memoFg() { return s.dark ? 0xFFFFE2A0 : 0xFF6B4A00; }
 
@@ -210,7 +213,10 @@ final class Renderer {
         for (CalendarReader.Ev e : el) { if (e.memo) memo = true; else ev = true; }
         if (memo && ev) { fill.setColor(0xFFF4AD00); cv.drawCircle(cx - rad * 1.4f, cy, rad, fill); fill.setColor(s.dot); cv.drawCircle(cx + rad * 1.4f, cy, rad, fill); }
         else if (memo) { fill.setColor(0xFFF4AD00); cv.drawCircle(cx, cy, rad, fill); }
-        else dot(cx, cy, rad);
+        else {
+            int col = 0; for (CalendarReader.Ev e : el) if (!e.memo && e.color != 0) { col = e.color | 0xFF000000; break; }
+            if (col != 0) { fill.setColor(col); cv.drawCircle(cx, cy, rad, fill); } else dot(cx, cy, rad);
+        }
     }
 
     int dayColor(ShiftData d, int n, int normal) {
@@ -354,7 +360,8 @@ final class Renderer {
                     for (CalendarReader.Ev e : list) {
                         boolean last = ey + eh * 2 + 2 > b - 2 && shown < list.size() - 1;
                         if (ey + eh > b - 2) break;
-                        rr(l + 2, ey, r - 2, ey + eh, 3, e.memo ? memoBg() : s.evBg);
+                        rr(l + 2, ey, r - 2, ey + eh, 3, e.memo ? memoBg() : e.color != 0 ? tint(e.color) : s.evBg);
+                        if (!e.memo && e.color != 0) rr(l + 2, ey, l + 4.5f, ey + eh, 1.5f, e.color | 0xFF000000);
                         float tw = cw - 8;
                         if (last) {   // 마지막 줄: 제목 + 남은 개수
                             String more = "+" + (list.size() - shown - 1);
@@ -362,7 +369,7 @@ final class Renderer {
                             text(more, r - 4 - mw, ey + 1 + asc(evSz, BOLD), evSz, BOLD, s.evFg, false);
                             tw -= mw + 2;
                         }
-                        text(fit(e.title, evSz, MED, tw), l + 4, ey + 1 + asc(evSz, MED), evSz, MED, e.memo ? memoFg() : s.evFg, false);
+                        text(fit(e.title, evSz, MED, tw - 2), l + 6, ey + 1 + asc(evSz, MED), evSz, MED, e.memo ? memoFg() : e.color != 0 ? s.fg : s.evFg, false);
                         ey += eh + 2; shown++;
                         if (last) break;
                     }
@@ -444,7 +451,9 @@ final class Renderer {
                 boolean more = py + lineH(h2) * 2 + 4 > lastY && i < list.size() - 1;
                 CalendarReader.Ev ev = list.get(i);
                 String str = (ev.memo ? "📝 " : "") + (more ? ev.text() + "  +" + (list.size() - i - 1) : ev.text());
-                text(fit(str, h2, MED, pmax), px, py + asc(h2, MED), h2, MED, ev.memo ? memoFg() : s.evFg, true);
+                if (!ev.memo && ev.color != 0) { fill.setColor(ev.color | 0xFF000000); cv.drawCircle(px + 4, py + lineH(h2) / 2f, 4, fill); }
+                float tx2 = !ev.memo && ev.color != 0 ? px + 12 : px;
+                text(fit(str, h2, MED, pmax - (tx2 - px)), tx2, py + asc(h2, MED), h2, MED, ev.memo ? memoFg() : s.evFg, true);
                 py += lineH(h2) + 4;
                 if (more) break;
             }

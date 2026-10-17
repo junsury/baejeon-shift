@@ -195,7 +195,7 @@ public class DayActivity extends Activity {
             String when = e.time.isEmpty() ? "종일" : e.time;
             TextView tw = label(when, 13.5f, false, 0xFF4F5A67);
             row.addView(tw, new LinearLayout.LayoutParams(px(48), ViewGroup.LayoutParams.WRAP_CONTENT));
-            row.addView(label(e.title, 15, false, 0xFF161C24), new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
+            row.addView(label((e.who.isEmpty() ? "" : e.who + " · ") + e.title, 15, false, 0xFF161C24), new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
             if (e.eventId > 0) {
                 final long eid = e.eventId;
                 row.setOnClickListener(v -> {

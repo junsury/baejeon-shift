@@ -22,7 +22,7 @@ final class CalendarReader {
 
     static final class Ev {
         final String title; final boolean allDay; final long begin; final String time;
-        long eventId = -1; int color = 0; boolean memo = false;
+        long eventId = -1; int color = 0; boolean memo = false; String who = "";
         Ev(String title, boolean allDay, long begin, String time) { this.title = title; this.allDay = allDay; this.begin = begin; this.time = time; }
         String text() { return time.isEmpty() ? title : title + " " + time; }
     }
@@ -71,7 +71,13 @@ final class CalendarReader {
     static Map<Integer, List<Ev>> read(Context c, int from, int to, java.util.Set<Long> excl) {
         Map<Integer, List<Ev>> out = new HashMap<>();
         java.util.Set<String> seenAll = new java.util.HashSet<>();
-        if (!allowed(c)) { FamApi.addTo(c, out, from, to, seenAll); return out; }
+        // 가족 공유 캘린더는 구글 서버에서 바로 받은 것을 먼저 (작성자·색 정보가 있어요)
+        boolean famFirst = false;
+        try {
+            long fam = ShiftSync.localId(c);
+            if (fam < 0 || excl == null || !excl.contains(fam)) { FamApi.addTo(c, out, from, to, seenAll); famFirst = true; }
+        } catch (Exception ignored) {}
+        if (!allowed(c)) return out;
         TimeZone kst = ShiftData.KST;
         long start = from * 86400000L - kst.getOffset(from * 86400000L);
         long end = (to + 1) * 86400000L - kst.getOffset(to * 86400000L);
@@ -115,10 +121,6 @@ final class CalendarReader {
             }
         } catch (Exception ignored) {}
         // 가족 공유 캘린더는 구글 서버에서 바로 받은 것도 합쳐요 (휴대폰 동기화가 늦을 때 대비)
-        try {
-            long fam = ShiftSync.localId(c);
-            if (fam < 0 || excl == null || !excl.contains(fam)) FamApi.addTo(c, out, from, to, seenAll);
-        } catch (Exception ignored) {}
         for (List<Ev> l : out.values()) Collections.sort(l, (x, y) -> x.allDay != y.allDay ? (x.allDay ? -1 : 1) : Long.compare(x.begin, y.begin));
         return out;
     }
