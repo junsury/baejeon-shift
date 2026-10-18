@@ -1,6 +1,9 @@
 # 알림 진단 (수동 실행) — 개인정보 없이 개수만 출력
 name: 알림 진단
-on: workflow_dispatch
+on:
+  workflow_dispatch:
+    inputs:
+      dates: { description: "근무변경 진단 날짜(쉼표)", required: false, default: "" }
 jobs:
   diag:
     runs-on: ubuntu-latest
@@ -14,5 +17,6 @@ jobs:
           echo "$SA" > "$RUNNER_TEMP/sa.json"
           mkdir -p "$RUNNER_TEMP/m" && cd "$RUNNER_TEMP/m" && npm init -y >/dev/null && npm install firebase-admin@12 --silent --no-audit --no-fund
           NODE_PATH="$RUNNER_TEMP/m/node_modules" node "$GITHUB_WORKSPACE/tools/diag.js" "$RUNNER_TEMP/sa.json"
+          if [ -n "${{ inputs.dates }}" ]; then NODE_PATH="$RUNNER_TEMP/m/node_modules" node "$GITHUB_WORKSPACE/tools/diag-swap.js" "$RUNNER_TEMP/sa.json" "${{ inputs.dates }}"; fi
           gcloud auth activate-service-account --key-file="$RUNNER_TEMP/sa.json" --quiet
           gcloud logging read 'resource.type="cloud_function" AND (resource.labels.function_name="onUserCreated" OR resource.labels.function_name="onRequestCreated") AND timestamp>="'"$(date -u -d '-3 hours' +%Y-%m-%dT%H:%M:%SZ)"'"' --project baejeon-shift --limit 30 --format='value(timestamp,resource.labels.function_name,severity,textPayload)' | sed 's/@[^ ]*//g' | head -30 | while IFS= read -r l; do echo "::notice::$l"; done
