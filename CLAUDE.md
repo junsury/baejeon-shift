@@ -28,6 +28,7 @@
 - 근무 계산을 바꾸면 `functions/engine.js`(위젯·서버용)도 같은지 확인.
 - 규칙(firestore.rules)에 새 필드·컬렉션을 쓰면 허용했는지 확인.
 - 외부 설정이 필요한 변경(구글 클라우드·Firebase 콘솔)은 **먼저 설정 → 확인(tools/diag-auth.sh 등) → 그다음 코드 배포** 순서.
+- 갤럭시 앱(android/) 변경으로 **다시 설치가 필요하면 보고에 다운로드 링크를 꼭 함께**: https://github.com/junsury/baejeon-shift/releases/download/android/baejeon-shift.apk
 - 사용자에게 보고할 땐: 무엇이 바뀌었는지, 사용자가 해야 할 일(앱 업데이트·새로고침), 실기기에서 확인 못 한 부분을 솔직하게.
 
 ## 자동 안전장치
