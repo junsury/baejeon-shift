@@ -34,7 +34,7 @@ with sync_playwright() as p:
             import time; t0=time.time(); pg.evaluate('window.__shared=0'); pg.click(bid)
             for _ in range(120):
                 pg.wait_for_timeout(500); m=pg.inner_text(msg)
-                if pg.locator('.pushask [data-x=go]').count(): print('  tap-again button shown'); pg.click('.pushask [data-x=go]'); continue
+                if pg.locator('.shsheet [data-x=share]').count(): print('  ready sheet shown, img=',pg.locator('.shsheet img').count()); pg.wait_for_timeout(300); pg.click('.shsheet [data-x=share]'); continue
                 if '✓' in m or '못했' in m: break
             print(bid,'MOBILE',round(time.time()-t0,1),'s shared=',pg.evaluate('window.__shared'),m[:120]); continue
         try:

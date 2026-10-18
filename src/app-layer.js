@@ -48,25 +48,29 @@ function listenErr(e){if(isFamily()&&e&&/permission/.test(e.code||'')){stopListe
 const famGoneHtml=()=>'<div class="g-logo">근</div><h2>링크가 끊겼어요</h2><p class="note">이 근무표 링크는 더 이상 쓸 수 없어요. 가족에게 새 링크를 받아 주세요.</p>';
 
 /* 파일 저장 · 공유 (휴대폰에서는 공유창 → 카카오톡 선택 가능) */
-function shareByTap(file,filename){return new Promise((ok,no)=>{
-  const d=document.createElement('div');d.className='pushask';d.style.zIndex='60';
-  d.innerHTML='<b>'+(/\.png$/.test(filename)?'이미지':'파일')+'가 준비됐어요</b><span>아래 버튼을 누르면 공유창이 떠요. 카카오톡을 고르세요.</span><div class="btns"><button class="btn" data-x="go">공유하기</button><button class="btn ghost" data-x="no">닫기</button></div>';
+/* 휴대폰: 파일이 준비되면 미리보기 창 → [공유하기]를 직접 눌러야 공유창이 떠요 (자동으로 띄우면 깜빡이며 닫히는 폰이 있어요) */
+function shareSheet(blob,filename,type){return new Promise((ok,no)=>{
+  const file=new File([blob],filename,{type});const url=URL.createObjectURL(blob);const img=/^image\//.test(type);
+  const canShare=!!(navigator.canShare&&navigator.share&&navigator.canShare({files:[file]}));
+  const d=document.createElement('div');d.className='shsheet';
+  d.innerHTML='<div class="shs-in"><b class="shs-t">'+(img?'이미지':'PDF')+'가 준비됐어요</b>'+(img?'<div class="shs-img"><img alt="" src="'+url+'"></div><p class="note">그림을 꾹 누르면 저장·공유 메뉴도 나와요</p>':'<p class="note">'+esc(filename)+'</p>')+
+    '<div class="shs-btns">'+(canShare?'<button class="btn" data-x="share">카톡 등으로 공유하기</button>':'')+'<button class="btn '+(canShare?'ghost':'')+'" data-x="save">휴대폰에 저장</button><button class="btn ghost" data-x="close">닫기</button></div></div>';
   document.body.appendChild(d);
-  d.onclick=async ev=>{const x=ev.target.closest('[data-x]');if(!x)return;
-    if(x.dataset.x==='no'){d.remove();no({code:'declined'});return}
-    try{await navigator.share({files:[file],title:filename});d.remove();ok({status:'saved'})}catch(e){d.remove();if(e&&e.name==='AbortError')no({code:'declined'});else no(e)}};
+  const done=(r,err)=>{d.remove();setTimeout(()=>URL.revokeObjectURL(url),60000);err?no(err):ok(r)};
+  let busy=false;
+  d.onclick=async ev=>{const x=ev.target.closest('[data-x]');if(!x){if(ev.target===d)done(null,{code:'declined'});return}
+    if(x.dataset.x==='close')return done(null,{code:'declined'});
+    if(x.dataset.x==='save'){const a=document.createElement('a');a.href=url;a.download=filename;document.body.appendChild(a);a.click();a.remove();return done({status:'saved'})}
+    if(busy)return;busy=true;
+    try{await navigator.share({files:[file],title:filename});done({status:'saved'})}
+    catch(e){busy=false;if(!(e&&e.name==='AbortError')){x.textContent='공유창이 안 열려요 · 그림을 꾹 눌러 주세요';x.disabled=true}}};
 })}
 async function appDownloads(){
   return {save:async({filename,data})=>{
     const blob=data instanceof Blob?data:new Blob([data]);
     const type=blob.type||(/\.png$/.test(filename)?'image/png':/\.pdf$/.test(filename)?'application/pdf':/\.json$/.test(filename)?'application/json':'application/octet-stream');
     const mobile=/Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
-    if(mobile&&window.File&&navigator.canShare){
-      const file=new File([blob],filename,{type});
-      if(navigator.canShare({files:[file]})){try{await navigator.share({files:[file],title:filename});return {status:'saved'}}catch(e){if(e&&e.name==='AbortError')throw {code:'declined'};
-        // 그림 만드는 데 시간이 걸려 '누른 동작'이 만료되면 공유창이 막혀요 → 한 번 더 누르는 버튼
-        if(e&&e.name==='NotAllowedError')return await shareByTap(file,filename)}}
-    }
+    if(mobile&&window.File&&/\.(png|pdf)$/.test(filename))return await shareSheet(blob,filename,type);
     const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=filename;document.body.appendChild(a);a.click();
     setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},4000);return {status:'saved'};
   }};

@@ -464,6 +464,19 @@ table.grid td.shiftday{box-shadow:inset 3px 0 0 var(--accent)}
 .dcalcol .item{padding:4px 0;gap:6px;border:0;font-size:13px}
 .dcalcol .item b{font-size:13px;line-height:1.3}
 .myday .wk .r{padding-top:6px;padding-bottom:6px}
+/* 요청 중 표시 */
+.sheet td.nm .rq{display:block;font-size:12px;color:#c25e00;font-weight:700;font-style:italic}
+.sheet.kk td.nm .rq{display:inline;font-size:18px}
+.sm-sh-row .rq{display:block;color:var(--warn);font-weight:700;font-size:.85em}
+.ml.rq{background:var(--warn-bg);color:var(--warn);font-weight:700}
+.wnote.rqn{background:var(--warn-bg)!important;color:var(--warn)!important}
+.rqline{font-size:14px;font-weight:600}
+.rqsum{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+.rqbox{display:flex;flex-direction:column;align-items:flex-start;gap:1px;padding:10px 12px;border-radius:12px;border:1px solid var(--line);background:var(--surface);font:inherit;color:var(--muted);text-align:left;cursor:pointer}
+.rqbox span{font-size:14px;font-weight:600}.rqbox b{font-size:22px;color:var(--fg)}.rqbox small{font-size:12px}
+.rqbox.in.on{background:var(--warn-bg);border:2px solid var(--warn);color:var(--warn)}
+.rqbox.out.on{background:color-mix(in srgb,var(--accent) 12%,var(--surface));border:2px solid var(--accent);color:var(--accent)}
+.item.waiting{background:color-mix(in srgb,var(--accent) 8%,transparent);border-radius:10px}
 /* ---------- 간단 버전 (과장 버전) ---------- */
 .tosimple{height:34px;padding:0 12px;border-radius:999px;border:1px solid var(--line);background:var(--surface);color:var(--accent);font:inherit;font-size:13px;font-weight:700;cursor:pointer;flex:none}
 .sm{word-break:keep-all;min-height:100vh;min-height:100dvh;display:flex;flex-direction:column;background:var(--bg);font-size:17px}
@@ -581,6 +594,13 @@ table.grid td.shiftday{box-shadow:inset 3px 0 0 var(--accent)}
 .sm-cand>span>b{font-size:19px}.sm-cand>span>span{font-size:15px;color:var(--muted)}.sm-cand .w{color:var(--warn)!important}
 .sm-cand .ck{font-style:normal;width:30px;height:30px;border-radius:50%;border:2px solid var(--line);display:flex;align-items:center;justify-content:center;color:transparent;font-weight:900}
 .sm-cand.sel{border:2px solid var(--accent)}.sm-cand.sel .ck{background:var(--accent);border-color:var(--accent);color:var(--accent-fg)}
+.sm-rqsum>div{border:1px solid var(--line);background:var(--surface);border-radius:14px;padding:10px 14px;display:flex;flex-direction:column;color:var(--muted)}
+.sm-rqsum>div span{font-size:15px;font-weight:600}.sm-rqsum>div b{font-size:26px;color:var(--fg)}
+.sm-rqsum>div.on.in{background:var(--warn-bg);border:2px solid var(--warn);color:var(--warn)}
+.sm-rqsum>div.on.out{background:color-mix(in srgb,var(--accent) 12%,var(--surface));border:2px solid var(--accent);color:var(--accent)}
+.sm-req.mine{background:color-mix(in srgb,var(--accent) 8%,var(--surface));border:2px solid var(--accent)}.sm-req.mine .sm-req-t{color:var(--accent)}
+.sm-rqline{background:var(--warn-bg);color:var(--warn);border-radius:10px;padding:8px 12px;font-weight:700;font-size:16px}
+.sm-rqdot{font-style:normal;font-size:10px;font-weight:800;color:var(--warn);line-height:1}
 .sm-sum{background:var(--sunk);border-radius:14px;padding:14px 16px;font-size:18px;line-height:1.6;margin-top:6px}
 /* 요약 */
 .sm-prow{display:flex;align-items:center;justify-content:space-between;padding:18px 20px}
@@ -728,6 +748,7 @@ table.grid td.shiftday{box-shadow:inset 3px 0 0 var(--accent)}
 
   <!-- 근태 -->
   <section class="panel" id="tab-attend" hidden>
+    <div class="rqsum" id="rqSum"></div>
     <div class="seg" role="group" aria-label="근태 메뉴" id="attSeg" style="margin-left:0;align-self:flex-start">
       <button data-att="add" aria-pressed="true" id="attAddBtn">등록</button>
       <button data-att="req" aria-pressed="false">신청</button>
@@ -982,6 +1003,22 @@ function dayCells(n,evs){
   return res;
 }
 function touches(e,n){return e.type==='swap'?(dn(e.aDate)===n||dn(e.bDate)===n):dn(e.date)===n}
+/* 상대가 아직 수락하지 않은 근태 요청: 근무 계산엔 안 넣고 '요청 중' 글자로만 보여요.
+   수락하면 근태로 반영(근무표에 들어감), 거절·취소하면 표시가 사라져요. */
+function reqMarks(id,n){
+  const out=[];const k=ds(n);if(typeof requests==='undefined')return out;
+  for(const r of requests){if(r.status!=='pending'||!r.ev)continue;const e=r.ev;const sh=e.shift==='주'?'주간':'야간';
+    if(r.kind==='swap'){
+      if(e.aId===id&&e.aDate===k)out.push({s:e.shift,give:true,other:e.bId,od:dn(e.bDate),mine:r.from===id,t:fmt(n)+' 내 '+sh+'을 '+nm(e.bId)+'에게 (근무변경 요청 중)'});
+      if(e.bId===id&&e.bDate===k)out.push({s:e.shift,give:true,other:e.aId,od:dn(e.aDate),mine:r.from===id,t:fmt(n)+' 내 '+sh+'을 '+nm(e.aId)+'에게 (근무변경 요청 중)'});
+      if(e.bId===id&&e.aDate===k)out.push({s:e.shift,give:false,other:e.aId,mine:r.from===id,t:fmt(n)+' '+nm(e.aId)+' '+sh+'을 받아요 (근무변경 요청 중)'});
+      if(e.aId===id&&e.bDate===k)out.push({s:e.shift,give:false,other:e.bId,mine:r.from===id,t:fmt(n)+' '+nm(e.bId)+' '+sh+'을 받아요 (근무변경 요청 중)'});
+    }else if(r.kind==='leave'&&e.date===k){const tso=e.coverType==='tso';
+      if(e.memberId===id)out.push({s:e.shift,give:true,lv:true,other:e.coverId,mine:r.from===id,t:fmt(n)+' '+sh+' 휴가 · '+(e.coverId?nm(e.coverId)+(tso?' 근무지원':' 대근'):'대근 미정')+' (요청 중)'});
+      if(e.coverId===id)out.push({s:e.shift,give:false,other:e.memberId,mine:r.from===id,t:fmt(n)+' '+nm(e.memberId)+' 대신 '+sh+(tso?' 근무지원':' 대근')+' (요청 중)'});
+    }}
+  return out;
+}
 const tmin=t=>{const[h,m]=String(t||'0:0').split(':').map(Number);return h*60+(m||0)};
 const hm=mins=>Math.floor(mins/60)+':'+String(mins%60).padStart(2,'0');
 const hrs=c=>(HOURS[c.code]||0)+(c.cover?HOURS[c.cover]:0)-(c.minus||0);
@@ -1050,6 +1087,7 @@ function render(){
   if(ui.tab==='pay'){renderPay();if(!$('#rpBox').hidden)showReport()}
   if(ui.tab==='attend'){
     if(!admin&&ui.attTab==='add')ui.attTab='req';
+    renderRqSum();
     $('#attAddBtn').hidden=!admin;
     document.querySelectorAll('#attSeg button').forEach(b=>b.setAttribute('aria-pressed',b.dataset.att===ui.attTab));
     $('#att-add').hidden=!(ui.attTab==='add'||ui.attTab==='req');$('#att-inbox').hidden=ui.attTab!=='inbox';$('#att-hist').hidden=ui.attTab!=='hist';
@@ -1642,7 +1680,7 @@ function weekRow(k){
   const notes=dayNotes(c);
   const cell=(k2,t,l)=>'<em>'+k2+'</em><span class="tj">'+(t?t+'조':'')+'</span><span class="wn">'+names(l)+'</span>';
   const rel=myShifts(c).map(s=>{const r=relay(k,s,me);return cell('전',r.bt,r.before)+cell('동',teamOn(k,s),r.mates)+cell('후',r.at,r.after)}).join('');
-  const memo=memos[ds(k)]?'<span class="wmemo">메모 · '+esc(memos[ds(k)])+'</span>':'';
+  const memo=(memos[ds(k)]?'<span class="wmemo">메모 · '+esc(memos[ds(k)])+'</span>':'')+reqMarks(me,k).map(x=>'<b class="wnote rqn">⏳ '+esc(x.t.replace(/^\S+ /,''))+'</b>').join('');
   return '<div class="r'+(k===todayN?' today':'')+'" data-day="'+k+'" style="cursor:pointer"><span class="dt'+(hol?' red':sat?' blue':'')+'">'+new Date(k*864e5).getUTCDate()+'<small>'+WD[dow(k)]+'</small></span><span class="wchip">'+chip(c)+'<i>'+esc(chipName(c))+'</i></span><span class="ds">'+rel+'</span><span class="dn">'+notes.map(x=>'<b class="wnote">'+esc(x)+'</b>').join('')+memo+'</span></div>';
 }
 function renderMy(){
@@ -1662,6 +1700,7 @@ function renderMy(){
     let h='<div class="card mycard"><div class="bigshift">'+chip(c)+'<div><div class="t1">'+esc(t1)+'</div><div class="t2">'+esc(t2)+'</div></div></div>';
     h+=timeline(n,c);
     h+=dayNotes(c).map(x=>'<div class="msg ok" style="font-size:14px">'+esc(x)+'</div>').join('');
+    h+=reqMarks(me,n).map(x=>'<div class="msg warn rqline">⏳ '+esc(x.t)+(x.mine?' · 내가 보낸 요청':' · 나에게 온 요청')+'</div>').join('');
     if(holidays.has(ds(n))&&(hasShift(c,'주')||hasShift(c,'야')))h+='<div class="msg ok">'+holWorkText(ds(n),c)+'</div>';
     h+='</div>';
     const mm=memos[ds(n)]||'';
@@ -1692,6 +1731,7 @@ function renderMy(){
       if(c.tags.includes('변경'))lines.push(['sw',nm(c.with)+(c.withDate!=null?' '+md2(c.withDate):'')+' 변경']);
       if(c.code==='연')lines.push(['lv',(c.leaveType&&c.leaveType!=='연차'?LT_NAME[c.leaveType]+' ':'')+(c.by?'→ '+nm(c.by):'')]);
       if(c.part)lines.push(['lv','시간 '+c.part.from+'~'+c.part.to]);
+      for(const x of reqMarks(me,k))lines.push(['rq','⏳ '+(x.give?(x.lv?'휴가':'변경')+' 요청중':'받기 요청중')]);
       if(memos[ds(k)])lines.push(['mm',memos[ds(k)]]);
       if(typeof window.__calLines==='function')for(const t of (window.__calLines(k)||[]))lines.push(typeof t==='string'?['ce',t]:['ce',t.t,t.c]);
       h+='<div class="mday'+(inM?'':' out')+(k===todayN?' today':'')+'" data-day="'+k+'"><div class="mtop"><span class="mn'+(hol?' red':sat?' blue':'')+'">'+new Date(k*864e5).getUTCDate()+'</span>'+chip(c)+'</div>'+lines.map(([cl,t,col])=>'<span class="ml '+cl+'"'+(col?' style="background:'+col+'2e;border-left:3px solid '+col+';color:var(--fg)"':'')+'>'+esc(t)+'</span>').join('')+'</div>'}
@@ -1930,7 +1970,8 @@ function sheetCell(m,n,s){
   const c=dayCells(n)[m.id];let nt='';
   if(c.code==='연'&&c.was===s)nt=LT_PRINT[c.leaveType||'연차']+' '+(c.by?nm(c.by):'미정');
   else if(c.tags.includes('변경')&&c.gave===s)nt='변('+mdot(c.gaveDate??c.withDate)+') '+nm(c.gaveTo??c.with);
-  return (nt?'<s>'+esc(m.name)+'</s>':esc(m.name))+(nt?'<span class="nt">/'+esc(nt)+'</span>':'');
+  let rq='';if(!sheetHtml.export)for(const x of reqMarks(m.id,n))if(x.give&&x.s===s)rq+='<span class="rq">/요청중 '+esc(x.lv?'휴가'+(x.other?' '+nm(x.other):''):'변('+mdot(x.od)+') '+nm(x.other))+'</span>';
+  return (nt?'<s>'+esc(m.name)+'</s>':esc(m.name))+(nt?'<span class="nt">/'+esc(nt)+'</span>':'')+rq;
 }
 function teamOn(n,s){for(const t of 'ABCD')if(PATTERN[mod(REF_POS[t]+n-dn(REF),8)]===s)return t;return ''}
 function teamMembers(t,n){return workers().filter(m=>present(m,n)&&teamAt(m,n).team===t).sort((x,y)=>((teamAt(x,n).role==='조장'?0:1)-(teamAt(y,n).role==='조장'?0:1))||(x.order-y.order))}
@@ -2024,6 +2065,7 @@ function smMy(){
   const changed=c.tags.includes('변경')||c.tags.includes('대근');
   let h='<div class="sm-card sm-today"><span class="sm-date'+(n===todayN?' red':'')+'">'+(n===todayN?'오늘 ':'')+fmtLong(n).replace(/^\d+년 /,'')+' ('+WD[dow(n)]+')</span>'+
     '<div class="sm-shift">'+chip(c)+'<div><b>'+esc(t1)+'</b><span>'+esc(t2)+'</span>'+(mates.length?'<span>같이 <b class="fg">'+esc(mates.join(', '))+'</b>'+(changed?' · 바뀐 근무':'')+'</span>':'')+'</div></div>';
+  h+=reqMarks(me,n).map(x=>'<div class="sm-rqline">⏳ '+esc(x.t.replace(/^\S+ /,''))+'</div>').join('');
   if(n===todayN){const c1=dayCells(n+1)[me];h+='<div class="sm-next"><span>내일</span>'+chip(c1)+'<b>'+esc(shiftLine(c1)[0])+'</b></div>'}
   else h+='<div class="sm-next"><button class="sm-link" data-s="today">← 오늘 근무 보기</button></div>';
   h+='</div>';
@@ -2031,7 +2073,7 @@ function smMy(){
   h+='<div class="sm-card sm-cal"><div class="sm-calh"><button data-s="m-1" aria-label="이전 달">‹</button><b>'+(ym.m+1)+'월 내 근무</b><button data-s="m+1" aria-label="다음 달">›</button></div>'+
     '<div class="sm-wd">'+WD.map((w,i)=>'<span class="'+(i===0?'red':i===6?'blue':'')+'">'+w+'</span>').join('')+'</div><div class="sm-grid" style="grid-template-rows:repeat('+((to-from)/7)+',minmax(0,1fr))">';
   for(let k=from;k<to;k++){const cc=dayCells(k)[me];const hol=holidays.has(ds(k))||dow(k)===0,sat=!hol&&dow(k)===6;
-    h+='<button class="sm-d'+(k<a||k>=b?' out':'')+(k===todayN?' today':'')+(k===ui.sDay?' sel':'')+'" data-sday="'+k+'"><span class="'+(hol?'red':sat?'blue':'')+'">'+new Date(k*864e5).getUTCDate()+'</span>'+chip(cc)+'</button>'}
+    h+='<button class="sm-d'+(k<a||k>=b?' out':'')+(k===todayN?' today':'')+(k===ui.sDay?' sel':'')+'" data-sday="'+k+'"><span class="'+(hol?'red':sat?'blue':'')+'">'+new Date(k*864e5).getUTCDate()+'</span>'+chip(cc)+(reqMarks(me,k).length?'<i class="sm-rqdot">요청중</i>':'')+'</button>'}
   return h+'</div></div>';
 }
 
@@ -2080,9 +2122,12 @@ function smBudget(){
 function smAttend(){
   let h=ui.sMsg?'<div class="sm-ok">'+ui.sMsg+'</div>':'';
   const notices=pendingToMe().filter(r=>r.status==='notice'),inc=pendingToMe().filter(r=>r.status==='pending');
+  const sent=requests.filter(r=>r.from===me&&r.status==='pending').sort((x,y)=>x.createdAt-y.createdAt);
+  h+='<div class="sm-two sm-rqsum"><div class="'+(inc.length?'on in':'')+'"><span>📥 나에게 온 요청</span><b>'+inc.length+'건</b></div><div class="'+(sent.length?'on out':'')+'"><span>📤 내가 보낸 요청</span><b>'+sent.length+'건</b></div></div>';
   for(const r of inc){const errs=r.kind==='swap'?swapErrors(r.ev):leaveErrors(r.ev);
-    h+='<div class="sm-req"><span class="sm-req-t">받은 요청 · '+esc(nm(r.from))+' 님</span><p>'+reqDesc(r)+'</p>'+(r.note?'<p class="sm-note">"'+esc(r.note)+'"</p>':'')+errs.map(x=>'<p class="sm-bad">✕ '+esc(x)+'</p>').join('')+
+    h+='<div class="sm-req"><span class="sm-req-t">📥 '+esc(nm(r.from))+' 님이 나에게 요청했어요</span><p>'+reqDesc(r)+'</p>'+(r.note?'<p class="sm-note">"'+esc(r.note)+'"</p>':'')+errs.map(x=>'<p class="sm-bad">✕ '+esc(x)+'</p>').join('')+
       '<div class="sm-two"><button class="sm-btn" data-rq="'+r._id+'" data-act="ok"'+(errs.length?' disabled':'')+'>수락</button><button class="sm-btn ghost" data-rq="'+r._id+'" data-act="no">거절</button></div></div>'}
+  for(const r of sent)h+='<div class="sm-req mine"><span class="sm-req-t">📤 내가 '+esc(nm(r.to))+' 님에게 보낸 요청 · ⏳ 수락 기다리는 중</span><p>'+reqDesc(r)+'</p><p class="sm-note">상대가 수락하면 근무표에 반영돼요. 그 전까지는 근무표에 "요청중"으로만 보여요.</p><button class="sm-btn ghost" data-rq="'+r._id+'" data-act="cancel">요청 취소</button></div>';
   for(const r of notices)h+='<div class="sm-req info"><span class="sm-req-t">'+(r.canceled?'취소됐어요':'바뀌었어요')+' · '+esc(nm(r.from))+' 님</span><p>'+reqDesc(r)+'</p><button class="sm-btn ghost" data-rq="'+r._id+'" data-act="seen">확인</button></div>';
   h+='<p class="sm-q">무엇을 할까요?</p>';
   const item=(k,ic,bg,col,t,sub)=>'<button class="sm-act" data-flow="'+k+'"><span class="ic" style="background:'+bg+';color:'+col+'">'+smIcon(ic)+'</span><span class="tx"><b>'+t+'</b><span>'+sub+'</span></span><span class="ar">›</span></button>';
@@ -2153,7 +2198,7 @@ async function smSubmit(direct){
   try{
     if(direct){const id=await addEvent({...ev});if(!id)return;await sendRequest({kind:rk,from:me,to,ev:{...ev},note:'',status:'notice',eventId:id});
       ui.sMsg='✓ 근무표에 바로 반영했어요. '+esc(nm(to))+' 님에게 알림이 가요.'}
-    else{await sendRequest({kind:rk,from:me,to,ev:{...ev},note:''});ui.sMsg='✓ '+esc(nm(to))+' 님에게 요청을 보냈어요. 수락하면 근무표에 반영돼요.'}
+    else{await sendRequest({kind:rk,from:me,to,ev:{...ev},note:''});ui.sMsg='📤 '+esc(nm(to))+' 님에게 요청을 보냈어요. 수락하면 근무표에 반영되고, 그 전까진 근무표에 "요청중"으로 보여요.'}
     ui.sFlow=null;ui.sPick=null;ui.sCand=null;ui.sCandKey=null;
   }finally{ui.sBusy=false;render()}
 }
@@ -2386,6 +2431,13 @@ function reqDesc(r){
 }
 const ST_NAME={pending:'대기 중',approved:'승인됨',rejected:'거절됨',canceled:'취소됨',notice:'바로 반영',withdrawn:'회수함'};
 const noteHtml=r=>r.note?'<span class="rnote">'+esc(nm(r.from))+': '+esc(r.note)+'</span>':'';
+function renderRqSum(){
+  const box=$('#rqSum');if(!box)return;if(!me||!byId(me)){box.innerHTML='';return}
+  const inc=requests.filter(r=>r.to===me&&r.status==='pending'),sent=requests.filter(r=>r.from===me&&r.status==='pending');
+  box.innerHTML='<button class="rqbox in'+(inc.length?' on':'')+'" data-rqgo="in"><span>📥 나에게 온 요청</span><b>'+inc.length+'건</b><small>'+(inc.length?'수락·거절을 눌러 주세요':'없어요')+'</small></button>'+
+    '<button class="rqbox out'+(sent.length?' on':'')+'" data-rqgo="out"><span>📤 내가 보낸 요청</span><b>'+sent.length+'건</b><small>'+(sent.length?'상대 수락을 기다리는 중':'없어요')+'</small></button>';
+}
+$('#rqSum').addEventListener('click',e=>{const b=e.target.closest('[data-rqgo]');if(!b)return;ui.attTab='inbox';ui.ib=b.dataset.rqgo;render()});
 function renderInbox(){
   ui.ib=ui.ib||'in';
   document.querySelectorAll('#ibSeg [data-ib]').forEach(b=>b.setAttribute('aria-pressed',b.dataset.ib===ui.ib));
@@ -2408,7 +2460,7 @@ function renderInbox(){
     return '<div class="item" style="flex-wrap:wrap"><div class="t">'+reqDesc(r)+'<small>'+esc(nm(r.from))+' 님의 요청 · '+new Date(r.createdAt).toLocaleDateString('ko-KR')+'</small>'+noteHtml(r)+shape+errs.map(x=>'<div class="msg bad" style="margin-top:4px">✕ '+esc(x)+'</div>').join('')+'</div>'+
       '<span class="btns"><button class="btn" data-rq="'+r._id+'" data-act="ok"'+(errs.length?' disabled':'')+'>승인</button><button class="btn ghost" data-rq="'+r._id+'" data-act="no">거절</button></span></div>'}).join(''):(notices.length?'':'<p class="empty" style="margin:6px 0 0">기다리는 요청이 없어요.</p>'));
   const out=requests.filter(r=>r.from===me&&(r.status==='pending'||Date.now()-(r.decidedAt||r.createdAt)<30*864e5)).sort((x,y)=>y.createdAt-x.createdAt);
-  $('#outList').innerHTML=out.length?out.map(r=>'<div class="item"><span class="kind '+(r.status==='approved'?'leave':'swap')+'">'+(r.status==='withdrawn'?'회수함':r.canceled?'취소함':ST_NAME[r.status])+'</span><div class="t">'+reqDesc(r)+'<small>'+esc(nm(r.to))+' 님에게 · '+new Date(r.createdAt).toLocaleDateString('ko-KR')+(r.status==='notice'?(r.seen?' · 확인함':' · 아직 확인 안 함'):r.status==='withdrawn'?' · 상대방이 보기 전에 회수했어요':'')+'</small>'+(r.note?'<span class="rnote">'+esc(r.note)+'</span>':'')+'</div>'+(r.status==='pending'?'<button class="btn ghost" data-rq="'+r._id+'" data-act="cancel">취소</button>':'')+'</div>').join(''):'<p class="empty" style="margin:6px 0 0">보낸 요청이 없어요.</p>';
+  $('#outList').innerHTML=out.length?out.map(r=>'<div class="item'+(r.status==='pending'?' waiting':'')+'"><span class="kind '+(r.status==='approved'?'leave':'swap')+'">'+(r.status==='pending'?'⏳ 수락 대기':r.status==='withdrawn'?'회수함':r.canceled?'취소함':ST_NAME[r.status])+'</span><div class="t">'+reqDesc(r)+'<small>'+esc(nm(r.to))+' 님에게 · '+new Date(r.createdAt).toLocaleDateString('ko-KR')+(r.status==='notice'?(r.seen?' · 확인함':' · 아직 확인 안 함'):r.status==='withdrawn'?' · 상대방이 보기 전에 회수했어요':'')+'</small>'+(r.note?'<span class="rnote">'+esc(r.note)+'</span>':'')+'</div>'+(r.status==='pending'?'<button class="btn ghost" data-rq="'+r._id+'" data-act="cancel">요청 취소</button>':'')+'</div>').join(''):'<p class="empty" style="margin:6px 0 0">보낸 요청이 없어요.</p>';
 }
 async function onReq(e){
   const b=e.target.closest('[data-rq]');if(!b||b.disabled)return;const r=requests.find(x=>x._id===b.dataset.rq);if(!r)return;b.disabled=true;
