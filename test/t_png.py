@@ -42,3 +42,4 @@ with sync_playwright() as p:
             path=SHOT+'/dl_'+d.value.suggested_filename; d.value.save_as(path); print(bid,'OK',d.value.suggested_filename,os.path.getsize(path))
         except Exception as e: print(bid,'FAIL',pg.inner_text(msg)[:200],str(e)[:100])
     print('errs', errs)
+    sys.stdout.flush(); os._exit(0)   # 다운로드 정리 중 종료 오류 방지
