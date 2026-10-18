@@ -2,7 +2,8 @@
 // 이 값들은 공개돼도 괜찮아요(보안은 firestore.rules가 지켜요).
 window.FIREBASE_CONFIG = {
   apiKey: "AIzaSyD_oo24MEDYagUECrYPbTPbzrBFQKYEhRY",
-  authDomain: "baejeon-shift.firebaseapp.com",
+  // 로그인도 앱과 같은 주소에서 처리 (아이폰 사파리가 다른 주소 간 로그인 정보를 막아서)
+  authDomain: location.hostname === "baejeon-shift.web.app" ? "baejeon-shift.web.app" : "baejeon-shift.firebaseapp.com",
   projectId: "baejeon-shift",
   storageBucket: "baejeon-shift.firebasestorage.app",
   messagingSenderId: "222465525681",
