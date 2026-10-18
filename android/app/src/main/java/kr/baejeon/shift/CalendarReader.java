@@ -232,6 +232,20 @@ final class CalendarReader {
         return v;
     }
 
+    /** 구글 일정 id(_SYNC_ID)로 휴대폰에 저장된 일정 색 (직접 고른 색이 없으면 0) */
+    static int localColorOf(Context c, String syncId) {
+        if (syncId == null || syncId.isEmpty() || !allowed(c)) return 0;
+        try (Cursor cur = c.getContentResolver().query(CalendarContract.Events.CONTENT_URI,
+                new String[]{CalendarContract.Events.EVENT_COLOR, CalendarContract.Events.EVENT_COLOR_KEY},
+                CalendarContract.Events._SYNC_ID + "=?", new String[]{syncId}, null)) {
+            if (cur != null && cur.moveToFirst()) {
+                if (!cur.isNull(1) && !cur.getString(1).isEmpty()) return 1;
+                if (!cur.isNull(0) && cur.getInt(0) != 0) return cur.getInt(0);
+            }
+        } catch (Exception ignored) {}
+        return 0;
+    }
+
     /** 구글 계정 캘린더면 일정 색 번호(1~11)를 색 키로 */
     static void putColor(Context c, long calId, android.content.ContentValues v, int colorId) {
         try {

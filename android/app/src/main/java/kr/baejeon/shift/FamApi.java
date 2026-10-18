@@ -78,7 +78,11 @@ final class FamApi {
                     int have = Integer.parseInt(e.optString("colorId", "0").isEmpty() ? "0" : e.optString("colorId", "0"));
                     // 누가 한 번이라도 색을 직접 골랐으면(구글 캘린더 앱이든 근무표 앱이든) 그대로 둬요. 색이 없는 일정만 만든 사람 색으로
                     if (!shift && have > 0) want = have;
-                    if (have != want && patched < 60) {
+                    // 구글 캘린더 앱의 새 색(벚꽃 등 11가지 밖의 색)은 서버에 색 번호가 없어요 → 휴대폰에 저장된 색이 있으면 그대로
+                    int lc = (!shift && have == 0) ? CalendarReader.localColorOf(c, e.has("recurringEventId") ? e.optString("recurringEventId") : e.optString("id")) : 0;
+                    int disp = FamColors.hex(want);
+                    if (lc != 0) { want = 0; if (lc != 1) disp = lc | 0xFF000000; }
+                    if (want > 0 && have != want && patched < 60) {
                         // 반복 일정은 날짜별로 칠하면 쪼개져요 → 반복 전체를 한 번만
                         String target = e.has("recurringEventId") ? e.optString("recurringEventId") : e.optString("id");
                         if (painted.add(target)) try {
@@ -91,7 +95,7 @@ final class FamApi {
                     JSONObject st = e.optJSONObject("start"), en = e.optJSONObject("end");
                     if (st == null) continue;
                     JSONObject o = new JSONObject().put("t", e.optString("summary", "(제목 없음)")).put("id", e.optString("id"))
-                            .put("c", FamColors.hex(want)).put("w", FamColors.who(c, creator)).put("m", e.optString("description", ""));
+                            .put("c", disp).put("w", FamColors.who(c, creator)).put("m", e.optString("description", ""));
                     if (e.has("recurringEventId")) o.put("r", e.optString("recurringEventId"));
                     JSONObject xp = e.optJSONObject("extendedProperties"), pv = xp != null ? xp.optJSONObject("private") : null;
                     if (pv != null && pv.has("bjs")) o.put("s", pv.optString("bjs"));
