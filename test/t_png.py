@@ -17,7 +17,7 @@ with sync_playwright() as p:
         pg.add_init_script("try{localStorage.setItem('shift-simple','0')}catch(e){}")
         # 휴대폰 공유창 흉내: 사용자 동작 후 5초가 지나면 NotAllowedError (Chrome 규칙)
         pg.add_init_script("""(()=>{let t=0;addEventListener('click',()=>t=performance.now(),true);
-          navigator.canShare=()=>true;navigator.share=async()=>{const dt=performance.now()-t;console.log('share after ms',Math.round(dt));if(dt>5000)throw new DOMException('Must be handling a user gesture','NotAllowedError');window.__shared=(window.__shared||0)+1}})()""")
+          navigator.canShare=()=>true;navigator.share=async()=>{const dt=performance.now()-t;console.log('share after ms',Math.round(dt));if(dt>%s)throw new DOMException('Must be handling a user gesture','NotAllowedError');window.__shared=(window.__shared||0)+1}})()"""%os.environ.get('SHARE_LIMIT','5000'))
         pg.on('console',lambda m:print('  console:',m.text) if 'share after' in m.text else None)
         cdp=ctx.new_cdp_session(pg); cdp.send('Emulation.setCPUThrottlingRate',{'rate':4})
     else:
@@ -34,6 +34,7 @@ with sync_playwright() as p:
             import time; t0=time.time(); pg.evaluate('window.__shared=0'); pg.click(bid)
             for _ in range(120):
                 pg.wait_for_timeout(500); m=pg.inner_text(msg)
+                if pg.locator('.pushask [data-x=go]').count(): print('  tap-again button shown'); pg.click('.pushask [data-x=go]'); continue
                 if '✓' in m or '못했' in m: break
             print(bid,'MOBILE',round(time.time()-t0,1),'s shared=',pg.evaluate('window.__shared'),m[:120]); continue
         try:

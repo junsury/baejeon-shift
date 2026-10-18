@@ -48,6 +48,14 @@ function listenErr(e){if(isFamily()&&e&&/permission/.test(e.code||'')){stopListe
 const famGoneHtml=()=>'<div class="g-logo">근</div><h2>링크가 끊겼어요</h2><p class="note">이 근무표 링크는 더 이상 쓸 수 없어요. 가족에게 새 링크를 받아 주세요.</p>';
 
 /* 파일 저장 · 공유 (휴대폰에서는 공유창 → 카카오톡 선택 가능) */
+function shareByTap(file,filename){return new Promise((ok,no)=>{
+  const d=document.createElement('div');d.className='pushask';d.style.zIndex='60';
+  d.innerHTML='<b>'+(/\.png$/.test(filename)?'이미지':'파일')+'가 준비됐어요</b><span>아래 버튼을 누르면 공유창이 떠요. 카카오톡을 고르세요.</span><div class="btns"><button class="btn" data-x="go">공유하기</button><button class="btn ghost" data-x="no">닫기</button></div>';
+  document.body.appendChild(d);
+  d.onclick=async ev=>{const x=ev.target.closest('[data-x]');if(!x)return;
+    if(x.dataset.x==='no'){d.remove();no({code:'declined'});return}
+    try{await navigator.share({files:[file],title:filename});d.remove();ok({status:'saved'})}catch(e){d.remove();if(e&&e.name==='AbortError')no({code:'declined'});else no(e)}};
+})}
 async function appDownloads(){
   return {save:async({filename,data})=>{
     const blob=data instanceof Blob?data:new Blob([data]);
@@ -55,7 +63,9 @@ async function appDownloads(){
     const mobile=/Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
     if(mobile&&window.File&&navigator.canShare){
       const file=new File([blob],filename,{type});
-      if(navigator.canShare({files:[file]})){try{await navigator.share({files:[file],title:filename});return {status:'saved'}}catch(e){if(e&&e.name==='AbortError')throw {code:'declined'}}}
+      if(navigator.canShare({files:[file]})){try{await navigator.share({files:[file],title:filename});return {status:'saved'}}catch(e){if(e&&e.name==='AbortError')throw {code:'declined'};
+        // 그림 만드는 데 시간이 걸려 '누른 동작'이 만료되면 공유창이 막혀요 → 한 번 더 누르는 버튼
+        if(e&&e.name==='NotAllowedError')return await shareByTap(file,filename)}}
     }
     const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=filename;document.body.appendChild(a);a.click();
     setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},4000);return {status:'saved'};

@@ -2285,28 +2285,31 @@ async function saveNode(html,base,kind,msg){
     await loadScript('https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js');
     const holder=document.createElement('div');holder.style.cssText='position:fixed;left:-10000px;top:0;background:#fff';
     const node=document.createElement('div');const kk=kind==='png';node.className='sheet report '+(kk?'kk':'a4page');node.style.boxShadow='none';node.innerHTML=kk?html:'<div class="a4in">'+html+'</div>';holder.appendChild(node);document.body.appendChild(holder);
-    let cv;try{if(!kk)fitA4(node);cv=await window.html2canvas(node,{scale:2,backgroundColor:'#ffffff'})}finally{holder.remove()}
+    let cv;try{if(!kk)fitA4(node);cv=await window.html2canvas(node,{scale:safeScale(node),backgroundColor:'#ffffff'})}finally{holder.remove()}
     let blob,filename;
-    if(kind==='png'){blob=await new Promise(r=>cv.toBlob(r,'image/png'));filename=base+'.png'}
+    if(kind==='png'){blob=await toPngBlob(cv);filename=base+'.png'}
     else{await loadScript('https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js');
       const pdf=new window.jspdf.jsPDF({unit:'mm',format:'a4',orientation:'portrait'});
       pdf.addImage(cv.toDataURL('image/jpeg',0.92),'JPEG',0,0,210,297);blob=pdf.output('blob');filename=base+'.pdf'}
     await dl.save({filename,data:blob});
     msg.innerHTML='<div class="msg ok">✓ '+(kind==='png'?'이미지를 저장했어요. 카톡 단톡방에 올리면 돼요.':'PDF를 저장했어요.')+'</div>';
-  }catch(e){console.error('save failed',e&&(e.stack||e.message||JSON.stringify(e)));const c=e&&e.code;msg.innerHTML=c==='declined'?'':'<div class="msg bad">저장하지 못했어요'+(c?' ('+c+')':'')+'. 잠시 후 다시 시도해 주세요.</div>'}
+  }catch(e){console.error('save failed',e&&(e.stack||e.message||JSON.stringify(e)));const c=e&&e.code;msg.innerHTML=c==='declined'?'':'<div class="msg bad">저장하지 못했어요'+(c?' ('+c+')':'')+'. 잠시 후 다시 시도해 주세요.<br><small>'+esc(String((e&&(e.message||e.name))||e||'').slice(0,120))+'</small></div>'}
 }
 $('#rpPng').onclick=()=>saveNode(buildReport(),'근무요약_대근총량_'+ds(periodRange(ui.sumYm)[0]),'png',$('#rpMsg'));
 $('#rpPdf').onclick=()=>saveNode(buildReport(),'근무요약_대근총량_'+ds(periodRange(ui.sumYm)[0]),'pdf',$('#rpMsg'));
 function showReport(){const el=$('#rpPreview');el.className='sheet report kk';el.innerHTML=buildReport();requestAnimationFrame(()=>rpZoom(false))}
 $('#rpView').onclick=()=>{const box=$('#rpBox');box.hidden=!box.hidden;if(!box.hidden)showReport();$('#rpView').textContent=box.hidden?'미리보기':'미리보기 닫기'};
 const loadScript=src=>new Promise((ok,no)=>{if(document.querySelector('script[src="'+src+'"]'))return ok();const t=document.createElement('script');t.src=src;t.onload=ok;t.onerror=()=>no(new Error('load'));document.head.appendChild(t)});
+/* 휴대폰은 그림 한 변이 4096px을 넘으면 저장이 안 되는 경우가 있어서 배율을 낮춰요 */
+function safeScale(node){const w=node.offsetWidth||800,h=node.offsetHeight||1200;return Math.max(1,Math.min(2,3900/h,3900/w))}
+async function toPngBlob(cv){const b=await new Promise(r=>cv.toBlob(r,'image/png'));if(!b)throw new Error('그림이 너무 커서 만들지 못했어요');return b}
 async function sheetCanvas(kk){
   await loadScript('https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js');
   const holder=document.createElement('div');holder.style.cssText='position:fixed;left:-10000px;top:0;background:#fff';
   const node=document.createElement('div');node.style.boxShadow='none';
   sheetHtml.export=true;try{if(kk){node.className='sheet kk';node.innerHTML=sheetHtml(true)}else{node.className='sheet a4page';node.innerHTML='<div class="a4in">'+sheetHtml(false)+'</div>'}}finally{sheetHtml.export=false}
   holder.appendChild(node);document.body.appendChild(holder);
-  try{if(!kk)fitA4(node);return await window.html2canvas(node,{scale:2,backgroundColor:'#ffffff'})}finally{holder.remove()}
+  try{if(!kk)fitA4(node);return await window.html2canvas(node,{scale:safeScale(node),backgroundColor:'#ffffff'})}finally{holder.remove()}
 }
 async function saveSheet(kind){
   const msg=$('#pMsg');msg.innerHTML='<div class="msg warn">파일을 만드는 중이에요…</div>';
@@ -2315,13 +2318,13 @@ async function saveSheet(kind){
     if(!dl){msg.innerHTML='<div class="msg bad">이 화면에서는 파일 저장을 쓸 수 없어요. claude.ai에서 근무표를 열어 다시 시도해 주세요.</div>';return}
     const cv=await sheetCanvas(kind==='png');const a=shiftDayOf(ui.prYm);const base='근무편성표_'+ds(a);
     let blob,filename;
-    if(kind==='png'){blob=await new Promise(r=>cv.toBlob(r,'image/png'));filename=base+'.png'}
+    if(kind==='png'){blob=await toPngBlob(cv);filename=base+'.png'}
     else{await loadScript('https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js');
       const pdf=new window.jspdf.jsPDF({unit:'mm',format:'a4',orientation:'portrait'});
       pdf.addImage(cv.toDataURL('image/jpeg',0.92),'JPEG',0,0,210,297);blob=pdf.output('blob');filename=base+'.pdf'}
     const r=await dl.save({filename,data:blob});
     msg.innerHTML='<div class="msg ok">✓ '+(kind==='png'?'이미지':'PDF')+'를 저장했어요.'+(kind==='png'?' 카톡 단톡방에 올리면 돼요.':' 열어서 인쇄하면 돼요.')+'</div>';
-  }catch(e){console.error('save failed',e&&(e.stack||e.message||JSON.stringify(e)));const c=e&&e.code;msg.innerHTML=c==='declined'?'':'<div class="msg bad">저장하지 못했어요'+(c?' ('+c+')':'')+'. 잠시 후 다시 시도해 주세요.</div>'}
+  }catch(e){console.error('save failed',e&&(e.stack||e.message||JSON.stringify(e)));const c=e&&e.code;msg.innerHTML=c==='declined'?'':'<div class="msg bad">저장하지 못했어요'+(c?' ('+c+')':'')+'. 잠시 후 다시 시도해 주세요.<br><small>'+esc(String((e&&(e.message||e.name))||e||'').slice(0,120))+'</small></div>'}
 }
 $('#pPdf').onclick=()=>saveSheet('pdf');
 $('#exportJson').onclick=async()=>{
