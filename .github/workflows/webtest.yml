@@ -16,6 +16,7 @@ jobs:
           python build.py
           mkdir -p out
           python test/t_png.py out 2>&1 | tee out/log.txt | while IFS= read -r l; do echo "::notice::$l"; done
+          MOBILE=1 python test/t_png.py out 2>&1 | tee out/log-m.txt | while IFS= read -r l; do echo "::notice::$l"; done
       - run: |
           git config user.name "github-actions"; git config user.email "github-actions@users.noreply.github.com"
           cp -r out "$RUNNER_TEMP/out"
