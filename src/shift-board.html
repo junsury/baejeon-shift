@@ -193,24 +193,47 @@ h3{font-size:14px;margin:0;color:var(--muted);font-weight:600;letter-spacing:.02
 .zbox.zoomed{touch-action:none}
 .zbox #sheet,.zbox #rpPreview{position:absolute;left:0;top:0;transform-origin:0 0;will-change:transform}
 /* A4 한 장 (794×1123px = 210×297mm @96dpi) */
-.sheet.a4page{width:794px;height:1123px;padding:34px 38px;box-sizing:border-box;overflow:hidden;box-shadow:0 0 0 1px #ddd}
+.sheet.a4page{width:794px;height:1123px;padding:22px 22px;box-sizing:border-box;overflow:hidden;box-shadow:0 0 0 1px #ddd}
 .sheet.a4page>.a4in{transform-origin:0 0}
 .zbar{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap}
 .zbar .iconbtn{width:38px;height:36px}
 .sheetbox{overflow-x:auto;border:1px solid var(--line);border-radius:12px;background:#fff}
 .sheet{width:760px;padding:22px 26px 28px;background:#fff;color:#111;font-family:var(--font)}
-.sheet .sh-top{font-size:14px;margin:0 0 6px 120px;color:#111}
+.sheet .sh-top{font-size:16px;margin:0 0 6px 120px;color:#111}
 .sheet .sh-title{display:flex;align-items:flex-end;justify-content:space-between;margin-bottom:8px}
 .sheet .sh-title h1{font-size:28px;margin:0;letter-spacing:.08em;font-weight:700;color:#111}
-.sheet .sh-title span{font-size:14px;color:#111}
-.sheet table{width:100%;border-collapse:collapse;font-size:14px;table-layout:fixed}
-.sheet th,.sheet td{border:1px solid #333;height:30px;padding:0 4px;color:#111;vertical-align:middle}
-.sheet thead th{background:#ffeb3b;font-weight:700;font-size:15px;letter-spacing:.3em}
+.sheet .sh-title span{font-size:16px;color:#111}
+/* 카톡용 큰 글씨 편성표 (휴대폰 화면 폭에 맞춘 세로로 긴 이미지) */
+.sheet.kk{width:600px;padding:22px 16px 26px}
+.sheet.kk .sh-top{font-size:22px;margin:0 0 8px}
+.sheet.kk .sh-title h1{font-size:36px}
+.sheet.kk .sh-title span{font-size:22px}
+.sheet.kk table{font-size:24px}
+.sheet.kk th,.sheet.kk td{height:48px;padding:4px 6px;line-height:1.25}
+.sheet.kk thead th{font-size:24px;letter-spacing:.15em;height:52px}
+.sheet.kk td.md{text-align:center;padding:4px 2px}
+.sheet.kk td.nm{font-weight:700;word-break:keep-all;overflow-wrap:normal}
+.sheet.kk td.nm .nt{font-size:19px;display:inline}
+.sheet.kk td.nm .tb{display:inline-block;min-width:28px;margin-right:4px;padding:0 5px;border-radius:6px;background:#111;color:#fff;text-align:center;font-size:20px}
+.sheet.kk td.rm{font-size:18px;line-height:1.2;word-break:keep-all}
+.sheet.kk tr.today td{background:#fff3c4}
+.sheet .sh-hint{font-size:13px;color:#666;margin:6px 0 0}
+.sheet.kk .sh-hint{font-size:18px}
+.report.kk{width:880px;padding:26px 22px 30px}
+.report.kk h1{font-size:34px}.report.kk .rp-head span{font-size:20px}.report.kk .rp-sub{font-size:19px}
+.report.kk h2{font-size:26px;margin:22px 0 10px}.report.kk h2 small{font-size:17px}
+.report.kk table.rp{font-size:21px;table-layout:auto}.report.kk table.rp thead th{font-size:19px}
+.report.kk table.rp th,.report.kk table.rp td{padding:9px 8px;word-break:keep-all}.report.kk table.rp td{white-space:nowrap}.report.kk table.rp th{white-space:normal}
+.report.kk .rp-stats div{font-size:18px;padding:9px 10px}.report.kk .rp-stats b{font-size:28px}
+.report.kk .rp-note{font-size:17px}
+.sheet table{width:100%;border-collapse:collapse;font-size:17px;table-layout:fixed}
+.sheet th,.sheet td{border:1px solid #333;height:29px;padding:0 4px;line-height:1.15;color:#111;vertical-align:middle}
+.sheet thead th{background:#ffeb3b;font-weight:700;font-size:17px;letter-spacing:.3em}
 .sheet td.md{text-align:right;padding-right:8px;white-space:nowrap}
 .sheet td.wd,.sheet td.tm{text-align:center}
-.sheet td.nm{white-space:normal;line-height:1.15;padding:2px 5px}
-.sheet td.nm .nt{display:block;font-size:10.5px;color:#0b7a3b;font-weight:600;letter-spacing:-.02em}
-.sheet td.rm{font-size:11px;line-height:1.25;white-space:normal}
+.sheet td.nm{white-space:normal;line-height:1.12;padding:1px 4px;font-weight:600}
+.sheet td.nm .nt{display:block;font-size:13px;color:#0b7a3b;font-weight:600;letter-spacing:-.02em}
+.sheet td.rm{font-size:13px;line-height:1.2;white-space:normal}
 .sheet tr.red td{color:#b3261e}
 .sheet tr.sat td{color:#1d4fb8}
 .sheet td.nm s{text-decoration:line-through;text-decoration-thickness:2px;text-decoration-color:#111;color:#666}
@@ -220,22 +243,22 @@ h3{font-size:14px;margin:0;color:var(--muted);font-weight:600;letter-spacing:.02
 .report h1{font-size:24px;margin:0;color:#111;letter-spacing:.04em}
 .report .rp-head{display:flex;align-items:flex-end;justify-content:space-between}
 .report .rp-head span{font-size:14px;color:#111}
-.report .rp-sub{font-size:13px;color:#444;margin:4px 0 14px}
-.report h2{font-size:17px;margin:16px 0 6px;color:#111;border-left:5px solid #1d4fb8;padding-left:8px}
+.report .rp-sub{font-size:15px;color:#444;margin:4px 0 14px}
+.report h2{font-size:19px;margin:16px 0 6px;color:#111;border-left:5px solid #1d4fb8;padding-left:8px}
 .report h2 small{font-size:12px;font-weight:500;color:#555;margin-left:6px}
-.report table.rp{width:100%;border-collapse:collapse;font-size:14px}
+.report table.rp{width:100%;border-collapse:collapse;font-size:16px}
 .report table.rp th,.report table.rp td{border:1px solid #333;padding:6px 8px;color:#111;text-align:right;white-space:nowrap}
 .report table.rp th:first-child,.report table.rp td:first-child{text-align:left;font-weight:600}
-.report table.rp thead th{background:#ffeb3b;font-weight:700;letter-spacing:0;font-size:13px;height:auto}
+.report table.rp thead th{background:#ffeb3b;font-weight:700;letter-spacing:0;font-size:15px;height:auto}
 .report table.rp td,.report table.rp th{height:auto}
 .report table.rp tr:last-child td{font-weight:700}
 .report table.rp.bt tr:last-child td{font-weight:400}
 .report table.rp td.zero{color:#b3261e;font-weight:700}
 .report .rp-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-bottom:8px}
-.report .rp-stats div{border:1px solid #333;padding:6px 8px;font-size:13px;color:#111}
-.report .rp-stats b{display:block;font-size:18px}
+.report .rp-stats div{border:1px solid #333;padding:6px 8px;font-size:15px;color:#111}
+.report .rp-stats b{display:block;font-size:21px}
 .report .rp-stats .hl{background:#1d4fb8;color:#fff;border-color:#1d4fb8}
-.report .rp-note{font-size:12px;color:#444;margin:6px 0 0;white-space:pre-wrap}
+.report .rp-note{font-size:13px;color:#444;margin:6px 0 0;white-space:pre-wrap}
 .badge{display:inline-flex;align-items:center;justify-content:center;min-width:18px;height:18px;padding:0 5px;margin-left:4px;border-radius:999px;background:var(--bad);color:#fff;font-size:11px;font-weight:700;vertical-align:1px}
 .tag{font-size:11px;font-weight:700;padding:2px 7px;border-radius:999px;white-space:nowrap;display:inline-block}
 .empty{color:var(--muted);font-size:14px}
@@ -489,7 +512,7 @@ table.grid td.shiftday{box-shadow:inset 3px 0 0 var(--accent)}
 .sm-body-sheet{padding-bottom:84px;max-width:none}
 .sm-sh{background:var(--surface);border:1px solid var(--line);border-radius:14px;overflow:hidden;display:flex;flex-direction:column;height:calc(100dvh - 210px);min-height:360px}
 .sm-sh-scroll{overflow:auto;flex:1;-webkit-overflow-scrolling:touch;position:relative}
-.sm-sh-row{display:grid;grid-template-columns:44px 28px minmax(0,1.3fr) minmax(0,1.25fr) minmax(0,1fr);border-bottom:1px solid var(--line);font-size:14px;line-height:1.35}
+.sm-sh-row{display:grid;grid-template-columns:46px 30px minmax(0,1.3fr) minmax(0,1.3fr) minmax(0,.9fr);border-bottom:1px solid var(--line);font-size:16.5px;line-height:1.35;font-weight:500}
 .sm-sh-row>span{padding:7px 5px;border-right:1px solid var(--line);word-break:keep-all;overflow-wrap:anywhere}
 .sm-sh-row>span:last-child{border-right:0}
 .sm-sh-row .wd,.sm-sh-row .md{text-align:center;font-weight:600}
@@ -499,7 +522,7 @@ table.grid td.shiftday{box-shadow:inset 3px 0 0 var(--accent)}
 .sm-sh-row .d i,.sm-sh-row .nt i{font-style:normal;font-weight:800;margin-right:4px}
 .sm-sh-row .d i{color:var(--day-ink,#241800);background:var(--day-solid,#f5b72a);border-radius:4px;padding:0 4px}
 .sm-sh-row .nt i{color:var(--night-ink,#fff);background:var(--night-solid,#2b3990);border-radius:4px;padding:0 4px}
-.sm-sh-row .rm{font-size:13px;color:var(--muted)}
+.sm-sh-row .rm{font-size:14px;color:var(--muted)}
 .sm-sh-row.head{position:sticky;top:0;z-index:2;background:var(--sunk);font-weight:700;text-align:center}
 .sm-sh-row.head>span{padding:9px 2px;font-size:13px;white-space:nowrap}
 .sm-sh-row.smhol>span:nth-child(-n+2){color:var(--today,#d92d20);font-weight:700}
@@ -681,7 +704,7 @@ table.grid td.shiftday{box-shadow:inset 3px 0 0 var(--accent)}
       <div class="btns"><button class="btn" id="rpPng">이미지로 저장</button><button class="btn ghost" id="rpPdf">PDF로 저장</button><button class="btn ghost" id="rpView">미리보기</button></div>
       <div id="rpMsg"></div>
       <div id="rpBox" class="form" style="gap:8px" hidden>
-        <div class="zbar"><span class="note">A4 한 장 그대로예요. 두 손가락으로 확대·축소, 두 번 탭하면 확대/원래대로</span><span class="btns"><button class="iconbtn" id="rzOut" aria-label="축소">−</button><button class="iconbtn" id="rzFit" aria-label="화면에 맞추기" style="width:auto;padding:0 10px;font-size:13px">맞춤</button><button class="iconbtn" id="rzIn" aria-label="확대">+</button></span></div>
+        <div class="zbar"><span class="note">카톡용 이미지 그대로예요. 두 손가락으로 확대·축소, 두 번 탭하면 확대/원래대로</span><span class="btns"><button class="iconbtn" id="rzOut" aria-label="축소">−</button><button class="iconbtn" id="rzFit" aria-label="화면에 맞추기" style="width:auto;padding:0 10px;font-size:13px">맞춤</button><button class="iconbtn" id="rzIn" aria-label="확대">+</button></span></div>
         <div class="zbox" id="rzbox"><div id="rpPreview"></div></div>
       </div>
     </div>
@@ -1915,28 +1938,35 @@ function renderSheet(){
   if(!ui.prYm)ui.prYm=sheetPeriodOf(todayN);
   const a=shiftDayOf(ui.prYm),b=shiftDayOf(shiftMonth(ui.prYm,1));
   $('#pLbl').innerHTML=fmt(a)+' – '+fmt(b-1)+'<span style="display:block;font-size:12px;font-weight:500;color:var(--muted)">근무편성표'+(a<=todayN&&todayN<b?' · 현재':'')+'</span>';
+  const el=$('#sheet');el.className='sheet kk';el.innerHTML=sheetHtml(true);
+  requestAnimationFrame(()=>zoomInit(false));
+}
+window.__sheetHtml=k=>sheetHtml(k);window.__reportHtml=()=>buildReport();window.__fitA4=el=>fitA4(el);
+/* kk=true: 카톡·화면용 큰 글씨(세로로 긴 그림) / false: A4 인쇄용 */
+function sheetHtml(kk){
+  const a=shiftDayOf(ui.prYm),b=shiftDayOf(shiftMonth(ui.prYm,1));
   const tsoNames=tsos().filter(t=>present(t,a)||present(t,b-1)).map(t=>t.name);
   const y=new Date(a*864e5).getUTCFullYear();
   let h='<div class="sh-top">근무지원 : '+esc(tsoNames.join(', ')||'-')+'</div><div class="sh-title"><span>'+y+'년</span><h1>근무편성표</h1><span>경기배전센터</span></div>';
-  h+='<table><colgroup><col style="width:82px"><col style="width:42px"><col style="width:28px"><col><col><col style="width:28px"><col><col><col style="width:112px"></colgroup>';
-  h+='<thead><tr><th>월일</th><th style="letter-spacing:0">요일</th><th colspan="3">주 간</th><th colspan="3">야 간</th><th>비 고</th></tr></thead><tbody>';
+  if(kk)h+='<table><colgroup><col style="width:72px"><col style="width:42px"><col><col><col style="width:96px"></colgroup><thead><tr><th style="letter-spacing:0">날짜</th><th style="letter-spacing:0;white-space:nowrap;font-size:20px">요일</th><th>주 간</th><th>야 간</th><th>비 고</th></tr></thead><tbody>';
+  else h+='<table><colgroup><col style="width:84px"><col style="width:50px"><col style="width:28px"><col><col><col style="width:28px"><col><col><col style="width:126px"></colgroup>';
+  if(!kk)h+='<thead><tr><th>월일</th><th style="letter-spacing:0;white-space:nowrap">요일</th><th colspan="3">주 간</th><th colspan="3">야 간</th><th>비 고</th></tr></thead><tbody>';
   const asgDays=new Set(assignments.map(x=>x.date));
   for(let n=a;n<b;n++){
     const d=new Date(n*864e5),key=ds(n),hol=holidays.has(key);
     const red=d.getUTCDay()===0||hol,sat=!red&&d.getUTCDay()===6;
     const cells={};for(const s of ['주','야']){const t=teamOn(n,s);const ms=teamMembers(t,n);
-      cells[s]='<td class="tm">'+t+'</td><td class="nm">'+(ms[0]?sheetCell(ms[0],n,s):'')+'</td><td class="nm">'+ms.slice(1).map(m=>sheetCell(m,n,s)).join(', ')+'</td>'}
+      cells[s]=kk?'<td class="nm"><span class="tb">'+t+'</span>'+ms.map(m=>sheetCell(m,n,s)).join(', ')+'</td>':'<td class="tm">'+t+'</td><td class="nm">'+(ms[0]?sheetCell(ms[0],n,s):'')+'</td><td class="nm">'+ms.slice(1).map(m=>sheetCell(m,n,s)).join(', ')+'</td>'}
     const rm=[];if(hol)rm.push(holName(key));
     for(const t of tsos()){const c=dayCells(n)[t.id];if(c.code==='연')rm.push('휴: '+t.name+(c.leaveType&&c.leaveType!=='연차'?'('+LT_PRINT[c.leaveType]+')':''));else if(c.part)rm.push('휴: '+t.name+'('+c.part.from+'~'+c.part.to+')')}
     for(const m of members){if(m.joinDate===key)rm.push('전입: '+m.name);if(m.leaveDate===key)rm.push('전출: '+m.name)}
     if(asgDays.has(key)&&n!==a)rm.push('조 편성 변경');
     if(sheetNotes[key])rm.push(sheetNotes[key]);
-    h+='<tr class="'+(red?'red ':'')+(sat?'sat ':'')+(asgDays.has(key)&&n!==a?'sd':'')+'"><td class="md">'+(d.getUTCMonth()+1)+'월 '+String(d.getUTCDate()).padStart(2,' ')+'일</td><td class="wd">'+WD[d.getUTCDay()]+'</td>'+cells['주']+cells['야']+'<td class="rm" data-rm="'+key+'">'+esc(rm.join(', '))+'</td></tr>';
+    h+='<tr class="'+(red?'red ':'')+(sat?'sat ':'')+(asgDays.has(key)&&n!==a?'sd ':'')+(kk&&n===todayN&&!sheetHtml.export?'today':'')+'"><td class="md">'+(kk?(d.getUTCMonth()+1)+'.'+d.getUTCDate():(d.getUTCMonth()+1)+'월 '+String(d.getUTCDate()).padStart(2,' ')+'일')+'</td><td class="wd">'+WD[d.getUTCDay()]+'</td>'+cells['주']+cells['야']+'<td class="rm" data-rm="'+key+'">'+esc(rm.join(', '))+'</td></tr>';
   }
   h+='</tbody></table>';
-  if(isAdmin&&!viewerPreview)h+='<p class="sh-hint">비고 칸을 누르면 직접 적을 수 있어요 (관리자)</p>';
-  const el=$('#sheet');el.className='sheet a4page';el.innerHTML='<div class="a4in">'+h+'</div>';
-  requestAnimationFrame(()=>{fitA4(el);zoomInit(false)});
+  if(kk&&isAdmin&&!viewerPreview&&!sheetHtml.export)h+='<p class="sh-hint">비고 칸을 누르면 직접 적을 수 있어요 (관리자)</p>';
+  return h;
 }
 /* 편성표 비고 직접 쓰기 (관리자) */
 document.addEventListener('click',async e=>{
@@ -2254,8 +2284,8 @@ async function saveNode(html,base,kind,msg){
     if(!dl){msg.innerHTML='<div class="msg bad">이 화면에서는 파일 저장을 쓸 수 없어요. claude.ai에서 근무표를 열어 다시 시도해 주세요.</div>';return}
     await loadScript('https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js');
     const holder=document.createElement('div');holder.style.cssText='position:fixed;left:-10000px;top:0;background:#fff';
-    const node=document.createElement('div');node.className='sheet report a4page';node.style.boxShadow='none';node.innerHTML='<div class="a4in">'+html+'</div>';holder.appendChild(node);document.body.appendChild(holder);
-    let cv;try{fitA4(node);cv=await window.html2canvas(node,{scale:2,backgroundColor:'#ffffff'})}finally{holder.remove()}
+    const node=document.createElement('div');const kk=kind==='png';node.className='sheet report '+(kk?'kk':'a4page');node.style.boxShadow='none';node.innerHTML=kk?html:'<div class="a4in">'+html+'</div>';holder.appendChild(node);document.body.appendChild(holder);
+    let cv;try{if(!kk)fitA4(node);cv=await window.html2canvas(node,{scale:2,backgroundColor:'#ffffff'})}finally{holder.remove()}
     let blob,filename;
     if(kind==='png'){blob=await new Promise(r=>cv.toBlob(r,'image/png'));filename=base+'.png'}
     else{await loadScript('https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js');
@@ -2267,21 +2297,23 @@ async function saveNode(html,base,kind,msg){
 }
 $('#rpPng').onclick=()=>saveNode(buildReport(),'근무요약_대근총량_'+ds(periodRange(ui.sumYm)[0]),'png',$('#rpMsg'));
 $('#rpPdf').onclick=()=>saveNode(buildReport(),'근무요약_대근총량_'+ds(periodRange(ui.sumYm)[0]),'pdf',$('#rpMsg'));
-function showReport(){const el=$('#rpPreview');el.className='sheet report a4page';el.innerHTML='<div class="a4in">'+buildReport()+'</div>';requestAnimationFrame(()=>{fitA4(el);rpZoom(false)})}
+function showReport(){const el=$('#rpPreview');el.className='sheet report kk';el.innerHTML=buildReport();requestAnimationFrame(()=>rpZoom(false))}
 $('#rpView').onclick=()=>{const box=$('#rpBox');box.hidden=!box.hidden;if(!box.hidden)showReport();$('#rpView').textContent=box.hidden?'미리보기':'미리보기 닫기'};
 const loadScript=src=>new Promise((ok,no)=>{if(document.querySelector('script[src="'+src+'"]'))return ok();const t=document.createElement('script');t.src=src;t.onload=ok;t.onerror=()=>no(new Error('load'));document.head.appendChild(t)});
-async function sheetCanvas(){
+async function sheetCanvas(kk){
   await loadScript('https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js');
-  const src=$('#sheet');const holder=document.createElement('div');holder.style.cssText='position:fixed;left:-10000px;top:0;background:#fff';
-  const clone=src.cloneNode(true);clone.removeAttribute('id');clone.style.transform='';clone.style.position='static';clone.style.boxShadow='none';holder.appendChild(clone);document.body.appendChild(holder);
-  try{return await window.html2canvas(clone,{scale:2,backgroundColor:'#ffffff'})}finally{holder.remove()}
+  const holder=document.createElement('div');holder.style.cssText='position:fixed;left:-10000px;top:0;background:#fff';
+  const node=document.createElement('div');node.style.boxShadow='none';
+  sheetHtml.export=true;try{if(kk){node.className='sheet kk';node.innerHTML=sheetHtml(true)}else{node.className='sheet a4page';node.innerHTML='<div class="a4in">'+sheetHtml(false)+'</div>'}}finally{sheetHtml.export=false}
+  holder.appendChild(node);document.body.appendChild(holder);
+  try{if(!kk)fitA4(node);return await window.html2canvas(node,{scale:2,backgroundColor:'#ffffff'})}finally{holder.remove()}
 }
 async function saveSheet(kind){
   const msg=$('#pMsg');msg.innerHTML='<div class="msg warn">파일을 만드는 중이에요…</div>';
   try{
     const dl=window.claude&&window.claude.use?await window.claude.use('downloads'):null;
     if(!dl){msg.innerHTML='<div class="msg bad">이 화면에서는 파일 저장을 쓸 수 없어요. claude.ai에서 근무표를 열어 다시 시도해 주세요.</div>';return}
-    const cv=await sheetCanvas();const a=shiftDayOf(ui.prYm);const base='근무편성표_'+ds(a);
+    const cv=await sheetCanvas(kind==='png');const a=shiftDayOf(ui.prYm);const base='근무편성표_'+ds(a);
     let blob,filename;
     if(kind==='png'){blob=await new Promise(r=>cv.toBlob(r,'image/png'));filename=base+'.png'}
     else{await loadScript('https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js');

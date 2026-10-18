@@ -40,6 +40,7 @@ public class DayActivity extends Activity {
     int day, wid;
     float dp;
     LinearLayout col, form;
+    ScrollView sv;
     EditText title, memo;
     CheckBox allDay;
     Button startBtn, endBtn, saveBtn;
@@ -89,6 +90,16 @@ public class DayActivity extends Activity {
         return t;
     }
 
+    TextView pill(String s, int fg, int bg) {
+        TextView t = label(s, 14, true, fg);
+        t.setGravity(Gravity.CENTER);
+        t.setPadding(px(12), 0, px(12), 0);
+        GradientDrawable g = new GradientDrawable(); g.setColor(bg); g.setCornerRadius(px(18));
+        t.setBackground(g);
+        t.setClickable(true);
+        return t;
+    }
+
     LinearLayout.LayoutParams mlp(int top) {
         LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
         lp.topMargin = px(top);
@@ -98,7 +109,7 @@ public class DayActivity extends Activity {
     static String hm(int m) { m = Math.floorMod(m, 1440); return String.format(Locale.US, "%02d:%02d", m / 60, m % 60); }
 
     void build() {
-        ScrollView sv = new ScrollView(this);
+        sv = new ScrollView(this);
         col = new LinearLayout(this);
         col.setOrientation(LinearLayout.VERTICAL);
         col.setPadding(px(20), px(18), px(20), px(16));
@@ -198,7 +209,7 @@ public class DayActivity extends Activity {
         List<CalendarReader.Ev> evs = m.get(day);
         dayEvents = evs == null ? new ArrayList<>() : evs;
         if (evs == null || evs.isEmpty()) { list.addView(label("일정 없음", 13.5f, false, 0xFF8A94A0)); return; }
-        list.addView(label("일정을 누르면 고치거나 지울 수 있어요", 12, false, 0xFF8A94A0));
+        
         for (CalendarReader.Ev e : evs) {
             LinearLayout row = new LinearLayout(this);
             row.setOrientation(LinearLayout.HORIZONTAL);
@@ -215,10 +226,16 @@ public class DayActivity extends Activity {
             row.addView(tw, new LinearLayout.LayoutParams(px(48), ViewGroup.LayoutParams.WRAP_CONTENT));
             row.addView(label((e.who.isEmpty() ? "" : e.who + " · ") + e.title, 15, false, 0xFF161C24), new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
             final CalendarReader.Ev ev = e;
-            row.setOnClickListener(v -> startEdit(ev));
-            row.setBackgroundResource(android.R.drawable.list_selector_background);
-            TextView pen = label("✎", 15, false, 0xFF8A94A0);
-            row.addView(pen);
+            if (!e.memo && (e.gid != null || e.eventId > 0)) {
+                LinearLayout.LayoutParams bl = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, px(36));
+                bl.leftMargin = px(6);
+                TextView eb = pill("수정하기", 0xFF1D5D8F, 0xFFE3EEF7);
+                eb.setOnClickListener(v -> startEdit(ev));
+                row.addView(eb, bl);
+                TextView db = pill("삭제", 0xFFC0261C, 0xFFFBE7E5);
+                db.setOnClickListener(v -> confirmDelete(ev));
+                row.addView(db, new LinearLayout.LayoutParams(bl));
+            }
             list.addView(row);
         }
     }
@@ -281,8 +298,8 @@ public class DayActivity extends Activity {
         LinearLayout eb = new LinearLayout(this);
         eb.setOrientation(LinearLayout.HORIZONTAL);
         delBtn = new Button(this); delBtn.setText("삭제"); delBtn.setTextColor(0xFFC0261C);
-        delBtn.setOnClickListener(v -> confirmDelete());
-        cancelEdit = new Button(this); cancelEdit.setText("새 일정 추가로");
+        delBtn.setOnClickListener(v -> confirmDelete(editing));
+        cancelEdit = new Button(this); cancelEdit.setText("수정 취소");
         cancelEdit.setOnClickListener(v -> stopEdit());
         eb.addView(delBtn, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
         eb.addView(cancelEdit, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
@@ -304,13 +321,13 @@ public class DayActivity extends Activity {
         openCal.setVisibility(on && editing != null && editing.eventId > 0 ? View.VISIBLE : View.GONE);
         calSpin.setVisibility(on ? View.GONE : View.VISIBLE);
         calLabel.setVisibility(on ? View.GONE : View.VISIBLE);
-        formTitle.setText(on ? "✎ 일정 고치기" + (editing != null && !editing.who.isEmpty() ? " (" + editing.who + "가 만든 일정)" : "") : "＋ 일정 추가");
-        saveBtn.setText(on ? "고친 내용 저장" : "일정 저장");
+        formTitle.setText(on ? "일정 수정하기" + (editing != null && !editing.who.isEmpty() ? " (" + editing.who + "가 만든 일정)" : "") : "＋ 일정 추가");
+        saveBtn.setText(on ? "수정 내용 저장" : "일정 저장");
     }
 
     /** 일정을 눌렀을 때: 아래 칸에 내용을 채워 고치기 */
     void startEdit(CalendarReader.Ev e) {
-        if (e.memo) return;
+        if (e.memo) { Toast.makeText(this, "메모는 근무표 앱 '내 근무'에서 고쳐요", Toast.LENGTH_SHORT).show(); return; }
         if (e.gid == null && e.eventId <= 0) { Toast.makeText(this, "이 일정은 여기서 고칠 수 없어요", Toast.LENGTH_SHORT).show(); return; }
         editing = e;
         title.setText(e.title);
@@ -320,14 +337,21 @@ public class DayActivity extends Activity {
         if (!all) { startMin = e.startMin; endMin = e.endMin >= 0 ? e.endMin : Math.min(e.startMin + 60, 1439); }
         if (showTimes != null) showTimes.run();
         setEditUi(true);
+        // 고치는 칸이 화면 아래에 있어도 바로 보이게 스크롤 + 강조
+        GradientDrawable fb = new GradientDrawable(); fb.setColor(0xFFE8F1F8); fb.setCornerRadius(px(14)); fb.setStroke(px(2), 0xFF1D5D8F);
+        form.setBackground(fb);
+        sv.post(() -> sv.smoothScrollTo(0, Math.max(0, form.getTop() - px(8))));
         title.requestFocus();
-        form.getParent().requestChildFocus(form, form);
+        title.setSelection(title.getText().length());
+        Toast.makeText(this, "아래 칸에서 고친 뒤 [수정 내용 저장]을 누르세요", Toast.LENGTH_SHORT).show();
     }
 
-    void stopEdit() { editing = null; title.setText(""); memo.setText(""); allDay.setChecked(true); setEditUi(false); }
+    void stopEdit() {
+        GradientDrawable fb = new GradientDrawable(); fb.setColor(0xFFF2F4F7); fb.setCornerRadius(px(14));
+        form.setBackground(fb);
+        editing = null; title.setText(""); memo.setText(""); allDay.setChecked(true); setEditUi(false); }
 
-    void confirmDelete() {
-        final CalendarReader.Ev e = editing;
+    void confirmDelete(final CalendarReader.Ev e) {
         if (e == null) return;
         new android.app.AlertDialog.Builder(this).setTitle("일정 지우기").setMessage("'" + e.title + "' 일정을 지울까요?" + (e.gid != null ? "\n가족 캘린더에서도 지워져요." : ""))
                 .setPositiveButton("지우기", (d, w) -> {
@@ -416,8 +440,8 @@ public class DayActivity extends Activity {
             WidgetUpdater.renderAll(this);
             if (done) CalUpload.upload(this, true);
             runOnUiThread(() -> {
-                if (!done) { saveBtn.setEnabled(true); saveBtn.setText("고친 내용 저장"); Toast.makeText(this, "고치지 못했어요", Toast.LENGTH_LONG).show(); return; }
-                Toast.makeText(this, "일정을 고쳤어요", Toast.LENGTH_SHORT).show();
+                if (!done) { saveBtn.setEnabled(true); saveBtn.setText("수정 내용 저장"); Toast.makeText(this, "수정하지 못했어요", Toast.LENGTH_LONG).show(); return; }
+                Toast.makeText(this, "일정을 수정했어요", Toast.LENGTH_SHORT).show();
                 finish();
             });
         }).start();
