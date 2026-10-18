@@ -58,6 +58,7 @@ final class FamApi {
             long from = (n0 - 370) * 86400000L - ShiftData.KST.getRawOffset(), to = (n0 + 400) * 86400000L - ShiftData.KST.getRawOffset();
             JSONArray out = new JSONArray();
             int patched = 0;
+            java.util.Set<String> painted = new java.util.HashSet<>();
             String page = null;
             int guard = 0;
             do {
@@ -75,11 +76,13 @@ final class FamApi {
                     String creator = cr != null ? cr.optString("email", "") : "";
                     int want = shift ? FamColors.shiftColor(e.optString("summary")) : FamColors.colorOf(c, creator);
                     int have = Integer.parseInt(e.optString("colorId", "0").isEmpty() ? "0" : e.optString("colorId", "0"));
-                    JSONObject xp0 = e.optJSONObject("extendedProperties"), pv0 = xp0 != null ? xp0.optJSONObject("private") : null;
-                    if (!shift && pv0 != null && "1".equals(pv0.optString("bjc")) && have > 0) want = have;   // 직접 고른 색은 그대로
+                    // 누가 한 번이라도 색을 직접 골랐으면(구글 캘린더 앱이든 근무표 앱이든) 그대로 둬요. 색이 없는 일정만 만든 사람 색으로
+                    if (!shift && have > 0) want = have;
                     if (have != want && patched < 60) {
-                        try {
-                            GoogleCal.call(tok, "PATCH", "/calendars/" + GoogleCal.enc(id) + "/events/" + GoogleCal.enc(e.optString("id")),
+                        // 반복 일정은 날짜별로 칠하면 쪼개져요 → 반복 전체를 한 번만
+                        String target = e.has("recurringEventId") ? e.optString("recurringEventId") : e.optString("id");
+                        if (painted.add(target)) try {
+                            GoogleCal.call(tok, "PATCH", "/calendars/" + GoogleCal.enc(id) + "/events/" + GoogleCal.enc(target),
                                     new JSONObject().put("colorId", String.valueOf(want)));
                             patched++;
                         } catch (Exception ignored) {}
