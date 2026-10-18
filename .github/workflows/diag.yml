@@ -6,6 +6,7 @@ on:
       dates: { description: "근무변경 진단 날짜(쉼표)", required: false, default: "" }
       auth: { description: "로그인 주소 점검", required: false, default: "" }
       push: { description: "메인관리자에게 시험 알림", required: false, default: "" }
+      color: { description: "일정 색 진단", required: false, default: "" }
 jobs:
   diag:
     runs-on: ubuntu-latest
@@ -20,6 +21,7 @@ jobs:
           mkdir -p "$RUNNER_TEMP/m" && cd "$RUNNER_TEMP/m" && npm init -y >/dev/null && npm install firebase-admin@12 --silent --no-audit --no-fund
           NODE_PATH="$RUNNER_TEMP/m/node_modules" node "$GITHUB_WORKSPACE/tools/diag.js" "$RUNNER_TEMP/sa.json"
           if [ -n "${{ inputs.push }}" ]; then NODE_PATH="$RUNNER_TEMP/m/node_modules" node "$GITHUB_WORKSPACE/tools/testpush.js" "$RUNNER_TEMP/sa.json"; fi
+          if [ -n "${{ inputs.color }}" ]; then NODE_PATH="$RUNNER_TEMP/m/node_modules" node "$GITHUB_WORKSPACE/tools/diag-swap.js" "$RUNNER_TEMP/sa.json" "x" color; fi
           if [ -n "${{ inputs.dates }}" ]; then NODE_PATH="$RUNNER_TEMP/m/node_modules" node "$GITHUB_WORKSPACE/tools/diag-swap.js" "$RUNNER_TEMP/sa.json" "${{ inputs.dates }}"; fi
           gcloud auth activate-service-account --key-file="$RUNNER_TEMP/sa.json" --quiet
           if [ -n "${{ inputs.auth }}" ]; then bash "$GITHUB_WORKSPACE/tools/diag-auth.sh"; fi

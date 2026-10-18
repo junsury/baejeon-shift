@@ -59,6 +59,7 @@ final class FamApi {
             JSONArray out = new JSONArray();
             int patched = 0;
             java.util.Set<String> painted = new java.util.HashSet<>();
+            JSONArray dbg = new JSONArray();
             String page = null;
             int guard = 0;
             do {
@@ -79,9 +80,19 @@ final class FamApi {
                     // 누가 한 번이라도 색을 직접 골랐으면(구글 캘린더 앱이든 근무표 앱이든) 그대로 둬요. 색이 없는 일정만 만든 사람 색으로
                     if (!shift && have > 0) want = have;
                     // 구글 캘린더 앱의 새 색(벚꽃 등 11가지 밖의 색)은 서버에 색 번호가 없어요 → 휴대폰에 저장된 색이 있으면 그대로
+                    if (!shift && dbg.length() < 30) {   // 색 진단 (제목 없이 숫자만)
+                        JSONObject dj = new JSONObject().put("h", e.optString("colorId", "")).put("r", e.has("recurringEventId") ? 1 : 0)
+                                .put("own", creator.isEmpty() || creator.equalsIgnoreCase(FamColors.owner(c)) ? 1 : 0).put("w", want)
+                                .put("u", e.optString("updated", "").length() >= 16 ? e.optString("updated").substring(5, 16) : "");
+                        java.util.Iterator<String> ks = e.keys(); StringBuilder kk = new StringBuilder();
+                        while (ks.hasNext()) { String k = ks.next(); if (k.toLowerCase().contains("color")) kk.append(k).append(' '); }
+                        dj.put("k", kk.toString().trim());
+                        dbg.put(dj);
+                    }
                     int lc = (!shift && have == 0) ? CalendarReader.localColorOf(c, e.has("recurringEventId") ? e.optString("recurringEventId") : e.optString("id")) : 0;
                     int disp = FamColors.hex(want);
                     if (lc != 0) { want = 0; if (lc != 1) disp = lc | 0xFF000000; }
+                    if (dbg.length() > 0 && !shift) { JSONObject last = dbg.optJSONObject(dbg.length() - 1); if (last != null && !last.has("lc")) { last.put("lc", lc == 0 ? 0 : lc == 1 ? 1 : 2); last.put("want2", want); } }
                     if (want > 0 && have != want && patched < 60) {
                         // 반복 일정은 날짜별로 칠하면 쪼개져요 → 반복 전체를 한 번만
                         String target = e.has("recurringEventId") ? e.optString("recurringEventId") : e.optString("id");
@@ -118,6 +129,7 @@ final class FamApi {
                 page = res.optString("nextPageToken", null);
                 if (page != null && page.isEmpty()) page = null;
             } while (page != null && ++guard < 24);
+            Store.p(c).edit().putString("famDbg", dbg.toString()).apply();
             Store.p(c).edit().putString("famEvents", out.toString()).putLong("famEventsAt", System.currentTimeMillis()).apply();
             return true;
         } catch (Exception e) { return false; }

@@ -8,6 +8,7 @@ const t = ms => ms ? new Date(ms + 9 * 3600e3).toISOString().slice(5, 16).replac
   const T = admin.firestore().collection('teams').doc('gyeonggi');
   const evs = await T.collection('events').get();
   const hit = e => DATES.some(d => [e.aDate, e.bDate, e.date].includes(d));
+  if (process.argv[4] === 'color') DATES.length = 0;
   console.log(`::notice::events total=${evs.size}`);
   for (const d of evs.docs) { const e = d.data(); if (!hit(e)) continue;
     console.log(`::notice::EVENT ${d.id} type=${e.type} a=${e.aId}@${e.aDate} b=${e.bId}@${e.bDate} shift=${e.shift} date=${e.date||''} member=${e.memberId||''} cover=${e.coverId||''} created=${t(e.createdAt)} canceled=${!!e.canceled}`); }
@@ -15,5 +16,9 @@ const t = ms => ms ? new Date(ms + 9 * 3600e3).toISOString().slice(5, 16).replac
   console.log(`::notice::requests total=${rq.size}`);
   for (const d of rq.docs) { const r = d.data(); const e = r.ev || {}; if (!hit(e)) continue;
     console.log(`::notice::REQ ${d.id} kind=${r.kind} from=${r.from} to=${r.to} status=${r.status} eventId=${r.eventId||''} a=${e.aId}@${e.aDate} b=${e.bId}@${e.bDate} shift=${e.shift} created=${t(r.createdAt)} decided=${t(r.decidedAt)}`); }
+  if (process.argv[4] === 'color') {
+    const cc = await T.collection('calcache').get();
+    for (const d of cc.docs) { const x = d.data(); console.log(`::notice::CAL ${d.id} ver=${x.ver||''} at=${t(x.at)}`); const L = x.dbg || []; for (let i = 0; i < L.length; i += 6) console.log(`::notice::COLOR ${L.slice(i, i + 6).join(' | ')}`); }
+  }
   process.exit(0);
 })().catch(e => { console.log('::error::' + e.message); process.exit(1); });

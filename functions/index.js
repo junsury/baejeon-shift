@@ -234,7 +234,8 @@ exports.widgetEvents = functions.region(REGION).https.onRequest(async (req, res)
     const items = b.items.slice(0, 2000).map(x => ({
       d: String(x.d || '').slice(0, 10), t: String(x.t || '').slice(0, 80), h: String(x.h || '').slice(0, 5), c: Number(x.c) || 0, w: String(x.w || '').slice(0, 20), id: String(x.id || '').slice(0, 300),
     })).filter(x => /^\d{4}-\d\d-\d\d$/.test(x.d));
-    await ref.set({ at: Date.now(), from: String(b.from || ''), to: String(b.to || ''), items });
+    const dbg = Array.isArray(b.dbg) ? b.dbg.slice(0, 40).map(x => JSON.stringify(x).slice(0, 200)) : [];
+    await ref.set({ at: Date.now(), from: String(b.from || ''), to: String(b.to || ''), items, dbg, ver: String(b.ver || '').slice(0, 20) });
     res.json({ ok: true, n: items.length });
   } catch (e) { console.error(e); res.status(500).json({ error: 'server' }); }
 });

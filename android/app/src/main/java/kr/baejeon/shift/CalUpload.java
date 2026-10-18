@@ -37,8 +37,10 @@ final class CalUpload {
                         items.put(new JSONObject().put("d", ShiftData.ymd(e.getKey())).put("t", ev.title).put("h", ev.time).put("c", ev.color).put("w", ev.who)
                                 .put("id", ev.gid != null ? "g:" + ev.gid : ev.eventId > 0 ? "l:" + ev.eventId : ""));
                 body.put("items", items).put("from", ShiftData.ymd(from)).put("to", ShiftData.ymd(to));
+                try { body.put("dbg", new JSONArray(Store.p(c).getString("famDbg", "[]"))); } catch (Exception ignored) {}
+                try { body.put("ver", c.getPackageManager().getPackageInfo(c.getPackageName(), 0).versionName); } catch (Exception ignored) {}
             }
-            String key = on ? body.optJSONArray("items").toString() : "off";
+            String key = on ? body.optJSONArray("items").toString() + body.optString("dbg") : "off";
             String hash = Integer.toHexString(key.hashCode()) + ":" + n0;
             long last = Store.p(c).getLong("calUpAt", 0);
             if (!force && hash.equals(Store.p(c).getString("calHash", "")) && System.currentTimeMillis() - last < 6 * 3600e3) return;
