@@ -421,6 +421,9 @@ public class DayActivity extends Activity {
         saveBtn = new Button(this);
         saveBtn.setText("일정 저장");
         saveBtn.setOnClickListener(v -> save());
+        saveBtn.setBackgroundTintList(android.content.res.ColorStateList.valueOf(0xFF1D5D8F));
+        saveBtn.setTextColor(0xFFFFFFFF);
+        saveBtn.setTypeface(Typeface.DEFAULT_BOLD);
         form.addView(saveBtn, mlp(8));
 
         LinearLayout eb = new LinearLayout(this);
