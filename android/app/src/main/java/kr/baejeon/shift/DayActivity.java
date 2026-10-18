@@ -255,6 +255,24 @@ public class DayActivity extends Activity {
     int[] remindVals = EvSpec.ALLDAY_REMIND;
     final List<TextView> tplChips = new ArrayList<>();
 
+    /** 선택 칸 글자가 기기 테마에 따라 안 보이는 일이 없게 글자색·크기를 직접 지정 */
+    ArrayAdapter<String> ad(String[] items) { return ad(java.util.Arrays.asList(items)); }
+    ArrayAdapter<String> ad(List<String> items) {
+        return new ArrayAdapter<String>(this, android.R.layout.simple_spinner_item, new ArrayList<>(items)) {
+            @Override public View getView(int pos, View cv, ViewGroup parent) { return style(super.getView(pos, cv, parent), false); }
+            @Override public View getDropDownView(int pos, View cv, ViewGroup parent) { return style(super.getDropDownView(pos, cv, parent), true); }
+            View style(View v, boolean drop) {
+                if (v instanceof TextView) {
+                    TextView t = (TextView) v;
+                    t.setTextColor(0xFF161C24); t.setTextSize(16);
+                    t.setPadding(px(12), px(drop ? 12 : 8), px(12), px(drop ? 12 : 8));
+                    if (drop) t.setBackgroundColor(0xFFFFFFFF);
+                }
+                return v;
+            }
+        };
+    }
+
     TextView chipBtn(String s, boolean on) {
         TextView t = label(s, 14, true, on ? 0xFFFFFFFF : 0xFF1D5D8F);
         t.setGravity(Gravity.CENTER);
@@ -354,7 +372,7 @@ public class DayActivity extends Activity {
         // 반복
         repeatBox = new LinearLayout(this); repeatBox.setOrientation(LinearLayout.VERTICAL);
         repeatSpin = new Spinner(this);
-        repeatSpin.setAdapter(new ArrayAdapter<>(this, android.R.layout.simple_spinner_dropdown_item, EvSpec.REPEAT_NAMES));
+        repeatSpin.setAdapter(ad(EvSpec.REPEAT_NAMES));
         repeatBox.addView(repeatSpin, mlp(2));
         lunarRow = new LinearLayout(this); lunarRow.setOrientation(LinearLayout.HORIZONTAL); lunarRow.setGravity(Gravity.CENTER_VERTICAL);
         lunarBtn = new Button(this);
@@ -363,7 +381,7 @@ public class DayActivity extends Activity {
         repeatBox.addView(lunarRow, mlp(0));
         labelRow = new LinearLayout(this); labelRow.setOrientation(LinearLayout.HORIZONTAL); labelRow.setGravity(Gravity.CENTER_VERTICAL);
         labelSpin = new Spinner(this);
-        labelSpin.setAdapter(new ArrayAdapter<>(this, android.R.layout.simple_spinner_dropdown_item, new String[]{"꼬리표 없음", "몇 주년", "나이(세)"}));
+        labelSpin.setAdapter(ad(new String[]{"꼬리표 없음", "몇 주년", "나이(세)"}));
         baseYearEt = new EditText(this);
         baseYearEt.setHint("시작 연도 (예: 2015)");
         baseYearEt.setInputType(InputType.TYPE_CLASS_NUMBER);
@@ -551,7 +569,7 @@ public class DayActivity extends Activity {
         }
         int keep = remind;
         remindVals = base;
-        remindSpin.setAdapter(new ArrayAdapter<>(this, android.R.layout.simple_spinner_dropdown_item, names));
+        remindSpin.setAdapter(ad(names));
         int sel = 0; for (int i = 0; i < base.length; i++) if (base[i] == keep) sel = i;
         remindSpin.setSelection(sel);
         remind = base[sel];
@@ -712,14 +730,14 @@ public class DayActivity extends Activity {
     void fillCals() {
         if (!CalendarReader.allowed(this)) {
             cals = new ArrayList<>();
-            calSpin.setAdapter(new ArrayAdapter<>(this, android.R.layout.simple_spinner_dropdown_item, new String[]{"저장할 때 캘린더 권한을 물어봐요"}));
+            calSpin.setAdapter(ad(new String[]{"저장할 때 캘린더 권한을 물어봐요"}));
             return;
         }
         cals = CalendarReader.writable(this);
         List<String> names = new ArrayList<>();
         for (CalendarReader.Cal c : cals) names.add(c.name + "  (" + c.account + ")");
         if (names.isEmpty()) names.add("일정을 넣을 수 있는 캘린더가 없어요");
-        calSpin.setAdapter(new ArrayAdapter<>(this, android.R.layout.simple_spinner_dropdown_item, names));
+        calSpin.setAdapter(ad(names));
         long last = Store.p(this).getLong("lastCal", -1);
         for (int i = 0; i < cals.size(); i++) if (cals.get(i).id == last) calSpin.setSelection(i);
     }
