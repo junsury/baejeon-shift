@@ -238,3 +238,27 @@ exports.widgetEvents = functions.region(REGION).https.onRequest(async (req, res)
     res.json({ ok: true, n: items.length });
   } catch (e) { console.error(e); res.status(500).json({ error: 'server' }); }
 });
+
+/* ---------------- 갤럭시 앱 공유: 웹에서 만든 이미지·PDF를 앱이 받아 휴대폰 공유창으로 ---------------- */
+// 웹이 teams/{t}/shares/{id}(+ p/0,1,…에 나눠 담은 base64)를 쓰면, 앱이 이 주소로 받아 가요. 받은 뒤·30분 지나면 지워요.
+exports.shareFile = functions.region(REGION).https.onRequest(async (req, res) => {
+  try {
+    const id = String(req.query.id || ''); const t = String(req.query.t || 'gyeonggi');
+    if (!/^[A-Za-z0-9]{24,48}$/.test(id) || !/^[a-z0-9-]{1,40}$/.test(t)) { res.status(404).end(); return; }
+    const col = db.collection('teams').doc(t).collection('shares');
+    // 오래된 것 정리
+    const old = await col.where('at', '<', Date.now() - 30 * 60e3).limit(20).get();
+    for (const d of old.docs) { const ps = await d.ref.collection('p').get(); for (const p of ps.docs) await p.ref.delete(); await d.ref.delete(); }
+    const ref = col.doc(id); const s = await ref.get();
+    if (!s.exists) { res.status(404).end(); return; }
+    const m = s.data(); const ps = await ref.collection('p').get();
+    const parts = ps.docs.map(d => [Number(d.id), d.data().d || '']).sort((a, b) => a[0] - b[0]);
+    if (parts.length !== m.n) { res.status(409).end(); return; }
+    const buf = Buffer.from(parts.map(x => x[1]).join(''), 'base64');
+    res.set('Content-Type', /^(image\/png|application\/pdf|image\/jpeg)$/.test(m.type) ? m.type : 'application/octet-stream');
+    res.set('X-Name', encodeURIComponent(String(m.name || 'file').slice(0, 80)));
+    res.set('Cache-Control', 'no-store');
+    res.send(buf);
+    for (const p of ps.docs) await p.ref.delete(); await ref.delete();
+  } catch (e) { console.error(e); res.status(500).end(); }
+});

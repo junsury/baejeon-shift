@@ -49,6 +49,12 @@ service cloud.firestore {
           resource.data.get('aId', ''), resource.data.get('bId', '')]);
       }
 
+      // 갤럭시 앱 공유용 임시 파일: 팀원이 올리기만, 읽기는 서버(shareFile)만
+      match /shares/{id} {
+        allow create: if isMember(t) && request.resource.data.by == request.auth.uid;
+        match /p/{i} { allow create: if isMember(t); }
+      }
+
       // 요청·알림: 보낸 사람·받는 사람·관리자
       match /requests/{id} {
         allow read: if isMember(t);

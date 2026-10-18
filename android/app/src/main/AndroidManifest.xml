@@ -88,6 +88,28 @@
             </intent-filter>
         </activity>
 
+        <!-- 웹앱의 [카톡 등으로 공유하기] → 앱이 파일을 받아 휴대폰 공유창 띄우기 -->
+        <activity
+            android:name=".ShareActivity"
+            android:exported="true"
+            android:excludeFromRecents="true"
+            android:taskAffinity="kr.baejeon.shift.share"
+            android:theme="@android:style/Theme.Translucent.NoTitleBar">
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="baejeonshift" android:host="share" />
+            </intent-filter>
+        </activity>
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.share"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data android:name="android.support.FILE_PROVIDER_PATHS" android:resource="@xml/share_paths" />
+        </provider>
+
         <!-- 가족 공유 캘린더 (구글) 설정 -->
         <activity
             android:name=".FamilyActivity"

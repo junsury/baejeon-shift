@@ -49,22 +49,39 @@ const famGoneHtml=()=>'<div class="g-logo">근</div><h2>링크가 끊겼어요</
 
 /* 파일 저장 · 공유 (휴대폰에서는 공유창 → 카카오톡 선택 가능) */
 /* 휴대폰: 파일이 준비되면 미리보기 창 → [공유하기]를 직접 눌러야 공유창이 떠요 (자동으로 띄우면 깜빡이며 닫히는 폰이 있어요) */
+/* 갤럭시 앱: 파일을 잠깐 서버에 올려 두고, 앱이 받아서 휴대폰 공유창을 띄워요 (크롬 공유창이 깜빡이는 폰 대비) */
+async function uploadShare(blob,filename,type){
+  const b64=await new Promise((ok,no)=>{const r=new FileReader();r.onload=()=>ok(String(r.result).split(',')[1]||'');r.onerror=()=>no(r.error);r.readAsDataURL(blob)});
+  const a='ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789';const rnd=crypto.getRandomValues(new Uint8Array(32));const id=Array.from(rnd,x=>a[x%a.length]).join('');
+  const F=FB.F,CH=700000;let n=0;
+  for(let i=0;i<b64.length;i+=CH){await F.setDoc(tref('shares',id,'p',String(n)),{d:b64.slice(i,i+CH)});n++}
+  await F.setDoc(tref('shares',id),{by:auth.currentUser.uid,at:Date.now(),n,name:filename,type});
+  return id;
+}
 function shareSheet(blob,filename,type){return new Promise((ok,no)=>{
   const file=new File([blob],filename,{type});const url=URL.createObjectURL(blob);const img=/^image\//.test(type);
-  const canShare=!!(navigator.canShare&&navigator.share&&navigator.canShare({files:[file]}));
+  const viaApp=isTWA&&!!(auth&&auth.currentUser);
+  const canShare=viaApp||!!(navigator.canShare&&navigator.share&&navigator.canShare({files:[file]}));
+  let shareId=null,upFail=false;
   const d=document.createElement('div');d.className='shsheet';
   d.innerHTML='<div class="shs-in"><b class="shs-t">'+(img?'이미지':'PDF')+'가 준비됐어요</b>'+(img?'<div class="shs-img"><img alt="" src="'+url+'"></div><p class="note">그림을 꾹 누르면 저장·공유 메뉴도 나와요</p>':'<p class="note">'+esc(filename)+'</p>')+
     '<div class="shs-btns">'+(canShare?'<button class="btn" data-x="share">카톡 등으로 공유하기</button>':'')+'<button class="btn '+(canShare?'ghost':'')+'" data-x="save">휴대폰에 저장</button><button class="btn ghost" data-x="close">닫기</button></div></div>';
   document.body.appendChild(d);
+  const sb=d.querySelector('[data-x=share]');
+  if(viaApp&&sb){sb.disabled=true;sb.textContent='공유 준비 중…';
+    uploadShare(blob,filename,type).then(id=>{shareId=id;sb.disabled=false;sb.textContent='카톡 등으로 공유하기'})
+      .catch(e=>{console.error(e);upFail=true;sb.disabled=false;sb.textContent='카톡 등으로 공유하기'})}
   const done=(r,err)=>{d.remove();setTimeout(()=>URL.revokeObjectURL(url),60000);err?no(err):ok(r)};
   let busy=false;
   d.onclick=async ev=>{const x=ev.target.closest('[data-x]');if(!x){if(ev.target===d)done(null,{code:'declined'});return}
     if(x.dataset.x==='close')return done(null,{code:'declined'});
     if(x.dataset.x==='save'){const a=document.createElement('a');a.href=url;a.download=filename;document.body.appendChild(a);a.click();a.remove();return done({status:'saved'})}
+    if(viaApp&&shareId){location.href='intent://share?id='+shareId+'#Intent;scheme=baejeonshift;package=kr.baejeon.shift;S.browser_fallback_url='+encodeURIComponent('https://github.com/junsury/baejeon-shift/releases/download/android/baejeon-shift.apk')+';end';return done({status:'saved'})}
     if(busy)return;busy=true;
     try{await navigator.share({files:[file],title:filename});done({status:'saved'})}
     catch(e){busy=false;if(!(e&&e.name==='AbortError')){x.textContent='공유창이 안 열려요 · 그림을 꾹 눌러 주세요';x.disabled=true}}};
 })}
+window.__appDownloads=()=>appDownloads();
 async function appDownloads(){
   return {save:async({filename,data})=>{
     const blob=data instanceof Blob?data:new Blob([data]);
