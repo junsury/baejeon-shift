@@ -474,6 +474,10 @@ table.grid td.shiftday{box-shadow:inset 3px 0 0 var(--accent)}
 .rqsum{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
 .rqbox{display:flex;flex-direction:column;align-items:flex-start;gap:1px;padding:10px 12px;border-radius:12px;border:1px solid var(--line);background:var(--surface);font:inherit;color:var(--muted);text-align:left;cursor:pointer}
 .rqbox span{font-size:14px;font-weight:600}.rqbox b{font-size:22px;color:var(--fg)}.rqbox small{font-size:12px}
+.rqbox.res{background:var(--leave-bg);border:2px solid var(--leave);color:var(--leave)}
+.item.res.no{background:var(--bad-bg);border-radius:10px}.item.res.ok{background:var(--leave-bg);border-radius:10px}
+.sm-req.res.ok{background:var(--leave-bg);border:2px solid var(--leave)}.sm-req.res.ok .sm-req-t{color:var(--leave)}
+.sm-req.res.no{background:var(--bad-bg);border:2px solid var(--bad)}.sm-req.res.no .sm-req-t{color:var(--bad)}
 .rqbox.in.on{background:var(--warn-bg);border:2px solid var(--warn);color:var(--warn)}
 .rqbox.out.on{background:color-mix(in srgb,var(--accent) 12%,var(--surface));border:2px solid var(--accent);color:var(--accent)}
 .item.waiting{background:color-mix(in srgb,var(--accent) 8%,transparent);border-radius:10px}
@@ -1075,7 +1079,7 @@ function render(){
   document.querySelectorAll('nav.tabs button').forEach(b=>b.setAttribute('aria-selected',b.dataset.tab===ui.tab));
   for(const t of ['my','team','budget','attend','pay','admin'])$('#tab-'+t).hidden=ui.tab!==t;
   renderMeSel();
-  const pend=pendingToMe().length;
+  const pend=attCount();
   const ab=document.querySelector('nav.tabs [data-tab=attend]');ab.innerHTML='근태'+(pend?'<span class="badge">'+pend+'</span>':'');
   $('#attInboxBtn').innerHTML='요청함'+(pend?'<span class="badge">'+pend+'</span>':'');
   if(ui.tab==='my')renderMy();
@@ -1687,7 +1691,7 @@ function renderMy(){
   document.querySelectorAll('#mySeg button').forEach(b=>b.setAttribute('aria-pressed',b.dataset.mv===ui.myView));
   const body=$('#myBody');
   if(document.activeElement&&document.activeElement.id==='pmemo')return;
-  const pend=pendingToMe().length;const pendHtml=pend?'<div class="msg warn" style="align-items:center;justify-content:space-between"><span>확인할 요청·알림이 <b>'+pend+'건</b> 있어요.</span><button class="link" data-goinbox="1">요청함 보기</button></div>':'';
+  const pend=attCount();const pendHtml=pend?'<div class="msg warn" style="align-items:center;justify-content:space-between"><span>확인할 요청·알림이 <b>'+pend+'건</b> 있어요.</span><button class="link" data-goinbox="1">요청함 보기</button></div>':'';
   if(!me||!byId(me)){
     $('#myLbl').innerHTML='내 근무<span>본인 이름을 골라주세요</span>';
     body.innerHTML='<div class="card form"><h2>누구인가요?</h2><p class="note" style="margin:0">한 번 고르면 이 기기에서 기억해요. 위쪽 "나"에서 언제든 바꿀 수 있어요.</p><div class="pick">'+byName().map(m=>'<button data-pick="'+m.id+'">'+esc(m.name)+'<small>'+teamLabel(m,todayN)+'</small></button>').join('')+'</div></div>';
@@ -2036,7 +2040,7 @@ function smHead(title){
     '<button class="sm-pill" data-s="full">자세히 보기</button>'+(acct?'<button class="sm-acct" data-s="acct" aria-label="내 정보">'+smIcon('<circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-6 8-6s8 2 8 6"/>')+'</button>':'')+'</header>';
 }
 function smNav(){
-  const pend=pendingToMe().length;
+  const pend=attCount();
   return '<nav class="sm-nav">'+SM_TABS.map(([k,l,ic])=>'<button data-stab="'+k+'"'+(ui.stab===k?' aria-current="page"':'')+'>'+smIcon(ic)+'<span>'+l+'</span>'+(k==='attend'&&pend?'<i class="sm-badge">'+pend+'</i>':'')+'</button>').join('')+'</nav>';
 }
 function renderSimple(){
@@ -2123,6 +2127,7 @@ function smAttend(){
   let h=ui.sMsg?'<div class="sm-ok">'+ui.sMsg+'</div>':'';
   const notices=pendingToMe().filter(r=>r.status==='notice'),inc=pendingToMe().filter(r=>r.status==='pending');
   const sent=requests.filter(r=>r.from===me&&r.status==='pending').sort((x,y)=>x.createdAt-y.createdAt);
+  for(const r of myResults())h+=resultCard(r,true);
   h+='<div class="sm-two sm-rqsum"><div class="'+(inc.length?'on in':'')+'"><span>📥 나에게 온 요청</span><b>'+inc.length+'건</b></div><div class="'+(sent.length?'on out':'')+'"><span>📤 내가 보낸 요청</span><b>'+sent.length+'건</b></div></div>';
   for(const r of inc){const errs=r.kind==='swap'?swapErrors(r.ev):leaveErrors(r.ev);
     h+='<div class="sm-req"><span class="sm-req-t">📥 '+esc(nm(r.from))+' 님이 나에게 요청했어요</span><p>'+reqDesc(r)+'</p>'+(r.note?'<p class="sm-note">"'+esc(r.note)+'"</p>':'')+errs.map(x=>'<p class="sm-bad">✕ '+esc(x)+'</p>').join('')+
@@ -2386,6 +2391,12 @@ $('#exportJson').onclick=async()=>{
 let uid=null,links={},requests=[],memos={},userCap=null,profileNames={};
 const canAct=()=>ui.attTab==='req'?!!(me&&byId(me)):canWrite;
 const pendingToMe=()=>me?requests.filter(r=>r.to===me&&(r.status==='pending'||(r.status==='notice'&&!r.seen))):[];
+/* 내가 보낸 요청의 결과(승인·거절) 중 아직 확인 안 한 것 — 이 기능을 넣은 뒤(2026-10-18 20시) 결정된 것만 */
+const myResults=()=>me?requests.filter(r=>r.from===me&&(r.status==='approved'||r.status==='rejected')&&!r.fromSeen&&(r.decidedAt||0)>1792321200000):[];
+const attCount=()=>pendingToMe().length+myResults().length;
+function resultCard(r,simple){const ok=r.status==='approved';
+  return simple?'<div class="sm-req res '+(ok?'ok':'no')+'"><span class="sm-req-t">'+(ok?'✅ 내 요청이 승인됐어요':'❌ 내 요청이 거절됐어요')+' · '+esc(nm(r.to))+' 님</span><p>'+reqDesc(r)+'</p><p class="sm-note">'+(ok?'근무표에 반영됐어요.':'근무표는 그대로예요. 다른 사람에게 다시 요청할 수 있어요.')+'</p><button class="sm-btn ghost" data-rq="'+r._id+'" data-act="rseen">확인</button></div>'
+  :'<div class="item res '+(ok?'ok':'no')+'" style="flex-wrap:wrap"><span class="kind '+(ok?'leave':'swap')+'">'+(ok?'✅ 승인됨':'❌ 거절됨')+'</span><div class="t">'+reqDesc(r)+'<small>내가 '+esc(nm(r.to))+' 님에게 보낸 요청 · '+(ok?'승인되어 근무표에 반영됐어요':'거절됐어요. 근무표는 그대로예요')+'</small></div><button class="btn ghost" data-rq="'+r._id+'" data-act="rseen">확인</button></div>'}
 function reqFail(e){
   const b=$('#banner');b.hidden=false;
   b.textContent=e&&e.code==='invalid_argument'?'저장할 권한이 없어요. 신청·승인·메모를 쓰려면 이 페이지 권한이 "참여(Contributor)" 이상이어야 해요. 관리자에게 요청하세요.':'저장하지 못했어요. 잠시 후 다시 시도해 주세요.';
@@ -2434,7 +2445,8 @@ const noteHtml=r=>r.note?'<span class="rnote">'+esc(nm(r.from))+': '+esc(r.note)
 function renderRqSum(){
   const box=$('#rqSum');if(!box)return;if(!me||!byId(me)){box.innerHTML='';return}
   const inc=requests.filter(r=>r.to===me&&r.status==='pending'),sent=requests.filter(r=>r.from===me&&r.status==='pending');
-  box.innerHTML='<button class="rqbox in'+(inc.length?' on':'')+'" data-rqgo="in"><span>📥 나에게 온 요청</span><b>'+inc.length+'건</b><small>'+(inc.length?'수락·거절을 눌러 주세요':'없어요')+'</small></button>'+
+  const res=myResults();
+  box.innerHTML=(res.length?'<button class="rqbox res" data-rqgo="in" style="grid-column:1/-1"><span>📬 내 요청 결과가 나왔어요</span><b>'+res.map(r=>r.status==='approved'?'✅ 승인':'❌ 거절').join(' · ')+'</b><small>눌러서 확인</small></button>':'')+'<button class="rqbox in'+(inc.length?' on':'')+'" data-rqgo="in"><span>📥 나에게 온 요청</span><b>'+inc.length+'건</b><small>'+(inc.length?'수락·거절을 눌러 주세요':'없어요')+'</small></button>'+
     '<button class="rqbox out'+(sent.length?' on':'')+'" data-rqgo="out"><span>📤 내가 보낸 요청</span><b>'+sent.length+'건</b><small>'+(sent.length?'상대 수락을 기다리는 중':'없어요')+'</small></button>';
 }
 $('#rqSum').addEventListener('click',e=>{const b=e.target.closest('[data-rqgo]');if(!b)return;ui.attTab='inbox';ui.ib=b.dataset.rqgo;render()});
@@ -2453,7 +2465,7 @@ function renderInbox(){
   const inc=pendingToMe().filter(r=>r.status==='pending').sort((x,y)=>x.createdAt-y.createdAt);
   $('#inTitle').textContent='받은 요청 '+inc.length+'건'+(notices.length?' · 알림 '+notices.length+'건':'');
   const noticeHtml=notices.map(r=>'<div class="item" style="flex-wrap:wrap"><span class="kind '+(r.canceled?'swap':'leave')+'">'+(r.canceled?'취소':'바뀜')+'</span><div class="t">'+reqDesc(r)+'<small>'+esc(nm(r.from))+(r.canceled?' 님이 이 근태를 취소했어요 · ':' 님이 구두 합의로 바로 반영했어요 · ')+new Date(r.createdAt).toLocaleDateString('ko-KR')+'</small>'+noteHtml(r)+'</div><button class="btn ghost" data-rq="'+r._id+'" data-act="seen">확인</button></div>').join('');
-  $('#inList').innerHTML=noticeHtml+(inc.length?inc.map(r=>{
+  $('#inList').innerHTML=myResults().map(r=>resultCard(r,false)).join('')+noticeHtml+(inc.length?inc.map(r=>{
     const errs=r.kind==='swap'?swapErrors(r.ev):leaveErrors(r.ev);
     let shape='';
     if(r.kind==='leave'&&r.ev.coverType==='cover'&&!errs.length){const sim=[...events,{...r.ev}];const sh=coverShape(r.to,dn(r.ev.date),r.ev.shift,sim);shape='<span class="mstrip">'+sh.strip+'</span>'+(sh.tag?'<span class="tag '+(sh.lvl===2?'미정':sh.lvl===1?'대근':'지원')+'">'+sh.tag+'</span>':'')}
@@ -2470,6 +2482,7 @@ async function onReq(e){
     await setRequest(r,{status:'approved',decidedAt:Date.now(),eventId:id});
   }else if(b.dataset.act==='no')await setRequest(r,{status:'rejected',decidedAt:Date.now()});
   else if(b.dataset.act==='cancel')await setRequest(r,{status:'canceled',decidedAt:Date.now()});
+  else if(b.dataset.act==='rseen')await setRequest(r,{fromSeen:true});
   else if(b.dataset.act==='seen')await setRequest(r,{seen:true,seenAt:Date.now()});
   render();
 }

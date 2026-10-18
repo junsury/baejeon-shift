@@ -7,7 +7,9 @@ D=json.loads(json.dumps(R['TEST_DATA']))
 D['requests']=[{"_id":"q1","kind":"swap","from":"B2","to":"C2","status":"pending","createdAt":5,"note":"",
   "ev":{"type":"swap","aId":"B2","aDate":"2026-10-16","bId":"C2","bDate":"2026-10-18","shift":"주","createdAt":5}},
   {"_id":"q2","kind":"leave","from":"A1","to":"B2","status":"pending","createdAt":6,"note":"",
-  "ev":{"type":"leave","memberId":"A1","date":"2026-10-21","shift":"주","leaveType":"연차","coverType":"cover","coverId":"B2"}}]
+  "ev":{"type":"leave","memberId":"A1","date":"2026-10-21","shift":"주","leaveType":"연차","coverType":"cover","coverId":"B2"}},
+  {"_id":"q3","kind":"swap","from":"B2","to":"D2","status":"rejected","createdAt":7,"decidedAt":1792400000000,"note":"",
+  "ev":{"type":"swap","aId":"B2","aDate":"2026-10-23","bId":"D2","bDate":"2026-10-25","shift":"주","createdAt":7}}]
 from playwright.sync_api import sync_playwright
 with sync_playwright() as p:
     b=getattr(p,os.environ.get('BROWSER','chromium')).launch()
@@ -18,6 +20,7 @@ with sync_playwright() as p:
     pg.click('[data-g=pick][data-id=B2]'); pg.wait_for_timeout(800)
     print('reqs', pg.evaluate("JSON.parse(sessionStorage.getItem('mockstore')).filter(([k])=>/requests\\//.test(k)).map(([k,v])=>v.status)"))
     pg.click('[data-tab=attend]'); pg.wait_for_timeout(300); print('sum:', pg.inner_text('#rqSum').replace('\n',' '))
+    print('badge:', pg.inner_text('nav.tabs [data-tab=attend] .badge'))
     pg.screenshot(path=SHOT+'/pend_att.png')
     pg.click('[data-tab=my]'); pg.wait_for_timeout(200); pg.click('[data-mv=month]'); pg.wait_for_timeout(300)
     print('month rq:', pg.eval_on_selector_all('.ml.rq','e=>e.map(x=>x.textContent)'))
@@ -27,6 +30,9 @@ with sync_playwright() as p:
     print('simple sheet rq:', pg.eval_on_selector_all('#simple .rq','e=>e.map(x=>x.textContent)'))
     pg.click('[data-stab=attend]'); pg.wait_for_timeout(300); pg.screenshot(path=SHOT+'/pend_sm.png',full_page=True)
     print('simple attend:', pg.inner_text('#simple .sm-body')[:200].replace('\n',' | '))
+    print('result card:', pg.locator('.sm-req.res.no').count())
+    pg.click('.sm-req.res [data-act=rseen]'); pg.wait_for_timeout(600)
+    print('after rseen:', pg.locator('.sm-req.res').count(), pg.evaluate("JSON.parse(sessionStorage.getItem('mockstore')).filter(([k])=>/requests\\/q3$/.test(k)).map(([k,v])=>v.fromSeen)"))
     pg.click('.sm-req.mine [data-act=cancel]'); pg.wait_for_timeout(600)
     pg.click('[data-stab=sheet]'); pg.wait_for_timeout(300)
     print('after cancel rq:', pg.eval_on_selector_all('#simple .rq','e=>e.map(x=>x.textContent)'))
