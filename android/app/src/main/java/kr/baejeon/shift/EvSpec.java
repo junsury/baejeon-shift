@@ -22,6 +22,11 @@ final class EvSpec {
     int remind = -2;                // -2 기본 알림, -1 없음, 그 외 몇 분 전
     boolean lunar = false;          // 음력 날짜 (매년이면 해마다 음력으로)
     int color = 0;                  // 구글 캘린더 일정 색 1~11 (0 = 자동: 내 색)
+    // 사용자 지정 반복
+    int interval = 1;               // 몇 주·달·년마다
+    int weekDays = 0;               // 매주 요일 (비트: 일=1, 월=2 … 토=64), 0이면 시작 날 요일
+    int untilDay = Integer.MIN_VALUE; // 이 날까지 (포함), 없으면 계속
+    int count = 0;                  // 몇 번만 (0 = 제한 없음)
 
     static final class Occ {
         final String title; final int day0, day1;
@@ -29,11 +34,49 @@ final class EvSpec {
     }
 
     /** 반복 규칙 하나로 넣을 수 있으면 RRULE, 아니면 null (펼쳐서 넣어요) */
+    static final String[] BYDAY = {"SU", "MO", "TU", "WE", "TH", "FR", "SA"};
     String rrule() {
-        if (repeat == WEEKLY) return "RRULE:FREQ=WEEKLY";
-        if (repeat == MONTHLY) return "RRULE:FREQ=MONTHLY";
-        if (repeat == YEARLY && label == LABEL_NONE && !lunar) return "RRULE:FREQ=YEARLY";
-        return null;
+        String f;
+        if (repeat == WEEKLY) f = "WEEKLY";
+        else if (repeat == MONTHLY) f = "MONTHLY";
+        else if (repeat == YEARLY && label == LABEL_NONE && !lunar) f = "YEARLY";
+        else return null;
+        StringBuilder b = new StringBuilder("RRULE:FREQ=").append(f);
+        if (interval > 1) b.append(";INTERVAL=").append(interval);
+        if (repeat == WEEKLY && weekDays != 0) {
+            b.append(";BYDAY=");
+            boolean first = true;
+            for (int i = 0; i < 7; i++) if ((weekDays & (1 << i)) != 0) { if (!first) b.append(','); b.append(BYDAY[i]); first = false; }
+        }
+        if (count > 0) b.append(";COUNT=").append(count);
+        else if (untilDay != Integer.MIN_VALUE) {
+            String ymd = ShiftData.ymd(untilDay).replace("-", "");
+            // 종일은 날짜로, 시간 일정은 그날 밤(한국 23:59 = UTC 14:59)까지
+            b.append(";UNTIL=").append(allDay ? ymd : ymd + "T145959Z");
+        }
+        return b.toString();
+    }
+
+    /** 매주 여러 요일이면 시작 날을 고른 요일 중 가장 가까운 날로 */
+    void alignStart() {
+        if (repeat != WEEKLY || weekDays == 0) return;
+        int span = day1 - day0;
+        for (int k = 0; k < 7; k++) if ((weekDays & (1 << ShiftData.dow(day0 + k))) != 0) { day0 += k; day1 = day0 + span; return; }
+    }
+
+    /** 반복 설명 (예: 2주마다 화·목, 2027-06-30까지) */
+    String repeatText() {
+        if (repeat == NONE) return "반복 없음";
+        String unit = repeat == WEEKLY ? "주" : repeat == MONTHLY ? "달" : "년";
+        StringBuilder b = new StringBuilder(interval > 1 ? interval + unit + "마다" : "매" + unit);
+        if (lunar && repeat == YEARLY) b.append("(음력)");
+        if (repeat == WEEKLY && weekDays != 0) {
+            b.append(' ');
+            for (int i = 0; i < 7; i++) if ((weekDays & (1 << i)) != 0) b.append(ShiftData.WD[i]);
+        }
+        if (count > 0) b.append(", ").append(count).append("번");
+        else if (untilDay != Integer.MIN_VALUE) b.append(", ").append(ShiftData.ymd(untilDay).replace("-", ".")).append("까지");
+        return b.toString();
     }
 
     boolean expands() { return repeat == LUNAR || (repeat == YEARLY && (label != LABEL_NONE || lunar)); }
@@ -52,19 +95,25 @@ final class EvSpec {
         if (repeat == LUNAR || (repeat == YEARLY && lunar)) {
             int[] lt = Lunar.fromSolar(day0);
             int y0 = lt != null ? lt[0] : 2026;
+            int k = 0;
             for (int y = y0; y <= Lunar.LAST_YEAR; y++) {
                 int s = Lunar.yearly(y, lunarM, lunarD, lunarLeap);
                 if (s == Lunar.MIN || s < day0) continue;
+                if (untilDay != Integer.MIN_VALUE && s > untilDay) break;
+                if (k++ % Math.max(1, interval) != 0) continue;
                 out.add(new Occ(titleFor(solarYear(s)), s, s + span));
+                if (count > 0 && out.size() >= count) break;
             }
         } else if (repeat == YEARLY && label != LABEL_NONE) {
             java.util.Calendar c = ShiftData.cal(day0);
             int y0 = c.get(java.util.Calendar.YEAR), m = c.get(java.util.Calendar.MONTH), d = c.get(java.util.Calendar.DAY_OF_MONTH);
-            for (int y = y0; y < y0 + YEARS_AHEAD; y++) {
+            for (int y = y0; y < y0 + YEARS_AHEAD; y += Math.max(1, interval)) {
                 java.time.LocalDate ld;
                 try { ld = java.time.LocalDate.of(y, m + 1, d); } catch (Exception e) { ld = java.time.LocalDate.of(y, m + 1, 28); }  // 2/29 → 2/28
                 int s = (int) ld.toEpochDay();
+                if (untilDay != Integer.MIN_VALUE && s > untilDay) break;
                 out.add(new Occ(titleFor(y), s, s + span));
+                if (count > 0 && out.size() >= count) break;
             }
         } else out.add(new Occ(title, day0, day1));
         return out;

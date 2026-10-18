@@ -51,5 +51,11 @@ public class DayFormPreview {
         a.startMin = 15 * 60; a.endMin = 16 * 60; a.showTimes.run();
         a.setRepeat(EvSpec.NONE); a.setRemind(0, 14 * 60);
         shot(a, "day_form_hospital.png");
+        a.title.setText("아이 학원");
+        a.setRepeat(EvSpec.WEEKLY); a.rDays = (1 << 2) | (1 << 4); a.fillDays();
+        a.intervalSpin.setSelection(1); a.rInterval = 2;
+        a.endSpin.setSelection(1); a.endMode = 1; a.untilD = (int) java.time.LocalDate.parse("2027-06-30").toEpochDay();
+        a.untilBtn.setVisibility(android.view.View.VISIBLE); a.updateRepeatSum();
+        shot(a, "day_form_repeat.png");
     }
 }

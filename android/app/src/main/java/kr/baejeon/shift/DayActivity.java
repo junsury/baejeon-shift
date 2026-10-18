@@ -253,6 +253,9 @@ public class DayActivity extends Activity {
     Spinner repeatSpin, remindSpin, labelSpin;
     CheckBox lunarChk; boolean lunar = false; int colorSel = 0; LinearLayout colorRow; Button remindTimeBtn;
     int remindDay = -2, remindAt = 9 * 60;
+    // 사용자 지정 반복
+    int rInterval = 1, rDays = 0, endMode = 0, untilD = Integer.MIN_VALUE, rCount = 10;
+    LinearLayout customBox, daysRow; Spinner intervalSpin, endSpin; Button untilBtn; EditText countEt; TextView repeatSum;
     Button dateBtn, endDateBtn, lunarBtn, copyBtn;
     TextView shiftInfo;
     LinearLayout tplRow, offRow, repeatBox, lunarRow, labelRow;
@@ -402,6 +405,46 @@ public class DayActivity extends Activity {
         labelRow.addView(labelSpin, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
         labelRow.addView(baseYearEt, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
         repeatBox.addView(labelRow, mlp(0));
+        // 사용자 지정: 간격 · 요일 · 끝
+        customBox = new LinearLayout(this); customBox.setOrientation(LinearLayout.VERTICAL);
+        intervalSpin = new Spinner(this);
+        customBox.addView(intervalSpin, mlp(0));
+        daysRow = new LinearLayout(this); daysRow.setOrientation(LinearLayout.HORIZONTAL);
+        customBox.addView(hscroll(daysRow), mlp(2));
+        LinearLayout endRow = new LinearLayout(this); endRow.setOrientation(LinearLayout.HORIZONTAL); endRow.setGravity(Gravity.CENTER_VERTICAL);
+        endSpin = new Spinner(this);
+        endSpin.setAdapter(ad(new String[]{"끝: 계속", "끝: 날짜까지", "끝: 횟수만큼"}));
+        untilBtn = new Button(this);
+        countEt = new EditText(this); countEt.setInputType(InputType.TYPE_CLASS_NUMBER); countEt.setSingleLine(true); countEt.setText("10"); countEt.setHint("횟수");
+        endRow.addView(endSpin, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1.2f));
+        endRow.addView(untilBtn, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
+        endRow.addView(countEt, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
+        customBox.addView(endRow, mlp(2));
+        repeatSum = label("", 13, true, 0xFF1D5D8F);
+        repeatSum.setPadding(px(4), px(2), px(4), px(4));
+        customBox.addView(repeatSum, mlp(0));
+        repeatBox.addView(customBox, mlp(0));
+        intervalSpin.setOnItemSelectedListener(new android.widget.AdapterView.OnItemSelectedListener() {
+            public void onItemSelected(android.widget.AdapterView<?> p, View v, int pos, long id) { rInterval = pos + 1; updateRepeatSum(); }
+            public void onNothingSelected(android.widget.AdapterView<?> p) {}
+        });
+        endSpin.setOnItemSelectedListener(new android.widget.AdapterView.OnItemSelectedListener() {
+            public void onItemSelected(android.widget.AdapterView<?> p, View v, int pos, long id) {
+                endMode = pos;
+                if (pos == 1 && untilD == Integer.MIN_VALUE) untilD = fDay0 + 365;
+                untilBtn.setVisibility(pos == 1 ? View.VISIBLE : View.GONE);
+                countEt.setVisibility(pos == 2 ? View.VISIBLE : View.GONE);
+                updateRepeatSum();
+            }
+            public void onNothingSelected(android.widget.AdapterView<?> p) {}
+        });
+        untilBtn.setOnClickListener(v -> pickDate(untilD == Integer.MIN_VALUE ? fDay0 + 365 : untilD, n -> { untilD = Math.max(fDay0, n); updateRepeatSum(); }));
+        countEt.addTextChangedListener(new android.text.TextWatcher() {
+            public void beforeTextChanged(CharSequence a, int b, int c, int d) {}
+            public void onTextChanged(CharSequence a, int b, int c, int d) {}
+            public void afterTextChanged(android.text.Editable e) { try { rCount = Math.max(1, Math.min(500, Integer.parseInt(e.toString().trim()))); } catch (Exception x) { rCount = 0; } updateRepeatSum(); }
+        });
+        untilBtn.setVisibility(View.GONE); countEt.setVisibility(View.GONE);
         form.addView(repeatBox, mlp(2));
         repeatSpin.setOnItemSelectedListener(new android.widget.AdapterView.OnItemSelectedListener() {
             public void onItemSelected(android.widget.AdapterView<?> p, View v, int pos, long id) { setRepeat(pos); }
@@ -556,9 +599,49 @@ public class DayActivity extends Activity {
         if (repeatSpin.getSelectedItemPosition() != r) repeatSpin.setSelection(r);
         boolean yearly = r == EvSpec.YEARLY;
         labelRow.setVisibility(yearly ? View.VISIBLE : View.GONE);
+        if (customBox != null) {
+            customBox.setVisibility(r == EvSpec.NONE ? View.GONE : View.VISIBLE);
+            String unit = r == EvSpec.WEEKLY ? "주" : r == EvSpec.MONTHLY ? "달" : "년";
+            String[] iv = new String[6];
+            for (int i = 0; i < 6; i++) iv[i] = i == 0 ? "매" + unit + " (1" + unit + "마다)" : (i + 1) + unit + "마다";
+            int keepI = rInterval;
+            intervalSpin.setAdapter(ad(iv));
+            intervalSpin.setSelection(Math.max(0, Math.min(5, keepI - 1)));
+            rInterval = keepI;
+            if (r == EvSpec.WEEKLY && rDays == 0) rDays = 1 << ShiftData.dow(fDay0);
+            fillDays();
+            daysRow.setVisibility(r == EvSpec.WEEKLY ? View.VISIBLE : View.GONE);
+            updateRepeatSum();
+        }
         if (!yearly) { label = EvSpec.LABEL_NONE; labelSpin.setSelection(0); }
         baseYearEt.setVisibility(label == EvSpec.LABEL_NONE ? View.GONE : View.VISIBLE);
         if (dateBtn != null) onDateChanged(false);
+    }
+
+    void fillDays() {
+        daysRow.removeAllViews();
+        for (int i = 0; i < 7; i++) {
+            final int bit = 1 << i;
+            TextView t = chipBtn(ShiftData.WD[i], (rDays & bit) != 0);
+            if ((rDays & bit) == 0) t.setTextColor(i == 0 ? 0xFFC0261C : i == 6 ? 0xFF2F6FD6 : 0xFF1D5D8F);
+            t.setOnClickListener(v -> { int nd = rDays ^ bit; if (nd == 0) return; rDays = nd; fillDays(); updateRepeatSum(); });
+            daysRow.addView(t, gap());
+        }
+    }
+
+    EvSpec repeatPart() {
+        EvSpec sp = new EvSpec();
+        sp.repeat = repeat; sp.lunar = lunar; sp.allDay = allDay == null || allDay.isChecked();
+        sp.interval = rInterval; sp.weekDays = repeat == EvSpec.WEEKLY ? rDays : 0;
+        sp.untilDay = endMode == 1 ? untilD : Integer.MIN_VALUE;
+        sp.count = endMode == 2 ? rCount : 0;
+        return sp;
+    }
+
+    void updateRepeatSum() {
+        if (repeatSum == null) return;
+        if (untilBtn != null && untilD != Integer.MIN_VALUE) untilBtn.setText("~ " + ShiftData.ymd(untilD).replace("-", "."));
+        repeatSum.setText(repeat == EvSpec.NONE ? "" : "🔁 " + repeatPart().repeatText());
     }
 
     /** 음력 체크: 고른 날짜의 음력으로 시작, 날짜 버튼 옆에 음력 표시 */
@@ -817,6 +900,9 @@ public class DayActivity extends Activity {
         sp.repeat = repeat; sp.lunarM = lunarM; sp.lunarD = lunarD; sp.lunarLeap = lunarLeap;
         sp.remind = remindDay == -3 ? -3 : EvSpec.remindMinutes(remindDay, remindAt, allDay.isChecked(), startMin);
         sp.lunar = lunar; sp.color = colorSel;
+        EvSpec rp = repeatPart();
+        sp.interval = rp.interval; sp.weekDays = rp.weekDays; sp.untilDay = rp.untilDay; sp.count = rp.count;
+        sp.alignStart();
         int by = 0; try { by = Integer.parseInt(baseYearEt.getText().toString().trim()); } catch (Exception ignored) {}
         sp.label = repeat == EvSpec.YEARLY && by >= 1900 && by <= 2100 ? label : EvSpec.LABEL_NONE;
         sp.baseYear = by;
@@ -840,6 +926,8 @@ public class DayActivity extends Activity {
             baseYearEt.setError(label == EvSpec.LABEL_AGE ? "태어난 해를 적어 주세요" : "시작 연도를 적어 주세요"); baseYearEt.requestFocus(); return;
         }
         final EvSpec sp = specFromForm(t);
+        if (sp.repeat != EvSpec.NONE && endMode == 1 && untilD < sp.day0) { Toast.makeText(this, "끝 날짜가 시작보다 빨라요", Toast.LENGTH_LONG).show(); return; }
+        if (sp.repeat != EvSpec.NONE && endMode == 2 && rCount <= 0) { countEt.setError("횟수를 적어 주세요"); return; }
         if (sp.remind == -9) { Toast.makeText(this, "알림 시각이 일정 시작보다 늦어요. 날짜나 시각을 바꿔 주세요", Toast.LENGTH_LONG).show(); return; }
         final int count = sp.occurrences().size();
         if (count == 0) { Toast.makeText(this, "음력 날짜를 확인해 주세요 (2049년까지 계산돼요)", Toast.LENGTH_LONG).show(); return; }
@@ -861,7 +949,7 @@ public class DayActivity extends Activity {
             runOnUiThread(() -> {
                 if (done <= 0) { saveBtn.setEnabled(true); saveBtn.setText("일정 저장"); Toast.makeText(this, "일정을 저장하지 못했어요", Toast.LENGTH_LONG).show(); return; }
  if (done < count) { Toast.makeText(this, count + "개 중 " + done + "개만 저장됐어요 (구글이 잠시 막음). 나머지는 잠시 뒤 다시 넣어 주세요", Toast.LENGTH_LONG).show(); finish(); return; }
-                String what = sp.lunar && sp.repeat == EvSpec.YEARLY ? "음력 매년 " + done + "년 치" : sp.expands() ? "매년 " + done + "년 치" : sp.rrule() != null ? EvSpec.REPEAT_NAMES[sp.repeat].substring(3) + " 반복" : ShiftData.mdw(sp.day0);
+                String what = sp.lunar && sp.repeat == EvSpec.YEARLY ? "음력 매년 " + done + "년 치" : sp.expands() ? "매년 " + done + "년 치" :  sp.rrule() != null ? sp.repeatText() + " 반복" : ShiftData.mdw(sp.day0);
                 Toast.makeText(this, what + " 일정을 추가했어요" + (viaApi ? " (가족에게 바로 보여요)" : ""), Toast.LENGTH_LONG).show();
                 finish();
             });

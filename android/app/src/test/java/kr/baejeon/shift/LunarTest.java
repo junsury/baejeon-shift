@@ -85,4 +85,26 @@ public class LunarTest {
         assertEquals(7 * 1440 - 540, EvSpec.remindMinutes(7, 9 * 60, true, 0));
         assertEquals(-1, EvSpec.remindMinutes(-1, 0, true, 0));
     }
+
+    @Test public void customRepeat() {
+        EvSpec sp = new EvSpec();
+        sp.title = "학원"; sp.day0 = sp.day1 = d("2026-11-03"); sp.allDay = false;   // 화요일
+        sp.repeat = EvSpec.WEEKLY; sp.interval = 2; sp.weekDays = (1 << 2) | (1 << 4); sp.untilDay = d("2027-06-30");
+        assertEquals("RRULE:FREQ=WEEKLY;INTERVAL=2;BYDAY=TU,TH;UNTIL=20270630T145959Z", sp.rrule());
+        assertEquals("2주마다 화목, 2027.06.30까지", sp.repeatText());
+        sp.repeat = EvSpec.MONTHLY; sp.interval = 1; sp.weekDays = 0; sp.untilDay = Integer.MIN_VALUE; sp.count = 8; sp.allDay = true;
+        assertEquals("RRULE:FREQ=MONTHLY;COUNT=8", sp.rrule());
+        sp.repeat = EvSpec.YEARLY; sp.count = 0; sp.untilDay = d("2031-12-31");
+        assertEquals("RRULE:FREQ=YEARLY;UNTIL=20311231", sp.rrule());
+        // 시작 요일이 안 골라져 있으면 가장 가까운 고른 요일로
+        EvSpec w = new EvSpec(); w.repeat = EvSpec.WEEKLY; w.weekDays = 1 << 4; w.day0 = w.day1 = d("2026-11-03"); w.alignStart();
+        assertEquals(d("2026-11-05"), w.day0);
+        // 몇 주년 + 끝 연도
+        EvSpec y = new EvSpec(); y.title = "결혼"; y.repeat = EvSpec.YEARLY; y.label = EvSpec.LABEL_YEARS; y.baseYear = 2015;
+        y.day0 = y.day1 = d("2027-11-07"); y.untilDay = d("2031-12-31");
+        assertEquals(5, y.occurrences().size());
+        y.untilDay = Integer.MIN_VALUE; y.count = 3; y.interval = 2;
+        List<EvSpec.Occ> o = y.occurrences();
+        assertEquals(3, o.size()); assertEquals("결혼 14주년", o.get(1).title);
+    }
 }
