@@ -1,0 +1,13 @@
+  ready sheet shown, img= 1
+  console: share after ms 0
+#pPng MOBILE 2.1 s shared= 1 ✓ 이미지를 저장했어요. 카톡 단톡방에 올리면 돼요.
+  ready sheet shown, img= 0
+  console: share after ms 0
+#pPdf MOBILE 1.8 s shared= 1 ✓ PDF를 저장했어요. 열어서 인쇄하면 돼요.
+  ready sheet shown, img= 1
+  console: share after ms 0
+#rpPng MOBILE 1.5 s shared= 1 ✓ 이미지를 저장했어요. 카톡 단톡방에 올리면 돼요.
+  ready sheet shown, img= 0
+  console: share after ms 0
+#rpPdf MOBILE 1.5 s shared= 1 ✓ PDF를 저장했어요.
+errs ['console:Failed to load resource: net::ERR_FAILED', 'console:Failed to load resource: net::ERR_FAILED', 'console:Failed to load resource: net::ERR_FAILED', 'console:Failed to load resource: net::ERR_FAILED', 'console:Failed to load resource: net::ERR_FAILED', 'console:Failed to load resource: net::ERR_FAILED']

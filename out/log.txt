@@ -1,0 +1,19 @@
+#pPng OK 근무편성표_2026-09-14.png 675279
+#pPdf OK 근무편성표_2026-09-14.pdf 668161
+#rpPng OK 근무요약_대근총량_2026-10-16.png 239152
+#rpPdf OK 근무요약_대근총량_2026-10-16.pdf 246448
+errs ['console:Failed to load resource: net::ERR_FAILED', 'console:Failed to load resource: net::ERR_FAILED', 'console:Failed to load resource: net::ERR_FAILED', 'console:Failed to load resource: net::ERR_FAILED', 'console:Failed to load resource: net::ERR_FAILED', 'console:Failed to load resource: net::ERR_FAILED']
+Traceback (most recent call last):
+  File "/home/runner/work/baejeon-shift/baejeon-shift/test/t_png.py", line 7, in <module>
+    with sync_playwright() as p:
+         ^^^^^^^^^^^^^^^^^
+  File "/opt/hostedtoolcache/Python/3.12.15/x64/lib/python3.12/site-packages/playwright/sync_api/_context_manager.py", line 109, in __exit__
+    self._connection.stop_sync()
+  File "/opt/hostedtoolcache/Python/3.12.15/x64/lib/python3.12/site-packages/playwright/_impl/_connection.py", line 365, in stop_sync
+    self._loop.run_until_complete(self._transport.wait_until_stopped())
+  File "/opt/hostedtoolcache/Python/3.12.15/x64/lib/python3.12/asyncio/base_events.py", line 667, in run_until_complete
+    self._check_running()
+  File "/opt/hostedtoolcache/Python/3.12.15/x64/lib/python3.12/asyncio/base_events.py", line 626, in _check_running
+    raise RuntimeError('This event loop is already running')
+RuntimeError: This event loop is already running
+sys:1: RuntimeWarning: coroutine 'PipeTransport.wait_until_stopped' was never awaited
