@@ -1,0 +1,18 @@
+# 음력 표 만들기 (한 번 실행하면 LunarData.java를 저장소에 올려요)
+name: 음력 표 만들기
+on: workflow_dispatch
+permissions:
+  contents: write
+jobs:
+  gen:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: '3.12' }
+      - run: |
+          pip install -q korean-lunar-calendar
+          python tools/gen_lunar.py android/app/src/main/java/kr/baejeon/shift/LunarData.java | while IFS= read -r l; do echo "::notice::$l"; done
+          git config user.name "github-actions"; git config user.email "github-actions@users.noreply.github.com"
+          git add android/app/src/main/java/kr/baejeon/shift/LunarData.java
+          git commit -qm "음력 표 자동 생성 [skip ci]" && git push || echo "변경 없음"
