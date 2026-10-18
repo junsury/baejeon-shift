@@ -87,6 +87,9 @@ final class FamApi {
                     if (st == null) continue;
                     JSONObject o = new JSONObject().put("t", e.optString("summary", "(제목 없음)")).put("id", e.optString("id"))
                             .put("c", FamColors.hex(want)).put("w", FamColors.who(c, creator)).put("m", e.optString("description", ""));
+                    if (e.has("recurringEventId")) o.put("r", e.optString("recurringEventId"));
+                    JSONObject xp = e.optJSONObject("extendedProperties"), pv = xp != null ? xp.optJSONObject("private") : null;
+                    if (pv != null && pv.has("bjs")) o.put("s", pv.optString("bjs"));
                     if (st.has("date")) {
                         o.put("d0", st.getString("date"));
                         o.put("d1", en != null && en.has("date") ? en.getString("date") : st.getString("date"));
@@ -140,6 +143,9 @@ final class FamApi {
                     ev.who = o.optString("w", "");
                     ev.gid = o.optString("id", null);
                     ev.desc = o.optString("m", "");
+                    ev.recurId = o.has("r") ? o.optString("r") : null;
+                    ev.series = o.has("s") ? o.optString("s") : null;
+                    ev.day0 = d0; ev.day1 = d1;
                     if (!h.isEmpty()) {
                         ev.startMin = hmToMin(h);
                         String eh = o.optString("eh", "");
@@ -173,6 +179,112 @@ final class FamApi {
             refresh(c);
             return true;
         } catch (Exception e) { return false; }
+    }
+
+    /** 일정 내용(JSON) 만들기. remind: -3 그대로, -2 기본, -1 없음, 그 외 몇 분 전 */
+    static JSONObject body(String title, int day0, int day1, boolean allDay, int startMin, int endMin, String memo, int remind, boolean forPatch) throws Exception {
+        JSONObject b = new JSONObject().put("summary", title);
+        if (memo != null || forPatch) b.put("description", memo == null ? "" : memo);
+        if (day1 < day0) day1 = day0;
+        if (allDay) {
+            JSONObject st = new JSONObject().put("date", ShiftData.ymd(day0)), en = new JSONObject().put("date", ShiftData.ymd(day1 + 1));
+            if (forPatch) { st.put("dateTime", JSONObject.NULL).put("timeZone", JSONObject.NULL); en.put("dateTime", JSONObject.NULL).put("timeZone", JSONObject.NULL); }
+            b.put("start", st).put("end", en);
+        } else {
+            long b0 = day0 * 86400000L - ShiftData.KST.getRawOffset(), b1 = day1 * 86400000L - ShiftData.KST.getRawOffset();
+            int em = (day1 == day0 && endMin <= startMin) ? endMin + 1440 : endMin;
+            JSONObject st = new JSONObject().put("dateTime", rfc(b0 + startMin * 60000L)).put("timeZone", "Asia/Seoul");
+            JSONObject en = new JSONObject().put("dateTime", rfc(b1 + em * 60000L)).put("timeZone", "Asia/Seoul");
+            if (forPatch) { st.put("date", JSONObject.NULL); en.put("date", JSONObject.NULL); }
+            b.put("start", st).put("end", en);
+        }
+        if (remind == -2) b.put("reminders", new JSONObject().put("useDefault", true));
+        else if (remind >= -1) {
+            JSONArray ov = new JSONArray();
+            if (remind >= 0) ov.put(new JSONObject().put("method", "popup").put("minutes", remind));
+            b.put("reminders", new JSONObject().put("useDefault", false).put("overrides", ov));
+        }
+        return b;
+    }
+
+    /** 고른 내용대로 공유 캘린더에 넣기 (반복은 규칙 하나로, 음력·몇 주년은 해마다 따로). 넣은 개수, 실패 -1 */
+    static int insertSpec(Context c, EvSpec sp) {
+        String id = calId(c);
+        if (id.isEmpty()) return -1;
+        String tok = token(c);
+        if (tok == null) return -1;
+        try {
+            List<EvSpec.Occ> occ = sp.occurrences();
+            String rr = sp.rrule(); String sid = sp.expands() ? EvSpec.newSeriesId() : null;
+            int n = 0;
+            for (EvSpec.Occ o : occ) {
+                JSONObject b = body(o.title, o.day0, o.day1, sp.allDay, sp.startMin, sp.endMin, sp.memo.isEmpty() ? null : sp.memo, sp.remind, false);
+                b.put("colorId", String.valueOf(FamColors.myColor(c)));
+                if (rr != null) b.put("recurrence", new JSONArray().put(rr));
+                if (sid != null) b.put("extendedProperties", new JSONObject().put("private", new JSONObject().put("bjs", sid)));
+                GoogleCal.call(tok, "POST", "/calendars/" + GoogleCal.enc(id) + "/events", b);
+                n++;
+            }
+            refresh(c);
+            return n;
+        } catch (Exception e) { return -1; }
+    }
+
+    /** 일정 고치기 (remind -3이면 알림은 그대로) */
+    static boolean update2(Context c, String gid, String title, int day0, int day1, boolean allDay, int startMin, int endMin, String memo, int remind, boolean doRefresh) {
+        String id = calId(c); String tok = id.isEmpty() ? null : token(c);
+        if (tok == null || gid == null) return false;
+        try {
+            GoogleCal.call(tok, "PATCH", "/calendars/" + GoogleCal.enc(id) + "/events/" + GoogleCal.enc(gid),
+                    body(title, day0, day1, allDay, startMin, endMin, memo, remind, true));
+            if (doRefresh) refresh(c);
+            return true;
+        } catch (Exception e) { return false; }
+    }
+
+    /** 반복 일정 전체(규칙 하나짜리) 고치기: 날짜는 그대로 두고 제목·시간·메모·알림만 */
+    static boolean updateMaster(Context c, String masterId, String title, boolean allDay, int startMin, int endMin, String memo, int remind) {
+        String id = calId(c); String tok = id.isEmpty() ? null : token(c);
+        if (tok == null || masterId == null) return false;
+        try {
+            JSONObject m = GoogleCal.call(tok, "GET", "/calendars/" + GoogleCal.enc(id) + "/events/" + GoogleCal.enc(masterId), null);
+            JSONObject st = m.optJSONObject("start"), en = m.optJSONObject("end");
+            String s0 = st.has("date") ? st.getString("date") : st.optString("dateTime").substring(0, 10);
+            String s1 = en.has("date") ? en.getString("date") : en.optString("dateTime").substring(0, 10);
+            int d0 = dayNum(s0), d1 = en.has("date") ? dayNum(s1) - 1 : dayNum(s1);
+            if (allDay && !en.has("date")) d1 = d0;
+            if (!allDay && en.has("date")) d1 = d0;
+            JSONObject b = body(title, d0, Math.max(d0, d1), allDay, startMin, endMin, memo, remind, true);
+            GoogleCal.call(tok, "PATCH", "/calendars/" + GoogleCal.enc(id) + "/events/" + GoogleCal.enc(masterId), b);
+            refresh(c);
+            return true;
+        } catch (Exception e) { return false; }
+    }
+
+    /** 같은 묶음(음력·몇 주년으로 펼친 일정)들: {id, 제목, 날짜번호} */
+    static List<String[]> series(Context c, String sid) {
+        List<String[]> out = new ArrayList<>();
+        String id = calId(c); String tok = id.isEmpty() ? null : token(c);
+        if (tok == null || sid == null) return out;
+        try {
+            JSONObject res = GoogleCal.call(tok, "GET", "/calendars/" + GoogleCal.enc(id) + "/events?maxResults=250&privateExtendedProperty=" + GoogleCal.enc("bjs=" + sid), null);
+            JSONArray items = res.optJSONArray("items");
+            if (items != null) for (int i = 0; i < items.length(); i++) {
+                JSONObject e = items.getJSONObject(i);
+                if ("cancelled".equals(e.optString("status"))) continue;
+                JSONObject st = e.optJSONObject("start"); if (st == null) continue;
+                String d = st.has("date") ? st.getString("date") : st.optString("dateTime").substring(0, 10);
+                out.add(new String[]{e.optString("id"), e.optString("summary", ""), String.valueOf(dayNum(d))});
+            }
+        } catch (Exception ignored) {}
+        return out;
+    }
+
+    static boolean deleteNoRefresh(Context c, String gid) {
+        String id = calId(c); String tok = id.isEmpty() ? null : token(c);
+        if (tok == null || gid == null) return false;
+        try { GoogleCal.call(tok, "DELETE", "/calendars/" + GoogleCal.enc(id) + "/events/" + GoogleCal.enc(gid), null); return true; }
+        catch (Exception e) { return false; }
     }
 
     static int hmToMin(String hm) {

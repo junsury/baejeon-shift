@@ -31,6 +31,12 @@ jobs:
           echo "$SA" > "$RUNNER_TEMP/sa.json"
           mkdir -p "$RUNNER_TEMP/ks" && cd "$RUNNER_TEMP/ks" && npm init -y >/dev/null && npm install firebase-admin@12 --no-audit --no-fund --silent
           NODE_PATH="$RUNNER_TEMP/ks/node_modules" node "$GITHUB_WORKSPACE/android/ci/keystore.js" "$RUNNER_TEMP/sa.json" "$RUNNER_TEMP/release.p12"
+      - name: 계산 점검 (음력·반복 일정)
+        run: |
+          set +e
+          gradle -p android testDebugUnitTest --tests 'kr.baejeon.shift.LunarTest' --no-daemon > "$RUNNER_TEMP/t.txt" 2>&1
+          code=$?
+          if [ $code -ne 0 ]; then grep -E "error:|FAILED|AssertionError|expected|\.java:[0-9]+" "$RUNNER_TEMP/t.txt" | head -25 | while IFS= read -r l; do echo "::error::$l"; done; for f in android/app/build/test-results/testDebugUnitTest/*.xml; do grep -m3 -A3 "<failure" "$f" | head -8 | while IFS= read -r l; do echo "::error::$l"; done; done; exit $code; fi
       - name: APK 만들기
         run: |
           set +e

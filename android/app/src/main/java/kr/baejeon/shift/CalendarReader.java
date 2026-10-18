@@ -24,6 +24,7 @@ final class CalendarReader {
         final String title; final boolean allDay; final long begin; final String time;
         long eventId = -1; int color = 0; boolean memo = false; String who = "";
         String gid = null, desc = ""; int startMin = -1, endMin = -1;
+        String recurId = null, series = null; boolean rrule = false; int day0 = Integer.MIN_VALUE, day1 = Integer.MIN_VALUE;
         Ev(String title, boolean allDay, long begin, String time) { this.title = title; this.allDay = allDay; this.begin = begin; this.time = time; }
         String text() { return time.isEmpty() ? title : title + " " + time; }
     }
@@ -87,7 +88,8 @@ final class CalendarReader {
         ContentUris.appendId(b, end + 86400000L);
         String[] cols = {CalendarContract.Instances.TITLE, CalendarContract.Instances.BEGIN, CalendarContract.Instances.END,
                 CalendarContract.Instances.ALL_DAY, CalendarContract.Instances.VISIBLE, CalendarContract.Instances.CALENDAR_ID,
-                CalendarContract.Instances.EVENT_ID, CalendarContract.Instances.DISPLAY_COLOR, CalendarContract.Instances.DESCRIPTION};
+                CalendarContract.Instances.EVENT_ID, CalendarContract.Instances.DISPLAY_COLOR, CalendarContract.Instances.DESCRIPTION,
+                CalendarContract.Instances.RRULE};
         try (Cursor cur = c.getContentResolver().query(b.build(), cols, CalendarContract.Instances.VISIBLE + "=1", null,
                 CalendarContract.Instances.BEGIN + " ASC")) {
             if (cur == null) return out;
@@ -118,6 +120,9 @@ final class CalendarReader {
                     Ev ev = new Ev(title.trim(), all || n != d0, bg, n == d0 ? time : "");
                     ev.eventId = cur.getLong(6); ev.color = cur.getInt(7);
                     ev.desc = desc == null ? "" : desc;
+                    String rr = cur.getString(9); ev.rrule = rr != null && !rr.isEmpty();
+                    ev.series = EvSpec.seriesOf(ev.desc);
+                    ev.day0 = d0; ev.day1 = d1;
                     if (!all) {
                         ev.startMin = (int) Math.floorMod((bg + kst.getOffset(bg)) / 60000L, 1440L);
                         ev.endMin = (int) Math.floorMod((en + kst.getOffset(en)) / 60000L, 1440L);
@@ -177,6 +182,94 @@ final class CalendarReader {
             }
             return c.getContentResolver().insert(CalendarContract.Events.CONTENT_URI, v) != null;
         } catch (Exception e) { return false; }
+    }
+
+    /** 고른 내용대로 휴대폰 캘린더에 넣기. 넣은 개수, 실패 -1 */
+    static int insertSpec(Context c, long calId, EvSpec sp) {
+        try {
+            List<EvSpec.Occ> occ = sp.occurrences();
+            String rr = sp.rrule(); String sid = sp.expands() ? EvSpec.newSeriesId() : null;
+            int n = 0;
+            for (EvSpec.Occ o : occ) {
+                android.content.ContentValues v = values(o.title, o.day0, o.day1, sp.allDay, sp.startMin, sp.endMin,
+                        (sp.memo.isEmpty() ? "" : sp.memo) + (sid != null ? "\n\n" + EvSpec.TAG + sid : ""));
+                v.put(CalendarContract.Events.CALENDAR_ID, calId);
+                if (rr != null) {   // 반복은 끝 시각 대신 길이(DURATION)
+                    long len = v.getAsLong(CalendarContract.Events.DTEND) - v.getAsLong(CalendarContract.Events.DTSTART);
+                    v.remove(CalendarContract.Events.DTEND);
+                    v.put(CalendarContract.Events.DURATION, sp.allDay ? "P" + (len / 86400000L) + "D" : "PT" + (len / 60000L) + "M");
+                    v.put(CalendarContract.Events.RRULE, rr.substring("RRULE:".length()));
+                }
+                if (sp.remind >= 0) v.put(CalendarContract.Events.HAS_ALARM, 1);
+                Uri u = c.getContentResolver().insert(CalendarContract.Events.CONTENT_URI, v);
+                if (u == null) continue;
+                if (sp.remind >= 0) setReminder(c, ContentUris.parseId(u), sp.remind);
+                n++;
+            }
+            return n > 0 ? n : -1;
+        } catch (Exception e) { return -1; }
+    }
+
+    static android.content.ContentValues values(String title, int day0, int day1, boolean allDay, int startMin, int endMin, String memo) {
+        android.content.ContentValues v = new android.content.ContentValues();
+        v.put(CalendarContract.Events.TITLE, title);
+        v.put(CalendarContract.Events.DESCRIPTION, memo == null ? "" : memo);
+        if (day1 < day0) day1 = day0;
+        if (allDay) {
+            v.put(CalendarContract.Events.DTSTART, day0 * 86400000L);
+            v.put(CalendarContract.Events.DTEND, (day1 + 1) * 86400000L);
+            v.put(CalendarContract.Events.ALL_DAY, 1);
+            v.put(CalendarContract.Events.EVENT_TIMEZONE, "UTC");
+        } else {
+            long b0 = day0 * 86400000L - ShiftData.KST.getOffset(day0 * 86400000L), b1 = day1 * 86400000L - ShiftData.KST.getOffset(day1 * 86400000L);
+            int em = (day1 == day0 && endMin <= startMin) ? endMin + 1440 : endMin;
+            v.put(CalendarContract.Events.DTSTART, b0 + startMin * 60000L);
+            v.put(CalendarContract.Events.DTEND, b1 + em * 60000L);
+            v.put(CalendarContract.Events.ALL_DAY, 0);
+            v.put(CalendarContract.Events.EVENT_TIMEZONE, "Asia/Seoul");
+        }
+        return v;
+    }
+
+    /** 알림 바꾸기: -1 없음, 0 이상 몇 분 전 (-2·-3이면 손대지 않음) */
+    static void setReminder(Context c, long eventId, int minutes) {
+        if (minutes < -1) return;
+        try {
+            c.getContentResolver().delete(CalendarContract.Reminders.CONTENT_URI, CalendarContract.Reminders.EVENT_ID + "=?", new String[]{String.valueOf(eventId)});
+            if (minutes >= 0) {
+                android.content.ContentValues r = new android.content.ContentValues();
+                r.put(CalendarContract.Reminders.EVENT_ID, eventId);
+                r.put(CalendarContract.Reminders.MINUTES, minutes);
+                r.put(CalendarContract.Reminders.METHOD, CalendarContract.Reminders.METHOD_ALERT);
+                c.getContentResolver().insert(CalendarContract.Reminders.CONTENT_URI, r);
+            }
+        } catch (Exception ignored) {}
+    }
+
+    /** 고치기 (여러 날·알림 포함) */
+    static boolean update2(Context c, long eventId, String title, int day0, int day1, boolean allDay, int startMin, int endMin, String memo, int remind) {
+        try {
+            android.content.ContentValues v = values(title, day0, day1, allDay, startMin, endMin, memo);
+            boolean ok = c.getContentResolver().update(ContentUris.withAppendedId(CalendarContract.Events.CONTENT_URI, eventId), v, null, null) > 0;
+            if (ok) setReminder(c, eventId, remind);
+            return ok;
+        } catch (Exception e) { return false; }
+    }
+
+    /** 같은 묶음(설명에 숨긴 표시) 일정들: {eventId, 제목, 날짜번호, 설명} */
+    static List<String[]> series(Context c, String sid) {
+        List<String[]> out = new ArrayList<>();
+        if (sid == null || !allowed(c)) return out;
+        try (Cursor cur = c.getContentResolver().query(CalendarContract.Events.CONTENT_URI,
+                new String[]{CalendarContract.Events._ID, CalendarContract.Events.TITLE, CalendarContract.Events.DTSTART, CalendarContract.Events.ALL_DAY, CalendarContract.Events.DESCRIPTION},
+                CalendarContract.Events.DESCRIPTION + " LIKE ? AND " + CalendarContract.Events.DELETED + "=0", new String[]{"%" + EvSpec.TAG + sid + "%"}, null)) {
+            if (cur != null) while (cur.moveToNext()) {
+                long bg = cur.getLong(2); boolean all = cur.getInt(3) == 1;
+                int d = (int) Math.floorDiv(all ? bg : bg + ShiftData.KST.getOffset(bg), 86400000L);
+                out.add(new String[]{String.valueOf(cur.getLong(0)), cur.getString(1) == null ? "" : cur.getString(1), String.valueOf(d), cur.getString(4) == null ? "" : cur.getString(4)});
+            }
+        } catch (Exception ignored) {}
+        return out;
     }
 
     /** 그 캘린더의 계정을 지금 동기화해 달라고 (넣은 일정이 구글로 바로 올라가게) */
