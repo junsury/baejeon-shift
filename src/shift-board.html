@@ -945,8 +945,9 @@ function dayCells(n,evs){
     if(dn(e.bDate)===n)give(e.bId,e.aId,e.shift,dn(e.aDate));
   }
   function give(from,to,shift,other){
-    if(res[from])res[from]={code:'휴',cover:null,tags:['변경'],gave:shift,with:to,withDate:other};
-    if(res[to])res[to]={code:shift,cover:null,tags:['변경'],with:from,withDate:other};
+    if(res[from])res[from]={code:'휴',cover:null,tags:['변경'],gave:shift,gaveTo:to,gaveDate:other,with:to,withDate:other};
+    // 같은 날 내 근무를 넘겨주고 다른 사람 근무를 받아온 경우(연쇄 변경): 넘겨준 기록도 남겨 편성표에 둘 다 보이게
+    if(res[to]){const p=res[to];res[to]={code:shift,cover:null,tags:['변경'],with:from,withDate:other,...(p.gave?{gave:p.gave,gaveTo:p.gaveTo,gaveDate:p.gaveDate}:{})}}
   }
   for(const e of list)if(e.type==='leave'){
     if(e.leaveType==='시간'){const r=res[e.memberId];if(r&&r.code==='T'){const dur=tmin(e.to)-tmin(e.from);res[e.memberId]={...r,tags:[...r.tags,'시간휴가'],part:{from:e.from,to:e.to},minus:Math.max(0,dur)/60}}continue}
@@ -1905,7 +1906,7 @@ const mdot=n=>{const d=new Date(n*864e5);return (d.getUTCMonth()+1)+'.'+d.getUTC
 function sheetCell(m,n,s){
   const c=dayCells(n)[m.id];let nt='';
   if(c.code==='연'&&c.was===s)nt=LT_PRINT[c.leaveType||'연차']+' '+(c.by?nm(c.by):'미정');
-  else if(c.tags.includes('변경')&&c.gave===s)nt='변('+mdot(c.withDate)+') '+nm(c.with);
+  else if(c.tags.includes('변경')&&c.gave===s)nt='변('+mdot(c.gaveDate??c.withDate)+') '+nm(c.gaveTo??c.with);
   return (nt?'<s>'+esc(m.name)+'</s>':esc(m.name))+(nt?'<span class="nt">/'+esc(nt)+'</span>':'');
 }
 function teamOn(n,s){for(const t of 'ABCD')if(PATTERN[mod(REF_POS[t]+n-dn(REF),8)]===s)return t;return ''}

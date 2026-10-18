@@ -32,8 +32,9 @@ const PATTERN=['주','주','휴','야','야','비','휴','휴'];
       if(dn(e.bDate)===n)give(e.bId,e.aId,e.shift,dn(e.aDate));
     }
     function give(from,to,shift,other){
-      if(res[from])res[from]={code:'휴',cover:null,tags:['변경'],gave:shift,with:to,withDate:other};
-      if(res[to])res[to]={code:shift,cover:null,tags:['변경'],with:from,withDate:other};
+      if(res[from])res[from]={code:'휴',cover:null,tags:['변경'],gave:shift,gaveTo:to,gaveDate:other,with:to,withDate:other};
+      // 같은 날 내 근무를 넘겨주고 다른 사람 근무를 받아온 경우(연쇄 변경): 넘겨준 기록도 남겨 편성표에 둘 다 보이게
+      if(res[to]){const p=res[to];res[to]={code:shift,cover:null,tags:['변경'],with:from,withDate:other,...(p.gave?{gave:p.gave,gaveTo:p.gaveTo,gaveDate:p.gaveDate}:{})}}
     }
     for(const e of list)if(e.type==='leave'){
       if(e.leaveType==='시간'){const r=res[e.memberId];if(r&&r.code==='T'){const dur=tmin(e.to)-tmin(e.from);res[e.memberId]={...r,tags:[...r.tags,'시간휴가'],part:{from:e.from,to:e.to},minus:Math.max(0,dur)/60}}continue}
