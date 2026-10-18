@@ -8,7 +8,7 @@ import java.util.regex.Pattern;
 /** 일정 추가 화면에서 고른 내용 → 실제로 넣을 일정들 */
 final class EvSpec {
     static final int NONE = 0, WEEKLY = 1, MONTHLY = 2, YEARLY = 3, LUNAR = 4;
-    static final String[] REPEAT_NAMES = {"반복 없음", "매주", "매달", "매년", "매년 (음력)"};
+    static final String[] REPEAT_NAMES = {"🔁 반복 없음", "🔁 매주", "🔁 매달", "🔁 매년", "🔁 매년 (음력)"};
     /** 몇 주년·나이 꼬리표 종류 */
     static final int LABEL_NONE = 0, LABEL_YEARS = 1, LABEL_AGE = 2;
     static final int YEARS_AHEAD = 30;
@@ -94,9 +94,9 @@ final class EvSpec {
 
     /** 알림 고르기 */
     static final int[] ALLDAY_REMIND = {-2, -1, 900, 2340, 9540, 0};
-    static final String[] ALLDAY_REMIND_NAMES = {"알림: 캘린더 기본", "알림 없음", "전날 오전 9시", "2일 전 오전 9시", "1주 전 오전 9시", "당일 0시"};
+    static final String[] ALLDAY_REMIND_NAMES = {"🔔 알림: 캘린더 기본", "🔕 알림 없음", "🔔 전날 오전 9시", "🔔 2일 전 오전 9시", "🔔 1주 전 오전 9시", "🔔 당일 0시"};
     static final int[] TIME_REMIND = {-2, -1, 10, 30, 60, 1440};
-    static final String[] TIME_REMIND_NAMES = {"알림: 캘린더 기본", "알림 없음", "10분 전", "30분 전", "1시간 전", "하루 전"};
+    static final String[] TIME_REMIND_NAMES = {"🔔 알림: 캘린더 기본", "🔕 알림 없음", "🔔 10분 전", "🔔 30분 전", "🔔 1시간 전", "🔔 하루 전"};
 
     static String hm(int m) { m = Math.floorMod(m, 1440); return String.format(Locale.US, "%02d:%02d", m / 60, m % 60); }
 }

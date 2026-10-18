@@ -363,7 +363,7 @@ public class DayActivity extends Activity {
         repeatBox.addView(lunarRow, mlp(0));
         labelRow = new LinearLayout(this); labelRow.setOrientation(LinearLayout.HORIZONTAL); labelRow.setGravity(Gravity.CENTER_VERTICAL);
         labelSpin = new Spinner(this);
-        labelSpin.setAdapter(new ArrayAdapter<>(this, android.R.layout.simple_spinner_dropdown_item, new String[]{"꼬리표 없음", "몇 주년 붙이기", "나이(세) 붙이기"}));
+        labelSpin.setAdapter(new ArrayAdapter<>(this, android.R.layout.simple_spinner_dropdown_item, new String[]{"꼬리표 없음", "몇 주년", "나이(세)"}));
         baseYearEt = new EditText(this);
         baseYearEt.setHint("시작 연도 (예: 2015)");
         baseYearEt.setInputType(InputType.TYPE_CLASS_NUMBER);
@@ -545,7 +545,7 @@ public class DayActivity extends Activity {
         String[] names = all ? EvSpec.ALLDAY_REMIND_NAMES : EvSpec.TIME_REMIND_NAMES;
         if (editMode) {
             int[] v = new int[base.length + 1]; String[] nm = new String[names.length + 1];
-            v[0] = -3; nm[0] = "알림: 그대로";
+            v[0] = -3; nm[0] = "🔔 알림: 그대로";
             System.arraycopy(base, 0, v, 1, base.length); System.arraycopy(names, 0, nm, 1, names.length);
             base = v; names = nm;
         }
@@ -585,6 +585,7 @@ public class DayActivity extends Activity {
                 allDay.setChecked(true); setRepeat(EvSpec.NONE);
                 title.setHint("무슨 행사? (예: 운동회)");
         }
+        allDay.jumpDrawablesToCurrentState();
         fillRemind(false);
         setRemind(k.equals("제사") ? 9540 : k.equals("병원") ? 60 : 900);
         baseYearEt.setVisibility(label == 0 ? View.GONE : View.VISIBLE);
@@ -773,7 +774,7 @@ public class DayActivity extends Activity {
             WidgetUpdater.renderAll(this);
             runOnUiThread(() -> {
                 if (done <= 0) { saveBtn.setEnabled(true); saveBtn.setText("일정 저장"); Toast.makeText(this, "일정을 저장하지 못했어요", Toast.LENGTH_LONG).show(); return; }
-                String what = sp.repeat == EvSpec.LUNAR ? "음력 매년 " + done + "년 치" : sp.expands() ? "매년 " + done + "년 치" : sp.rrule() != null ? EvSpec.REPEAT_NAMES[sp.repeat] + " 반복" : ShiftData.mdw(sp.day0);
+                String what = sp.repeat == EvSpec.LUNAR ? "음력 매년 " + done + "년 치" : sp.expands() ? "매년 " + done + "년 치" : sp.rrule() != null ? EvSpec.REPEAT_NAMES[sp.repeat].substring(3) + " 반복" : ShiftData.mdw(sp.day0);
                 Toast.makeText(this, what + " 일정을 추가했어요" + (viaApi ? " (가족에게 바로 보여요)" : ""), Toast.LENGTH_LONG).show();
                 finish();
             });
