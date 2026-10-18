@@ -10,7 +10,7 @@ admin.initializeApp({ credential: admin.credential.cert(JSON.parse(fs.readFileSy
     const u = d.data();
     if (!['main', 'sub', 'pending'].includes(u.role)) continue;
     const toks = await d.ref.collection('tokens').get();
-    const list = toks.docs.map(t => { const x = t.data(); const ua = x.ua || ''; return (/Android/.test(ua) ? 'Android' : /iPhone|iPad/.test(ua) ? 'iOS' : /Windows/.test(ua) ? 'Windows' : 'other') + '@' + new Date(x.at || 0).toISOString().slice(0, 16); });
+    const list = toks.docs.map(t => { const x = t.data(); const ua = x.ua || ''; return (/Android/.test(ua) ? (/SamsungBrowser/.test(ua) ? 'Android-Samsung' : 'Android-Chrome') : /iPhone|iPad/.test(ua) ? 'iOS' : /Windows/.test(ua) ? 'Windows' : 'other') + '@' + new Date(x.at || 0).toISOString().slice(0, 16); });
     console.log(`::notice::user#${++i} role=${u.role} createdAt=${u.at ? new Date(u.at).toISOString().slice(0,16) : '-'} tokens=${toks.size} [${list.join(', ')}]`);
   }
   // 안드로이드 앱 서명 지문 종류와 OAuth 클라이언트 (공개돼도 되는 정보만)
