@@ -130,7 +130,7 @@ service cloud.firestore {
 
         allow update: if
           // 본인: 이름·사진·메일만
-          (request.auth.uid == u && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['name', 'photo', 'email', 'remind']))
+          (request.auth.uid == u && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['name', 'photo', 'email', 'remind', 'mode']))
           // 메인관리자: 역할 지정·해제·넘기기, 승인, 본인 근무자 연결
           || isMain(t)
           // 서브관리자: 가입 승인·거절, 본인 근무자 연결

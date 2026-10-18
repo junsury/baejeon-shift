@@ -9,6 +9,11 @@ const TEAM=(window.TEAM_ID||'gyeonggi');
 let FB=null,fsdb=null,auth=null,appRole=null,appUser=null,appUsers=[],claims={},famLinks=[],ownMemos={},unsubs=[],dataStarted=false;
 const ROLE_NAME={main:'메인관리자',sub:'서브관리자',member:'팀원',family:'가족',pending:'승인 대기',rejected:'거절됨'};
 const isFamily=()=>appRole==='family';
+window.__fam=isFamily;
+let modeSet=false;
+/* 간단 버전(과장 버전) 저장: 계정에 남겨서 다른 기기에서도 같게 */
+window.__saveMode=v=>{modeSet=true;if(!auth||!auth.currentUser||!appUser||isFamily())return;try{FB.F.updateDoc(tref('users',auth.currentUser.uid),{mode:v?'simple':'full'}).catch(()=>{})}catch(e){}};
+window.__afterSimple=()=>{try{applyRoleUI();renderAcct()}catch(e){}};
 const ownMid=()=>appUser&&(appRole==='family'?appUser.familyOf:appUser.memberId)||null;
 const tref=(...p)=>FB.F.doc(fsdb,'teams',TEAM,...p);
 const tcol=(...p)=>FB.F.collection(fsdb,'teams',TEAM,...p);
@@ -163,6 +168,9 @@ async function afterLogin(u){
       gate(appUser?waitHtml():(membersLoaded?pickHtml():gLoading()));
       return}
     if(appUser.memberId)me=appUser.memberId;
+    if(appUser.mode)ui.simple=appUser.mode==='simple';
+    else if(!modeSet){let l=null;try{l=localStorage.getItem('shift-simple')}catch(e){}ui.simple=l!=null?l==='1':!isAdmin}
+    modeSet=true;
     if(!dataStarted)startData();
     else if(prevRole!==appRole||prevMid!==appUser.memberId)restartRoleData();
     checkPick();dataChanged();
@@ -475,10 +483,10 @@ $('#pendBar').addEventListener('click',e=>{if(e.target.id==='goPend'){ui.tab='ad
 /* 알림을 눌러 들어오면 해당 화면으로 (?go=inbox|admin), 앱을 열면 아이콘 숫자 지우기 */
 (()=>{
   const go=new URLSearchParams(location.search).get('go');
-  if(go==='inbox'){ui.tab='attend';ui.attTab='inbox'}
+  if(go==='inbox'){ui.tab='attend';ui.attTab='inbox';ui.stab='attend'}
   else if(go==='admin'){ui.tab='admin';ui.adminTab='set'}
-  else if(/^my-(day|week|month)$/.test(go||'')){const q=new URLSearchParams(location.search).get('d');const n=/^\d{4}-\d\d-\d\d$/.test(q||'')?dn(q):todayN;ui.tab='my';ui.myView=go.slice(3);ui.myDay=n;ui.ym=monthOf(n)}
-  else if(go==='team-day'||go==='team-month'){const q=new URLSearchParams(location.search).get('d');const n=/^\d{4}-\d\d-\d\d$/.test(q||'')?dn(q):todayN;ui.tab='team';ui.teamView=go.slice(5);ui.day=n;ui.ym=monthOf(n);try{boardSel=null}catch(e){}}
+  else if(/^my-(day|week|month)$/.test(go||'')){const q=new URLSearchParams(location.search).get('d');const n=/^\d{4}-\d\d-\d\d$/.test(q||'')?dn(q):todayN;ui.tab='my';ui.myView=go.slice(3);ui.myDay=n;ui.ym=monthOf(n);ui.stab='my';ui.sDay=n===todayN?null:n;ui.sYm=monthOf(n)}
+  else if(go==='team-day'||go==='team-month'){const q=new URLSearchParams(location.search).get('d');const n=/^\d{4}-\d\d-\d\d$/.test(q||'')?dn(q):todayN;ui.tab='team';ui.teamView=go.slice(5);ui.day=n;ui.ym=monthOf(n);ui.stab='sheet';ui.sScrollToday=true;try{boardSel=null}catch(e){}}
   if(go)history.replaceState(null,'',location.pathname);
   const clear=()=>{try{navigator.clearAppBadge&&navigator.clearAppBadge()}catch(e){}};
   clear();document.addEventListener('visibilitychange',()=>{if(!document.hidden)clear()});

@@ -47,11 +47,13 @@ rep('</style>\n\n<header class="top">', css + '</style>\n</head><body>\n'
 # 2) 머리줄: "나" 선택 + 가족 표시 + 내 정보 버튼
 rep('''      <label class="me" for="meSel">나
         <select id="meSel"><option value="">선택</option></select>
-      </label>''', '''      <div class="right">
+      </label>
+      <button class="tosimple" id="toSimple">간단히</button>''', '''      <div class="right">
         <span id="famLab" hidden></span>
         <label class="me" for="meSel" id="meLab">나
           <select id="meSel"><option value="">선택</option></select>
         </label>
+        <button class="tosimple" id="toSimple">간단히</button>
         <button class="acctbtn" id="acctBtn" aria-label="내 정보">👤</button>
       </div>''')
 

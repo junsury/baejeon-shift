@@ -11,6 +11,7 @@ class Q(H.func):
 srv=http.server.ThreadingHTTPServer(('127.0.0.1',8765),functools.partial(Q,directory=os.path.join(ROOT,'app')))
 threading.Thread(target=srv.serve_forever,daemon=True).start()
 BASE='http://127.0.0.1:8765/'
+SIMPLE=False
 def page(b,user,w=390):
     ctx=b.new_context(viewport={'width':w,'height':844},service_workers='block')
     pg=ctx.new_page(); errs=[]
@@ -20,6 +21,7 @@ def page(b,user,w=390):
     pg.route('**/www.gstatic.com/firebasejs/**',lambda r:r.fulfill(body=MOCK,content_type='application/javascript'))
     pg.route('**/config.js',lambda r:r.fulfill(body=CFG,content_type='application/javascript'))
     pg.add_init_script("window.__fbNext=%s;"%json.dumps(user))
+    if not SIMPLE: pg.add_init_script("try{localStorage.getItem('shift-simple')==null&&localStorage.setItem('shift-simple','0')}catch(e){}")
     return ctx,pg,errs
 
 TEST_DATA={
