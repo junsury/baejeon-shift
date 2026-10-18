@@ -26,7 +26,7 @@ final class CalUpload {
             String tok = Store.token(c);
             if (tok.isEmpty()) return;
             boolean on = Store.p(c).getBoolean("appCal", true) && CalendarReader.allowed(c);
-            int n0 = ShiftData.todayNum(), from = n0 - 45, to = n0 + 100;
+            int n0 = ShiftData.todayNum(), from = n0 - 60, to = n0 + 370;
             JSONObject body = new JSONObject().put("t", tok);
             if (!on) body.put("off", true);
             else {

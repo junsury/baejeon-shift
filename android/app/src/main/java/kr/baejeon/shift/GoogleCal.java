@@ -24,6 +24,18 @@ final class GoogleCal {
 
     static final class Err extends Exception { final int code; Err(int code, String m) { super(m); this.code = code; } }
 
+    /** 너무 빨리 여러 개 넣을 때(구글 제한)·서버 오류면 잠깐 쉬었다 다시 */
+    static JSONObject callRetry(String token, String method, String path, JSONObject body) throws Exception {
+        long wait = 1000;
+        for (int i = 0; ; i++) {
+            try { return call(token, method, path, body); }
+            catch (Err e) {
+                if (i >= 4 || !(e.code == 403 || e.code == 429 || e.code >= 500)) throw e;
+                Thread.sleep(wait); wait *= 2;
+            }
+        }
+    }
+
     static JSONObject call(String token, String method, String path, JSONObject body) throws Exception {
         HttpURLConnection con = (HttpURLConnection) new URL(BASE + path).openConnection();
         if ("PATCH".equals(method)) { con.setRequestMethod("POST"); con.setRequestProperty("X-HTTP-Method-Override", "PATCH"); }

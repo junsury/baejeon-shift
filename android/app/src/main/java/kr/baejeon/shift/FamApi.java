@@ -55,7 +55,7 @@ final class FamApi {
         if (tok == null) return false;
         try {
             int n0 = ShiftData.todayNum();
-            long from = (n0 - 45) * 86400000L - ShiftData.KST.getRawOffset(), to = (n0 + 101) * 86400000L - ShiftData.KST.getRawOffset();
+            long from = (n0 - 370) * 86400000L - ShiftData.KST.getRawOffset(), to = (n0 + 400) * 86400000L - ShiftData.KST.getRawOffset();
             JSONArray out = new JSONArray();
             int patched = 0;
             String page = null;
@@ -75,6 +75,8 @@ final class FamApi {
                     String creator = cr != null ? cr.optString("email", "") : "";
                     int want = shift ? FamColors.shiftColor(e.optString("summary")) : FamColors.colorOf(c, creator);
                     int have = Integer.parseInt(e.optString("colorId", "0").isEmpty() ? "0" : e.optString("colorId", "0"));
+                    JSONObject xp0 = e.optJSONObject("extendedProperties"), pv0 = xp0 != null ? xp0.optJSONObject("private") : null;
+                    if (!shift && pv0 != null && "1".equals(pv0.optString("bjc")) && have > 0) want = have;   // 직접 고른 색은 그대로
                     if (have != want && patched < 60) {
                         try {
                             GoogleCal.call(tok, "PATCH", "/calendars/" + GoogleCal.enc(id) + "/events/" + GoogleCal.enc(e.optString("id")),
@@ -108,7 +110,7 @@ final class FamApi {
                 }
                 page = res.optString("nextPageToken", null);
                 if (page != null && page.isEmpty()) page = null;
-            } while (page != null && ++guard < 8);
+            } while (page != null && ++guard < 24);
             Store.p(c).edit().putString("famEvents", out.toString()).putLong("famEventsAt", System.currentTimeMillis()).apply();
             return true;
         } catch (Exception e) { return false; }
@@ -124,6 +126,8 @@ final class FamApi {
     static void addTo(Context c, java.util.Map<Integer, List<CalendarReader.Ev>> out, int from, int to, java.util.Set<String> seen) {
         String js = Store.p(c).getString("famEvents", "");
         if (js.isEmpty() || calId(c).isEmpty()) return;
+        // 서버에서 못 받은 지 오래되면(로그인 만료 등) 지워진 일정이 남지 않게 휴대폰 캘린더 것만 써요
+        if (System.currentTimeMillis() - Store.p(c).getLong("famEventsAt", 0) > 3 * 3600000L) return;
         try {
             JSONArray a = new JSONArray(js);
             for (int i = 0; i < a.length(); i++) {
@@ -219,24 +223,31 @@ final class FamApi {
             int n = 0;
             for (EvSpec.Occ o : occ) {
                 JSONObject b = body(o.title, o.day0, o.day1, sp.allDay, sp.startMin, sp.endMin, sp.memo.isEmpty() ? null : sp.memo, sp.remind, false);
-                b.put("colorId", String.valueOf(FamColors.myColor(c)));
+                b.put("colorId", String.valueOf(sp.color > 0 ? sp.color : FamColors.myColor(c)));
                 if (rr != null) b.put("recurrence", new JSONArray().put(rr));
-                if (sid != null) b.put("extendedProperties", new JSONObject().put("private", new JSONObject().put("bjs", sid)));
-                GoogleCal.call(tok, "POST", "/calendars/" + GoogleCal.enc(id) + "/events", b);
+                JSONObject pv = new JSONObject();
+                if (sid != null) pv.put("bjs", sid);
+                if (sp.color > 0) pv.put("bjc", "1");
+                if (pv.length() > 0) b.put("extendedProperties", new JSONObject().put("private", pv));
+                try { GoogleCal.callRetry(tok, "POST", "/calendars/" + GoogleCal.enc(id) + "/events", b); }
+                catch (Exception e) { break; }   // 하나라도 넣었으면 다른 길로 또 넣지 않아요 (중복 방지)
                 n++;
+                if (occ.size() > 1) Thread.sleep(150);   // 여러 개는 천천히
             }
             refresh(c);
-            return n;
+            return n > 0 ? n : -1;
         } catch (Exception e) { return -1; }
     }
 
     /** 일정 고치기 (remind -3이면 알림은 그대로) */
+    static int editColor = 0;   // 수정할 때 고른 색 (0 = 그대로)
     static boolean update2(Context c, String gid, String title, int day0, int day1, boolean allDay, int startMin, int endMin, String memo, int remind, boolean doRefresh) {
         String id = calId(c); String tok = id.isEmpty() ? null : token(c);
         if (tok == null || gid == null) return false;
         try {
-            GoogleCal.call(tok, "PATCH", "/calendars/" + GoogleCal.enc(id) + "/events/" + GoogleCal.enc(gid),
-                    body(title, day0, day1, allDay, startMin, endMin, memo, remind, true));
+            JSONObject b = body(title, day0, day1, allDay, startMin, endMin, memo, remind, true);
+            if (editColor > 0) b.put("colorId", String.valueOf(editColor)).put("extendedProperties", new JSONObject().put("private", new JSONObject().put("bjc", "1")));
+            GoogleCal.callRetry(tok, "PATCH", "/calendars/" + GoogleCal.enc(id) + "/events/" + GoogleCal.enc(gid), b);
             if (doRefresh) refresh(c);
             return true;
         } catch (Exception e) { return false; }
@@ -255,7 +266,8 @@ final class FamApi {
             if (allDay && !en.has("date")) d1 = d0;
             if (!allDay && en.has("date")) d1 = d0;
             JSONObject b = body(title, d0, Math.max(d0, d1), allDay, startMin, endMin, memo, remind, true);
-            GoogleCal.call(tok, "PATCH", "/calendars/" + GoogleCal.enc(id) + "/events/" + GoogleCal.enc(masterId), b);
+            if (editColor > 0) b.put("colorId", String.valueOf(editColor)).put("extendedProperties", new JSONObject().put("private", new JSONObject().put("bjc", "1")));
+            GoogleCal.callRetry(tok, "PATCH", "/calendars/" + GoogleCal.enc(id) + "/events/" + GoogleCal.enc(masterId), b);
             refresh(c);
             return true;
         } catch (Exception e) { return false; }

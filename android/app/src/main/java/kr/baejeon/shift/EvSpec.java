@@ -8,7 +8,7 @@ import java.util.regex.Pattern;
 /** 일정 추가 화면에서 고른 내용 → 실제로 넣을 일정들 */
 final class EvSpec {
     static final int NONE = 0, WEEKLY = 1, MONTHLY = 2, YEARLY = 3, LUNAR = 4;
-    static final String[] REPEAT_NAMES = {"🔁 반복 없음", "🔁 매주", "🔁 매달", "🔁 매년", "🔁 매년 (음력)"};
+    static final String[] REPEAT_NAMES = {"🔁 반복 없음", "🔁 매주", "🔁 매달", "🔁 매년"};
     /** 몇 주년·나이 꼬리표 종류 */
     static final int LABEL_NONE = 0, LABEL_YEARS = 1, LABEL_AGE = 2;
     static final int YEARS_AHEAD = 30;
@@ -20,6 +20,8 @@ final class EvSpec {
     int lunarM, lunarD; boolean lunarLeap;
     int label = LABEL_NONE, baseYear = 0;
     int remind = -2;                // -2 기본 알림, -1 없음, 그 외 몇 분 전
+    boolean lunar = false;          // 음력 날짜 (매년이면 해마다 음력으로)
+    int color = 0;                  // 구글 캘린더 일정 색 1~11 (0 = 자동: 내 색)
 
     static final class Occ {
         final String title; final int day0, day1;
@@ -30,11 +32,11 @@ final class EvSpec {
     String rrule() {
         if (repeat == WEEKLY) return "RRULE:FREQ=WEEKLY";
         if (repeat == MONTHLY) return "RRULE:FREQ=MONTHLY";
-        if (repeat == YEARLY && label == LABEL_NONE) return "RRULE:FREQ=YEARLY";
+        if (repeat == YEARLY && label == LABEL_NONE && !lunar) return "RRULE:FREQ=YEARLY";
         return null;
     }
 
-    boolean expands() { return repeat == LUNAR || (repeat == YEARLY && label != LABEL_NONE); }
+    boolean expands() { return repeat == LUNAR || (repeat == YEARLY && (label != LABEL_NONE || lunar)); }
 
     String titleFor(int year) {
         if (label == LABEL_NONE || baseYear <= 0) return title;
@@ -47,7 +49,7 @@ final class EvSpec {
     List<Occ> occurrences() {
         List<Occ> out = new ArrayList<>();
         int span = Math.max(0, day1 - day0);
-        if (repeat == LUNAR) {
+        if (repeat == LUNAR || (repeat == YEARLY && lunar)) {
             int[] lt = Lunar.fromSolar(day0);
             int y0 = lt != null ? lt[0] : 2026;
             for (int y = y0; y <= Lunar.LAST_YEAR; y++) {
@@ -92,7 +94,16 @@ final class EvSpec {
         if (desc == null) return ""; int i = desc.indexOf(TAG); return (i < 0 ? desc : desc.substring(0, i)).trim();
     }
 
-    /** 알림 고르기 */
+    /** 알림: 며칠 전(-2 기본, -1 없음, 0 당일…) + 몇 시 → 일정 시작 기준 몇 분 전. 안 되면(알림이 일정보다 늦음) -9 */
+    static final int[] REMIND_DAYS = {-2, -1, 0, 1, 2, 3, 7};
+    static final String[] REMIND_DAY_NAMES = {"🔔 캘린더 기본 알림", "🔕 알림 없음", "🔔 당일", "🔔 전날", "🔔 2일 전", "🔔 3일 전", "🔔 1주 전"};
+    static int remindMinutes(int days, int atMin, boolean allDay, int startMin) {
+        if (days < 0) return days;
+        int m = days * 1440 + (allDay ? 0 : startMin) - atMin;
+        return m < 0 ? -9 : Math.min(m, 40320);
+    }
+
+    /** 알림 고르기 (예전 방식, 남겨둠) */
     static final int[] ALLDAY_REMIND = {-2, -1, 900, 2340, 9540, 0};
     static final String[] ALLDAY_REMIND_NAMES = {"🔔 알림: 캘린더 기본", "🔕 알림 없음", "🔔 전날 오전 9시", "🔔 2일 전 오전 9시", "🔔 1주 전 오전 9시", "🔔 당일 0시"};
     static final int[] TIME_REMIND = {-2, -1, 10, 30, 60, 1440};

@@ -40,13 +40,16 @@ public class DayFormPreview {
         DayActivity a = Robolectric.buildActivity(DayActivity.class, new Intent().putExtra("day", ShiftData.todayNum() + 3)).setup().get();
         shot(a, "day_form.png");
         a.applyTemplate("생일");
-        a.setRepeat(EvSpec.LUNAR);
+        a.setLunar(true);
         a.lunarM = 9; a.lunarD = 8; a.updateLunarBtn(); a.onDateChanged(false);
+        a.colorSel = 3; a.fillColors(false);
         a.title.setText("장모님");
         a.baseYearEt.setText("1960");
         shot(a, "day_form_birthday.png");
-        a.applyTemplate("병원");
+        a.applyTemplate("생일");
+        a.setLunar(false); a.allDay.setChecked(false); a.allDay.jumpDrawablesToCurrentState();
         a.startMin = 15 * 60; a.endMin = 16 * 60; a.showTimes.run();
+        a.setRepeat(EvSpec.NONE); a.setRemind(0, 14 * 60);
         shot(a, "day_form_hospital.png");
     }
 }

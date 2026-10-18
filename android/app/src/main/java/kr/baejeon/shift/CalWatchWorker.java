@@ -35,6 +35,7 @@ public class CalWatchWorker extends Worker {
     @Override
     public Result doWork() {
         Context c = getApplicationContext();
+        try { FamApi.refresh(c); } catch (Exception ignored) {}   // 구글 캘린더 앱에서 지운·고친 일정도 바로
         try { WidgetUpdater.renderAll(c); } catch (Exception ignored) {}
         try { CalUpload.upload(c, false); } catch (Exception ignored) {}
         // 다음 변경도 계속 지켜보기 (지금 작업이 끝난 뒤 이어서)

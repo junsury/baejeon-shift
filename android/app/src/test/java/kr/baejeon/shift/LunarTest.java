@@ -65,4 +65,24 @@ public class LunarTest {
         assertEquals("abc123", EvSpec.seriesOf(desc));
         assertEquals("메모", EvSpec.stripTag(desc));
     }
+
+    @Test public void lunarFlagYearly() {
+        EvSpec sp = new EvSpec();
+        sp.title = "어머니 생신"; sp.repeat = EvSpec.YEARLY; sp.lunar = true; sp.lunarM = 9; sp.lunarD = 8; sp.day0 = sp.day1 = d("2026-10-18");
+        assertNull(sp.rrule());
+        assertTrue(sp.expands());
+        List<EvSpec.Occ> o = sp.occurrences();
+        assertTrue(o.size() >= 20);
+        assertEquals(d("2027-10-07"), o.get(1).day0);   // 2027 음력 9/8
+        sp.repeat = EvSpec.NONE;
+        assertEquals(1, sp.occurrences().size());
+    }
+
+    @Test public void remindMinutes() {
+        assertEquals(900, EvSpec.remindMinutes(1, 9 * 60, true, 0));      // 종일 · 전날 9시
+        assertEquals(-9, EvSpec.remindMinutes(0, 9 * 60, true, 0));       // 종일 · 당일 9시는 못 해요
+        assertEquals(60, EvSpec.remindMinutes(0, 14 * 60, false, 15 * 60)); // 15시 일정 · 당일 14시
+        assertEquals(7 * 1440 - 540, EvSpec.remindMinutes(7, 9 * 60, true, 0));
+        assertEquals(-1, EvSpec.remindMinutes(-1, 0, true, 0));
+    }
 }

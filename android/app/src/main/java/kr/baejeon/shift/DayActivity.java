@@ -72,6 +72,8 @@ public class DayActivity extends Activity {
         wid = getIntent().getIntExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, 0);
         getWindow().setLayout(Math.min(getResources().getDisplayMetrics().widthPixels - px(24), px(460)), ViewGroup.LayoutParams.WRAP_CONTENT);
         build();
+        // 구글 캘린더 앱에서 지우거나 고친 일정이 남아 보이지 않게 열 때마다 새로 받아요
+        new Thread(() -> { if (FamApi.refresh(this)) runOnUiThread(() -> { if (evList != null && editing == null && !isFinishing()) fillEvents(evList); }); }).start();
         if (pendingEdit != null) {
             for (CalendarReader.Ev e : dayEvents) {
                 if ((pendingEdit.startsWith("g:") && pendingEdit.substring(2).equals(e.gid))
@@ -163,6 +165,7 @@ public class DayActivity extends Activity {
         LinearLayout list = new LinearLayout(this);
         list.setOrientation(LinearLayout.VERTICAL);
         col.addView(list, mlp(4));
+        evList = list;
         fillEvents(list);
 
         // 일정 추가
@@ -242,11 +245,14 @@ public class DayActivity extends Activity {
 
     // ---- 일정 추가·수정 칸 ----
     ShiftData sd;
+    LinearLayout evList;
     int fDay0, fDay1;                         // 고른 날짜 (시작·끝)
     int repeat = EvSpec.NONE, lunarM = 1, lunarD = 1, label = EvSpec.LABEL_NONE, remind = -2;
     boolean lunarLeap = false;
     String tpl = "";
     Spinner repeatSpin, remindSpin, labelSpin;
+    CheckBox lunarChk; boolean lunar = false; int colorSel = 0; LinearLayout colorRow; Button remindTimeBtn;
+    int remindDay = -2, remindAt = 9 * 60;
     Button dateBtn, endDateBtn, lunarBtn, copyBtn;
     TextView shiftInfo;
     LinearLayout tplRow, offRow, repeatBox, lunarRow, labelRow;
@@ -303,8 +309,8 @@ public class DayActivity extends Activity {
         // 자주 쓰는 일정
         tplRow = new LinearLayout(this); tplRow.setOrientation(LinearLayout.HORIZONTAL);
         tplChips.clear();
-        for (String k : new String[]{"생일", "기념일", "제사", "병원", "아이 행사"}) {
-            String ic = k.equals("생일") ? "🎂 " : k.equals("기념일") ? "💍 " : k.equals("제사") ? "🕯 " : k.equals("병원") ? "🏥 " : "🎒 ";
+        for (String k : new String[]{"생일", "기념일"}) {
+            String ic = k.equals("생일") ? "🎂 " : "💍 ";
             TextView t = chipBtn(ic + k, false);
             t.setTag(k);
             t.setOnClickListener(v -> applyTemplate(k));
@@ -339,10 +345,22 @@ public class DayActivity extends Activity {
         form.addView(hscroll(offRow), mlp(4));
         fillOffDays();
 
+        LinearLayout checks = new LinearLayout(this); checks.setOrientation(LinearLayout.HORIZONTAL); checks.setGravity(Gravity.CENTER_VERTICAL);
         allDay = new CheckBox(this);
         allDay.setText("하루 종일");
         allDay.setTextColor(0xFF161C24);
-        form.addView(allDay, mlp(4));
+        checks.addView(allDay, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
+        lunarChk = new CheckBox(this);
+        lunarChk.setText("음력");
+        lunarChk.setTextColor(0xFF161C24);
+        checks.addView(lunarChk, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
+        form.addView(checks, mlp(4));
+        lunarRow = new LinearLayout(this); lunarRow.setOrientation(LinearLayout.HORIZONTAL); lunarRow.setGravity(Gravity.CENTER_VERTICAL);
+        lunarBtn = new Button(this);
+        lunarBtn.setOnClickListener(v -> pickLunar());
+        lunarRow.addView(lunarBtn, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
+        form.addView(lunarRow, mlp(0));
+        lunarChk.setOnCheckedChangeListener((bt, on) -> setLunar(on));
 
         LinearLayout times = new LinearLayout(this);
         times.setOrientation(LinearLayout.HORIZONTAL);
@@ -374,11 +392,6 @@ public class DayActivity extends Activity {
         repeatSpin = new Spinner(this);
         repeatSpin.setAdapter(ad(EvSpec.REPEAT_NAMES));
         repeatBox.addView(repeatSpin, mlp(2));
-        lunarRow = new LinearLayout(this); lunarRow.setOrientation(LinearLayout.HORIZONTAL); lunarRow.setGravity(Gravity.CENTER_VERTICAL);
-        lunarBtn = new Button(this);
-        lunarBtn.setOnClickListener(v -> pickLunar());
-        lunarRow.addView(lunarBtn, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
-        repeatBox.addView(lunarRow, mlp(0));
         labelRow = new LinearLayout(this); labelRow.setOrientation(LinearLayout.HORIZONTAL); labelRow.setGravity(Gravity.CENTER_VERTICAL);
         labelSpin = new Spinner(this);
         labelSpin.setAdapter(ad(new String[]{"꼬리표 없음", "몇 주년", "나이(세)"}));
@@ -401,12 +414,24 @@ public class DayActivity extends Activity {
         });
 
         // 알림
+        LinearLayout rr = new LinearLayout(this); rr.setOrientation(LinearLayout.HORIZONTAL); rr.setGravity(Gravity.CENTER_VERTICAL);
         remindSpin = new Spinner(this);
-        form.addView(remindSpin, mlp(2));
+        remindTimeBtn = new Button(this);
+        rr.addView(remindSpin, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1.3f));
+        rr.addView(remindTimeBtn, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
+        form.addView(rr, mlp(2));
         remindSpin.setOnItemSelectedListener(new android.widget.AdapterView.OnItemSelectedListener() {
-            public void onItemSelected(android.widget.AdapterView<?> p, View v, int pos, long id) { if (pos < remindVals.length) remind = remindVals[pos]; }
+            public void onItemSelected(android.widget.AdapterView<?> p, View v, int pos, long id) { if (pos < remindVals.length) { remindDay = remindVals[pos]; showRemindTime(); } }
             public void onNothingSelected(android.widget.AdapterView<?> p) {}
         });
+        remindTimeBtn.setOnClickListener(v -> new TimePickerDialog(this, (tp, h, mi) -> { remindAt = h * 60 + mi; showRemindTime(); }, remindAt / 60, remindAt % 60, false).show());
+
+        // 일정 색 (구글 캘린더 색)
+        TextView cl = label("색", 13, true, 0xFF4F5A67);
+        form.addView(cl, mlp(6));
+        colorRow = new LinearLayout(this); colorRow.setOrientation(LinearLayout.HORIZONTAL); colorRow.setGravity(Gravity.CENTER_VERTICAL);
+        form.addView(hscroll(colorRow), mlp(2));
+        fillColors(false);
 
         memo = new EditText(this);
         memo.setHint("메모 (선택)");
@@ -464,11 +489,11 @@ public class DayActivity extends Activity {
 
     void onDateChanged(boolean startMoved) {
         if (fDay1 < fDay0) fDay1 = fDay0;
-        dateBtn.setText("📅 " + ShiftData.mdw(fDay0) + (repeat == EvSpec.LUNAR ? " (" + (lunarLeap ? "윤" : "") + lunarM + "/" + lunarD + ")" : ""));
+        dateBtn.setText("📅 " + ShiftData.mdw(fDay0) + (lunar ? " (음 " + (lunarLeap ? "윤" : "") + lunarM + "/" + lunarD + ")" : ""));
         endDateBtn.setText(fDay1 == fDay0 ? "끝: 같은 날" : "끝 " + ShiftData.mdw(fDay1));
-        if (startMoved && repeat == EvSpec.LUNAR) {   // 날짜를 직접 고르면 그날의 음력으로
+        if (startMoved && lunar) {   // 날짜를 직접 고르면 그날의 음력으로
             int[] lt = Lunar.fromSolar(fDay0);
-            if (lt != null) { lunarM = lt[1]; lunarD = lt[2]; lunarLeap = lt[3] == 1; updateLunarBtn(); dateBtn.setText("📅 " + ShiftData.mdw(fDay0) + " (" + (lunarLeap ? "윤" : "") + lunarM + "/" + lunarD + ")"); }
+            if (lt != null) { lunarM = lt[1]; lunarD = lt[2]; lunarLeap = lt[3] == 1; updateLunarBtn(); dateBtn.setText("📅 " + ShiftData.mdw(fDay0) + " (음 " + (lunarLeap ? "윤" : "") + lunarM + "/" + lunarD + ")"); }
         }
         if (showTimes != null) showTimes.run(); else updateShiftInfo();
         fillOffDays();
@@ -522,19 +547,62 @@ public class DayActivity extends Activity {
     }
 
     void setRepeat(int r) {
+        if (r < 0 || r > EvSpec.YEARLY) r = EvSpec.NONE;
+        if (lunar && (r == EvSpec.WEEKLY || r == EvSpec.MONTHLY)) {
+            Toast.makeText(this, "음력은 '반복 없음'이나 '매년'만 돼요", Toast.LENGTH_SHORT).show();
+            r = EvSpec.YEARLY;
+        }
         repeat = r;
         if (repeatSpin.getSelectedItemPosition() != r) repeatSpin.setSelection(r);
-        boolean yearly = r == EvSpec.YEARLY || r == EvSpec.LUNAR;
-        lunarRow.setVisibility(r == EvSpec.LUNAR ? View.VISIBLE : View.GONE);
+        boolean yearly = r == EvSpec.YEARLY;
         labelRow.setVisibility(yearly ? View.VISIBLE : View.GONE);
         if (!yearly) { label = EvSpec.LABEL_NONE; labelSpin.setSelection(0); }
         baseYearEt.setVisibility(label == EvSpec.LABEL_NONE ? View.GONE : View.VISIBLE);
-        if (r == EvSpec.LUNAR) {
+        if (dateBtn != null) onDateChanged(false);
+    }
+
+    /** 음력 체크: 고른 날짜의 음력으로 시작, 날짜 버튼 옆에 음력 표시 */
+    void setLunar(boolean on) {
+        lunar = on;
+        if (lunarChk.isChecked() != on) lunarChk.setChecked(on);
+        lunarRow.setVisibility(on ? View.VISIBLE : View.GONE);
+        if (on) {
             int[] lt = Lunar.fromSolar(fDay0);
-            if (lt != null && lunarM == 1 && lunarD == 1) { lunarM = lt[1]; lunarD = lt[2]; lunarLeap = lt[3] == 1; }
+            if (lt != null) { lunarM = lt[1]; lunarD = lt[2]; lunarLeap = lt[3] == 1; }
             updateLunarBtn();
+            if (repeat == EvSpec.WEEKLY || repeat == EvSpec.MONTHLY) setRepeat(EvSpec.YEARLY);
         }
         if (dateBtn != null) onDateChanged(false);
+    }
+
+    /** 색 고르기: 0 = 자동(내 색) / 수정할 땐 0 = 그대로 */
+    void fillColors(boolean editMode) {
+        colorRow.removeAllViews();
+        for (int i = 0; i <= 11; i++) {
+            final int id = i;
+            TextView t;
+            if (i == 0) { t = chipBtn(editMode ? "그대로" : "자동", colorSel == 0); }
+            else {
+                t = new TextView(this);
+                t.setGravity(Gravity.CENTER);
+                t.setText(colorSel == i ? "✓" : "");
+                t.setTextColor(0xFFFFFFFF); t.setTextSize(16); t.setTypeface(Typeface.DEFAULT_BOLD);
+                GradientDrawable g = new GradientDrawable(); g.setShape(GradientDrawable.OVAL); g.setColor(FamColors.hex(i));
+                if (colorSel == i) g.setStroke(px(3), 0xFF161C24);
+                t.setBackground(g);
+            }
+            t.setContentDescription(i == 0 ? "자동" : FamColors.NAMES[i]);
+            t.setOnClickListener(v -> { colorSel = id; fillColors(editMode); });
+            LinearLayout.LayoutParams lp = i == 0 ? gap() : new LinearLayout.LayoutParams(px(34), px(34));
+            if (i > 0) lp.rightMargin = px(6);
+            colorRow.addView(t, lp);
+        }
+    }
+
+    void showRemindTime() {
+        if (remindTimeBtn == null) return;
+        remindTimeBtn.setVisibility(remindDay >= 0 ? View.VISIBLE : View.GONE);
+        remindTimeBtn.setText(hm(remindAt) + " 에");
     }
 
     void updateLunarBtn() { lunarBtn.setText(Lunar.text(lunarM, lunarD, lunarLeap) + "  ·  바꾸기"); }
@@ -561,24 +629,24 @@ public class DayActivity extends Activity {
     }
 
     void fillRemind(boolean editMode) {
-        boolean all = allDay == null || allDay.isChecked();
-        int[] base = all ? EvSpec.ALLDAY_REMIND : EvSpec.TIME_REMIND;
-        String[] names = all ? EvSpec.ALLDAY_REMIND_NAMES : EvSpec.TIME_REMIND_NAMES;
+        int[] base = EvSpec.REMIND_DAYS;
+        String[] names = EvSpec.REMIND_DAY_NAMES;
         if (editMode) {
             int[] v = new int[base.length + 1]; String[] nm = new String[names.length + 1];
             v[0] = -3; nm[0] = "🔔 알림: 그대로";
             System.arraycopy(base, 0, v, 1, base.length); System.arraycopy(names, 0, nm, 1, names.length);
             base = v; names = nm;
         }
-        int keep = remind;
+        int keep = remindDay;
         remindVals = base;
         remindSpin.setAdapter(ad(names));
         int sel = 0; for (int i = 0; i < base.length; i++) if (base[i] == keep) sel = i;
         remindSpin.setSelection(sel);
-        remind = base[sel];
+        remindDay = base[sel];
+        showRemindTime();
     }
 
-    void setRemind(int v) { remind = v; for (int i = 0; i < remindVals.length; i++) if (remindVals[i] == v) remindSpin.setSelection(i); }
+    void setRemind(int day, int at) { remindDay = day; remindAt = at; for (int i = 0; i < remindVals.length; i++) if (remindVals[i] == day) remindSpin.setSelection(i); showRemindTime(); }
 
     /** 자주 쓰는 일정: 종일·반복·알림을 알맞게 */
     void applyTemplate(String k) {
@@ -596,19 +664,12 @@ public class DayActivity extends Activity {
             case "기념일":
                 allDay.setChecked(true); setRepeat(EvSpec.YEARLY); labelSpin.setSelection(1); label = 1;
                 title.setHint("무슨 기념일? (예: 결혼)"); break;
-            case "제사":
-                allDay.setChecked(true); setRepeat(EvSpec.LUNAR); labelSpin.setSelection(0); label = 0;
-                title.setHint("누구 제사? (예: 할아버지 제사)"); break;
-            case "병원":
-                allDay.setChecked(false); startMin = 10 * 60; endMin = 11 * 60; if (showTimes != null) showTimes.run(); setRepeat(EvSpec.NONE);
-                title.setHint("병원 (예: 치과)"); break;
             default:
                 allDay.setChecked(true); setRepeat(EvSpec.NONE);
-                title.setHint("무슨 행사? (예: 운동회)");
         }
         allDay.jumpDrawablesToCurrentState();
         fillRemind(false);
-        setRemind(k.equals("제사") ? 9540 : k.equals("병원") ? 60 : 900);
+        setRemind(1, 9 * 60);
         baseYearEt.setVisibility(label == 0 ? View.GONE : View.VISIBLE);
         title.requestFocus();
     }
@@ -626,6 +687,9 @@ public class DayActivity extends Activity {
         formTitle.setText(on ? "일정 수정하기" + kind + (editing != null && !editing.who.isEmpty() ? " (" + editing.who + "가 만든 일정)" : "") : "＋ 일정 추가");
         saveBtn.setText(on ? "수정 내용 저장" : "일정 저장");
         fillRemind(on);
+        colorSel = 0; fillColors(on);
+        lunarChk.setVisibility(on ? View.GONE : View.VISIBLE);
+        if (on) { lunar = false; lunarRow.setVisibility(View.GONE); }
     }
 
     /** 일정을 눌렀을 때: 아래 칸에 내용을 채워 고치기 */
@@ -640,7 +704,7 @@ public class DayActivity extends Activity {
         if (!all) { startMin = e.startMin; endMin = e.endMin >= 0 ? e.endMin : Math.min(e.startMin + 60, 1439); }
         fDay0 = e.day0 != Integer.MIN_VALUE ? e.day0 : day;
         fDay1 = e.day1 != Integer.MIN_VALUE && e.day1 >= fDay0 ? e.day1 : fDay0;
-        remind = -3;
+        remindDay = -3;
         setEditUi(true);
         onDateChanged(false);
         // 고치는 칸이 화면 아래에 있어도 바로 보이게 스크롤 + 강조
@@ -656,7 +720,7 @@ public class DayActivity extends Activity {
         GradientDrawable fb = new GradientDrawable(); fb.setColor(0xFFF2F4F7); fb.setCornerRadius(px(14));
         form.setBackground(fb);
         editing = null; title.setText(""); memo.setText(""); allDay.setChecked(true);
-        fDay0 = day; fDay1 = day; remind = -2;
+        fDay0 = day; fDay1 = day; remindDay = -2;
         setEditUi(false); onDateChanged(false);
     }
 
@@ -665,7 +729,7 @@ public class DayActivity extends Activity {
         GradientDrawable fb = new GradientDrawable(); fb.setColor(0xFFF2F4F7); fb.setCornerRadius(px(14));
         form.setBackground(fb);
         title.setText(EvSpec.baseTitle(title.getText().toString()));
-        editing = null; remind = -2;
+        editing = null; remindDay = -2;
         setEditUi(false);
         Toast.makeText(this, "날짜를 고르고 [일정 저장]을 누르면 복사돼요", Toast.LENGTH_LONG).show();
         dateBtn.performClick();
@@ -751,9 +815,10 @@ public class DayActivity extends Activity {
         sp.day0 = fDay0; sp.day1 = Math.max(fDay0, fDay1);
         sp.allDay = allDay.isChecked(); sp.startMin = startMin; sp.endMin = endMin;
         sp.repeat = repeat; sp.lunarM = lunarM; sp.lunarD = lunarD; sp.lunarLeap = lunarLeap;
-        sp.remind = remind;
+        sp.remind = remindDay == -3 ? -3 : EvSpec.remindMinutes(remindDay, remindAt, allDay.isChecked(), startMin);
+        sp.lunar = lunar; sp.color = colorSel;
         int by = 0; try { by = Integer.parseInt(baseYearEt.getText().toString().trim()); } catch (Exception ignored) {}
-        sp.label = (repeat == EvSpec.YEARLY || repeat == EvSpec.LUNAR) && by >= 1900 && by <= 2100 ? label : EvSpec.LABEL_NONE;
+        sp.label = repeat == EvSpec.YEARLY && by >= 1900 && by <= 2100 ? label : EvSpec.LABEL_NONE;
         sp.baseYear = by;
         return sp;
     }
@@ -763,7 +828,6 @@ public class DayActivity extends Activity {
         if (t.isEmpty()) { title.setError("제목을 적어 주세요"); title.requestFocus(); return; }
         if (!tpl.isEmpty()) {   // 템플릿 이름이 제목에 없으면 붙여요 (예: 장모님 → 장모님 생일)
             if ("생일".equals(tpl) && !t.contains("생일") && !t.contains("생신")) t = t + " 생일";
-            if ("제사".equals(tpl) && !t.contains("제사") && !t.contains("기일")) t = t + " 제사";
         }
         if (!CalendarReader.allowed(this) || !CalendarReader.canWrite(this)) {
             requestPermissions(new String[]{Manifest.permission.READ_CALENDAR, Manifest.permission.WRITE_CALENDAR}, REQ_WRITE);
@@ -772,10 +836,11 @@ public class DayActivity extends Activity {
         if (editing != null) { saveEdit(t); return; }
         int i = calSpin.getSelectedItemPosition();
         if (cals.isEmpty() || i < 0 || i >= cals.size()) { Toast.makeText(this, "저장할 캘린더가 없어요", Toast.LENGTH_LONG).show(); return; }
-        if ((label != EvSpec.LABEL_NONE) && (repeat == EvSpec.YEARLY || repeat == EvSpec.LUNAR) && baseYearEt.getText().toString().trim().isEmpty()) {
+        if ((label != EvSpec.LABEL_NONE) && repeat == EvSpec.YEARLY && baseYearEt.getText().toString().trim().isEmpty()) {
             baseYearEt.setError(label == EvSpec.LABEL_AGE ? "태어난 해를 적어 주세요" : "시작 연도를 적어 주세요"); baseYearEt.requestFocus(); return;
         }
         final EvSpec sp = specFromForm(t);
+        if (sp.remind == -9) { Toast.makeText(this, "알림 시각이 일정 시작보다 늦어요. 날짜나 시각을 바꿔 주세요", Toast.LENGTH_LONG).show(); return; }
         final int count = sp.occurrences().size();
         if (count == 0) { Toast.makeText(this, "음력 날짜를 확인해 주세요 (2049년까지 계산돼요)", Toast.LENGTH_LONG).show(); return; }
         final long calId = cals.get(i).id;
@@ -795,7 +860,8 @@ public class DayActivity extends Activity {
             WidgetUpdater.renderAll(this);
             runOnUiThread(() -> {
                 if (done <= 0) { saveBtn.setEnabled(true); saveBtn.setText("일정 저장"); Toast.makeText(this, "일정을 저장하지 못했어요", Toast.LENGTH_LONG).show(); return; }
-                String what = sp.repeat == EvSpec.LUNAR ? "음력 매년 " + done + "년 치" : sp.expands() ? "매년 " + done + "년 치" : sp.rrule() != null ? EvSpec.REPEAT_NAMES[sp.repeat].substring(3) + " 반복" : ShiftData.mdw(sp.day0);
+ if (done < count) { Toast.makeText(this, count + "개 중 " + done + "개만 저장됐어요 (구글이 잠시 막음). 나머지는 잠시 뒤 다시 넣어 주세요", Toast.LENGTH_LONG).show(); finish(); return; }
+                String what = sp.lunar && sp.repeat == EvSpec.YEARLY ? "음력 매년 " + done + "년 치" : sp.expands() ? "매년 " + done + "년 치" : sp.rrule() != null ? EvSpec.REPEAT_NAMES[sp.repeat].substring(3) + " 반복" : ShiftData.mdw(sp.day0);
                 Toast.makeText(this, what + " 일정을 추가했어요" + (viaApi ? " (가족에게 바로 보여요)" : ""), Toast.LENGTH_LONG).show();
                 finish();
             });
@@ -816,7 +882,10 @@ public class DayActivity extends Activity {
     void doSaveEdit(final CalendarReader.Ev e, final String t, final int which) {
         final boolean ad = allDay.isChecked();
         final String mm = memo.getText().toString().trim();
-        final int d0 = fDay0, d1 = Math.max(fDay0, fDay1), sm = startMin, em = endMin, rm = remind;
+        final int d0 = fDay0, d1 = Math.max(fDay0, fDay1), sm = startMin, em = endMin;
+        final int rm = remindDay == -3 ? -3 : EvSpec.remindMinutes(remindDay, remindAt, ad, startMin);
+        if (rm == -9) { Toast.makeText(this, "알림 시각이 일정 시작보다 늦어요", Toast.LENGTH_LONG).show(); return; }
+        FamApi.editColor = colorSel; CalendarReader.editColor = colorSel;
         saveBtn.setEnabled(false); saveBtn.setText("저장 중…");
         new Thread(() -> {
             boolean ok;
@@ -862,14 +931,17 @@ public class DayActivity extends Activity {
         String keepT = title != null ? title.getText().toString() : "";
         String keepM = memo != null ? memo.getText().toString() : "";
         boolean keepA = allDay == null || allDay.isChecked();
-        int k0 = fDay0, k1 = fDay1, kr = repeat, km = lunarM, kd = lunarD, kl = label, krm = remind; boolean klp = lunarLeap;
+        int k0 = fDay0, k1 = fDay1, kr = repeat, km = lunarM, kd = lunarD, kl = label, krd = remindDay, kra = remindAt, kc = colorSel; boolean klp = lunarLeap, kln = lunar;
         String kby = baseYearEt != null ? baseYearEt.getText().toString() : "", ktpl = tpl;
         build();
         title.setText(keepT); memo.setText(keepM); allDay.setChecked(keepA);
         lunarM = km; lunarD = kd; lunarLeap = klp; fDay0 = k0; fDay1 = k1; tpl = ktpl;
+        if (kln) setLunar(true);
+        lunarM = km; lunarD = kd; lunarLeap = klp; fDay0 = k0; fDay1 = k1;
         setRepeat(kr); label = kl; labelSpin.setSelection(kl); baseYearEt.setText(kby);
-        fillRemind(false); setRemind(krm);
-        if (kr == EvSpec.LUNAR) updateLunarBtn();
+        fillRemind(false); setRemind(krd, kra);
+        colorSel = kc; fillColors(false);
+        if (kln) updateLunarBtn();
         onDateChanged(false);
         if (code == REQ_WRITE && CalendarReader.canWrite(this)) save();
     }

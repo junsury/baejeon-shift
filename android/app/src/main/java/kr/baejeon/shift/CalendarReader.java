@@ -201,6 +201,7 @@ final class CalendarReader {
                     v.put(CalendarContract.Events.RRULE, rr.substring("RRULE:".length()));
                 }
                 if (sp.remind >= 0) v.put(CalendarContract.Events.HAS_ALARM, 1);
+                if (sp.color > 0) putColor(c, calId, v, sp.color);
                 Uri u = c.getContentResolver().insert(CalendarContract.Events.CONTENT_URI, v);
                 if (u == null) continue;
                 if (sp.remind >= 0) setReminder(c, ContentUris.parseId(u), sp.remind);
@@ -231,6 +232,23 @@ final class CalendarReader {
         return v;
     }
 
+    /** 구글 계정 캘린더면 일정 색 번호(1~11)를 색 키로 */
+    static void putColor(Context c, long calId, android.content.ContentValues v, int colorId) {
+        try {
+            String acc = null, type = null;
+            try (Cursor cc = c.getContentResolver().query(ContentUris.withAppendedId(CalendarContract.Calendars.CONTENT_URI, calId),
+                    new String[]{CalendarContract.Calendars.ACCOUNT_NAME, CalendarContract.Calendars.ACCOUNT_TYPE}, null, null, null)) {
+                if (cc != null && cc.moveToFirst()) { acc = cc.getString(0); type = cc.getString(1); }
+            }
+            boolean hasKey = false;
+            if (acc != null && "com.google".equals(type)) try (Cursor k = c.getContentResolver().query(CalendarContract.Colors.CONTENT_URI, new String[]{CalendarContract.Colors.COLOR_KEY},
+                    CalendarContract.Colors.ACCOUNT_NAME + "=? AND " + CalendarContract.Colors.ACCOUNT_TYPE + "=? AND " + CalendarContract.Colors.COLOR_TYPE + "=" + CalendarContract.Colors.TYPE_EVENT + " AND " + CalendarContract.Colors.COLOR_KEY + "=?",
+                    new String[]{acc, type, String.valueOf(colorId)}, null)) { hasKey = k != null && k.moveToFirst(); }
+            if (hasKey) v.put(CalendarContract.Events.EVENT_COLOR_KEY, String.valueOf(colorId));
+            else v.put(CalendarContract.Events.EVENT_COLOR, FamColors.hex(colorId));
+        } catch (Exception ignored) {}
+    }
+
     /** 알림 바꾸기: -1 없음, 0 이상 몇 분 전 (-2·-3이면 손대지 않음) */
     static void setReminder(Context c, long eventId, int minutes) {
         if (minutes < -1) return;
@@ -247,9 +265,11 @@ final class CalendarReader {
     }
 
     /** 고치기 (여러 날·알림 포함) */
+    static int editColor = 0;   // 수정할 때 고른 색 (0 = 그대로)
     static boolean update2(Context c, long eventId, String title, int day0, int day1, boolean allDay, int startMin, int endMin, String memo, int remind) {
         try {
             android.content.ContentValues v = values(title, day0, day1, allDay, startMin, endMin, memo);
+            if (editColor > 0) putColor(c, calendarOf(c, eventId), v, editColor);
             boolean ok = c.getContentResolver().update(ContentUris.withAppendedId(CalendarContract.Events.CONTENT_URI, eventId), v, null, null) > 0;
             if (ok) setReminder(c, eventId, remind);
             return ok;
