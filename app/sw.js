@@ -27,7 +27,7 @@ self.addEventListener('push', e => {
   const title = d.title || '배전센터 근무표';
   e.waitUntil((async () => {
     await self.registration.showNotification(title, {
-      body: d.body || '', icon: 'icons/icon-192.png', badge: 'icons/icon-192.png',
+      body: d.body || '', icon: 'icons/icon-192.png', badge: 'icons/badge-96.png',
       tag: d.tag || undefined, renotify: !!d.tag, data: { url: d.url || './' }
     });
     if (self.navigator && 'setAppBadge' in self.navigator) { try { await self.navigator.setAppBadge(); } catch (x) {} }
