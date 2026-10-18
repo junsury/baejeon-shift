@@ -5,7 +5,7 @@ src=open(os.path.join(os.path.dirname(__file__),'run.py')).read().replace('\nrun
 R={'__file__':os.path.join(os.path.dirname(os.path.abspath(__file__)),'run.py')}; exec(compile(src,'run.py','exec'),R)
 from playwright.sync_api import sync_playwright
 with sync_playwright() as p:
-    b=p.chromium.launch()
+    b=getattr(p,os.environ.get('BROWSER','chromium')).launch()
     MOB=os.environ.get('MOBILE')=='1'
     if MOB:
         ctx=b.new_context(**p.devices['Pixel 7'],service_workers='block',accept_downloads=True); pg=ctx.new_page(); errs=[]

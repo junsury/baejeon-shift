@@ -4,7 +4,7 @@ sys.path.insert(0, os.path.dirname(__file__))
 import run as R
 from playwright.sync_api import sync_playwright
 with sync_playwright() as p:
-    b=p.chromium.launch()
+    b=getattr(p,os.environ.get('BROWSER','chromium')).launch()
     ctx,pg,errs=R.page(b,R.ADMIN); pg.goto(R.BASE); pg.wait_for_timeout(500)
     pg.click('[data-g=google]'); pg.wait_for_timeout(500)
     import tempfile

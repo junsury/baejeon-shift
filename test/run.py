@@ -47,7 +47,7 @@ def with_store(pg,store,user=None):
 def roles(pg): return pg.evaluate("JSON.parse(sessionStorage.getItem('mockstore')).filter(([k])=>/\\/users\\/[^/]+$/.test(k)).map(([k,v])=>k.split('/').pop()+':'+v.role+(v.memberId?'/'+v.memberId:''))")
 def run():
   with sync_playwright() as p:
-    b=p.chromium.launch()
+    b=getattr(p,os.environ.get('BROWSER','chromium')).launch()
     # --- A: 관리자 팀 만들기 + 본인 연결 ---
     ctx,pg,errs=page(b,ADMIN); pg.goto(BASE); pg.wait_for_timeout(500)
     pg.click('[data-g=google]'); pg.wait_for_timeout(500)

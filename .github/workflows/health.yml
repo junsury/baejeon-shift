@@ -1,0 +1,20 @@
+# 매일 아침 앱이 잘 살아 있는지 점검 — 실패하면 GitHub가 메일로 알려줘요
+name: 매일 점검
+on:
+  schedule:
+    - cron: '47 23 * * *'   # 한국 시간 매일 08:47
+  workflow_dispatch:
+  workflow_run:
+    workflows: ['Firebase 배포']
+    types: [completed]
+jobs:
+  health:
+    runs-on: ubuntu-latest
+    env:
+      SA: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+    steps:
+      - uses: actions/checkout@v4
+      - run: |
+          if [ -n "$SA" ]; then echo "$SA" > "$RUNNER_TEMP/sa.json"; gcloud auth activate-service-account --key-file="$RUNNER_TEMP/sa.json" --quiet && export GCLOUD_OK=1; fi
+          sleep 20
+          bash tools/health.sh

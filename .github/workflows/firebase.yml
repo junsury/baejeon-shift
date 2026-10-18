@@ -4,10 +4,40 @@ name: Firebase 배포
 on:
   push:
     branches: [main]
-    paths: ['functions/**', 'firestore.rules', 'firebase.json', 'app/**', '.github/workflows/firebase.yml']
+    paths: ['functions/**', 'firestore.rules', 'firebase.json', 'app/**', 'src/**', 'test/**', 'build.py', '.github/workflows/firebase.yml']
   workflow_dispatch:
 jobs:
+  # 배포 전에 화면 테스트: 크롬(갤럭시) + 사파리 엔진(아이폰). 하나라도 실패하면 배포 안 함
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        browser: [chromium, webkit]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: '3.12' }
+      - name: 준비
+        run: |
+          pip install -q playwright && python -m playwright install --with-deps ${{ matrix.browser }} >/dev/null 2>&1
+          sudo apt-get install -y -q fonts-noto-cjk >/dev/null 2>&1 || true
+      - name: 만든 화면이 최신인지 (src → app)
+        run: |
+          python build.py >/dev/null
+          git diff --quiet -- app/index.html || { echo "::error::app/index.html이 src와 달라요 (build.py를 안 돌리고 올림)"; git diff --stat; exit 1; }
+      - name: 화면 테스트 (${{ matrix.browser }})
+        env:
+          BROWSER: ${{ matrix.browser }}
+          NET: ${{ matrix.browser == 'chromium' && '1' || '0' }}
+        run: |
+          mkdir -p out
+          python test/all.py out 2>&1 | tee out/all.txt
+          code=${PIPESTATUS[0]}
+          grep -E "^FAIL" out/all.txt | while IFS= read -r l; do echo "::error::${{ matrix.browser }} $l"; done
+          exit $code
   deploy:
+    needs: test
     runs-on: ubuntu-latest
     env:
       SA: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}

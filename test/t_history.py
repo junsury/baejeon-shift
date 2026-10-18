@@ -2,7 +2,7 @@ import sys,json,os
 sys.argv=[sys.argv[0],'/tmp']
 exec(open(os.path.join(os.path.dirname(__file__),'run.py')).read().split('def run():')[0])
 with sync_playwright() as p:
-    b=p.chromium.launch()
+    b=getattr(p,os.environ.get('BROWSER','chromium')).launch()
     ctx,pg,errs=page(b,ADMIN); pg.goto(BASE); pg.wait_for_timeout(400); pg.click('[data-g=google]'); pg.wait_for_timeout(400)
     f=tempfile.NamedTemporaryFile('w',suffix='.json',delete=False); json.dump(TEST_DATA,f,ensure_ascii=False); f.close()
     pg.set_input_files('#gImport',f.name); pg.click('[data-g=setup]'); pg.wait_for_timeout(1500); pg.click('[data-g=pick][data-id=B2]'); pg.wait_for_timeout(600)

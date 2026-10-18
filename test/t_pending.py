@@ -10,7 +10,7 @@ D['requests']=[{"_id":"q1","kind":"swap","from":"B2","to":"C2","status":"pending
   "ev":{"type":"leave","memberId":"A1","date":"2026-10-21","shift":"주","leaveType":"연차","coverType":"cover","coverId":"B2"}}]
 from playwright.sync_api import sync_playwright
 with sync_playwright() as p:
-    b=p.chromium.launch()
+    b=getattr(p,os.environ.get('BROWSER','chromium')).launch()
     ctx,pg,errs=R['page'](b,R['ADMIN']); pg.goto(R['BASE']); pg.wait_for_timeout(500)
     pg.click('[data-g=google]'); pg.wait_for_timeout(500)
     f=tempfile.NamedTemporaryFile('w',suffix='.json',delete=False); json.dump(D,f,ensure_ascii=False); f.close()

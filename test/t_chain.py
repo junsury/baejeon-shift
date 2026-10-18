@@ -8,7 +8,7 @@ D['events']=[{"_id":"s1","type":"swap","aId":"B2","aDate":"2026-10-16","bId":"C2
              {"_id":"s2","type":"swap","aId":"C2","aDate":"2026-10-22","bId":"C1","bDate":"2026-10-18","shift":"주","createdAt":20}]
 from playwright.sync_api import sync_playwright
 with sync_playwright() as p:
-    b=p.chromium.launch()
+    b=getattr(p,os.environ.get('BROWSER','chromium')).launch()
     ctx,pg,errs=R['page'](b,R['ADMIN']); pg.goto(R['BASE']); pg.wait_for_timeout(500)
     pg.click('[data-g=google]'); pg.wait_for_timeout(500)
     f=tempfile.NamedTemporaryFile('w',suffix='.json',delete=False); json.dump(D,f,ensure_ascii=False); f.close()
