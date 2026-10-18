@@ -91,7 +91,7 @@ public class LunarTest {
         sp.title = "학원"; sp.day0 = sp.day1 = d("2026-11-03"); sp.allDay = false;   // 화요일
         sp.repeat = EvSpec.WEEKLY; sp.interval = 2; sp.weekDays = (1 << 2) | (1 << 4); sp.untilDay = d("2027-06-30");
         assertEquals("RRULE:FREQ=WEEKLY;INTERVAL=2;BYDAY=TU,TH;UNTIL=20270630T145959Z", sp.rrule());
-        assertEquals("2주마다 화목, 2027.06.30까지", sp.repeatText());
+        assertEquals("2주마다 화·목, 2027.06.30까지", sp.repeatText());
         sp.repeat = EvSpec.MONTHLY; sp.interval = 1; sp.weekDays = 0; sp.untilDay = Integer.MIN_VALUE; sp.count = 8; sp.allDay = true;
         assertEquals("RRULE:FREQ=MONTHLY;COUNT=8", sp.rrule());
         sp.repeat = EvSpec.YEARLY; sp.count = 0; sp.untilDay = d("2031-12-31");

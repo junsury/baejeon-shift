@@ -72,7 +72,8 @@ final class EvSpec {
         if (lunar && repeat == YEARLY) b.append("(음력)");
         if (repeat == WEEKLY && weekDays != 0) {
             b.append(' ');
-            for (int i = 0; i < 7; i++) if ((weekDays & (1 << i)) != 0) b.append(ShiftData.WD[i]);
+            boolean f = true;
+            for (int i = 0; i < 7; i++) if ((weekDays & (1 << i)) != 0) { if (!f) b.append('·'); b.append(ShiftData.WD[i]); f = false; }
         }
         if (count > 0) b.append(", ").append(count).append("번");
         else if (untilDay != Integer.MIN_VALUE) b.append(", ").append(ShiftData.ymd(untilDay).replace("-", ".")).append("까지");
