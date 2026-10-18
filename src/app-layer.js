@@ -346,6 +346,7 @@ async function enablePush(){
     if(!token)throw new Error('토큰을 받지 못했어요');
     await FB.F.setDoc(tref('users',uid,'tokens',token),{at:Date.now(),ua:navigator.userAgent.slice(0,120)});
     try{localStorage.setItem('bj-push',token)}catch(e){}
+    dropSamsungTokens(token);
     pushState='on';
     FB.M.onMessage(messaging,p=>{const d=(p&&p.data)||{};toast((d.title||'알림')+(d.body?' · '+d.body:''))});
     renderAcct();toast('알림을 켰어요');
@@ -366,12 +367,19 @@ function offerPush(force){
   try{localStorage.setItem('bj-push-asked','1')}catch(e){}
   const b=$('#pushAsk');if(b)b.hidden=false;
 }
+/* 갤럭시 앱이 크롬으로 바뀌면 예전 삼성 인터넷 알림 등록을 지워서 알림이 두 번 오지 않게 */
+async function dropSamsungTokens(keep){
+  try{if(!isTWA||/SamsungBrowser/.test(navigator.userAgent))return;
+    const q=await FB.F.getDocs(tcol('users',uid,'tokens'));
+    for(const d of q.docs)if(d.id!==keep&&/SamsungBrowser/.test((d.data()||{}).ua||''))await FB.F.deleteDoc(d.ref).catch(()=>{});
+  }catch(e){}
+}
 async function enablePushSilently(){try{if(Notification.permission==='granted'){await enablePushQuiet()}}catch(e){}}
 async function enablePushQuiet(){
   if(!FB.M)FB.M=await import(FBB+'firebase-messaging.js');
   const reg=await navigator.serviceWorker.ready;const messaging=FB.M.getMessaging(FB.app);
   const token=await FB.M.getToken(messaging,{vapidKey:window.VAPID_KEY,serviceWorkerRegistration:reg});
-  if(token){await FB.F.setDoc(tref('users',uid,'tokens',token),{at:Date.now(),ua:navigator.userAgent.slice(0,120)});try{localStorage.setItem('bj-push',token)}catch(e){}}
+  if(token){await FB.F.setDoc(tref('users',uid,'tokens',token),{at:Date.now(),ua:navigator.userAgent.slice(0,120)});try{localStorage.setItem('bj-push',token)}catch(e){}dropSamsungTokens(token)}
   FB.M.onMessage(messaging,p=>{const d=(p&&p.data)||{};toast((d.title||'알림')+(d.body?' · '+d.body:''))});
 }
 $('#pushAsk').addEventListener('click',async e=>{const b=e.target.closest('[data-pa]');if(!b)return;$('#pushAsk').hidden=true;if(b.dataset.pa==='on')await enablePush()});
