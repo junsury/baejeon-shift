@@ -489,11 +489,11 @@ public class DayActivity extends Activity {
 
     void onDateChanged(boolean startMoved) {
         if (fDay1 < fDay0) fDay1 = fDay0;
-        dateBtn.setText("📅 " + ShiftData.mdw(fDay0) + (lunar ? " (음 " + (lunarLeap ? "윤" : "") + lunarM + "/" + lunarD + ")" : ""));
+        dateBtn.setText("📅 " + ShiftData.mdw(fDay0) + (lunar ? " 음" + (lunarLeap ? "윤" : "") + lunarM + "/" + lunarD : ""));
         endDateBtn.setText(fDay1 == fDay0 ? "끝: 같은 날" : "끝 " + ShiftData.mdw(fDay1));
         if (startMoved && lunar) {   // 날짜를 직접 고르면 그날의 음력으로
             int[] lt = Lunar.fromSolar(fDay0);
-            if (lt != null) { lunarM = lt[1]; lunarD = lt[2]; lunarLeap = lt[3] == 1; updateLunarBtn(); dateBtn.setText("📅 " + ShiftData.mdw(fDay0) + " (음 " + (lunarLeap ? "윤" : "") + lunarM + "/" + lunarD + ")"); }
+            if (lt != null) { lunarM = lt[1]; lunarD = lt[2]; lunarLeap = lt[3] == 1; updateLunarBtn(); dateBtn.setText("📅 " + ShiftData.mdw(fDay0) + " 음" + (lunarLeap ? "윤" : "") + lunarM + "/" + lunarD); }
         }
         if (showTimes != null) showTimes.run(); else updateShiftInfo();
         fillOffDays();
@@ -564,7 +564,7 @@ public class DayActivity extends Activity {
     /** 음력 체크: 고른 날짜의 음력으로 시작, 날짜 버튼 옆에 음력 표시 */
     void setLunar(boolean on) {
         lunar = on;
-        if (lunarChk.isChecked() != on) lunarChk.setChecked(on);
+        if (lunarChk.isChecked() != on) { lunarChk.setChecked(on); lunarChk.jumpDrawablesToCurrentState(); }
         lunarRow.setVisibility(on ? View.VISIBLE : View.GONE);
         if (on) {
             int[] lt = Lunar.fromSolar(fDay0);
