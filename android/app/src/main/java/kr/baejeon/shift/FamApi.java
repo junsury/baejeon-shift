@@ -60,6 +60,9 @@ final class FamApi {
             int patched = 0;
             java.util.Set<String> painted = new java.util.HashSet<>();
             JSONArray dbg = new JSONArray();
+            java.util.Set<String> seen = new java.util.HashSet<>(Store.p(c).getStringSet("famSeen", new java.util.HashSet<>()));
+            boolean seenReady = Store.p(c).getBoolean("famSeenReady", false);   // 처음엔 기존 일정을 '본 것'으로만 기록
+            boolean seenChanged = false;
             String page = null;
             int guard = 0;
             do {
@@ -93,9 +96,14 @@ final class FamApi {
                     int disp = FamColors.hex(want);
                     if (lc != 0) { want = 0; if (lc != 1) disp = lc | 0xFF000000; }
                     if (dbg.length() > 0 && !shift) { JSONObject last = dbg.optJSONObject(dbg.length() - 1); if (last != null && !last.has("lc")) { last.put("lc", lc == 0 ? 0 : lc == 1 ? 1 : 2); last.put("want2", want); } }
+                    // 자동 색칠은 일정마다 처음 한 번만: 구글 캘린더 앱의 새 색(벚꽃 등)은 서버에 색 번호가 안 남아서
+                    // 다시 칠하면 직접 고른 색을 덮어써요. 한 번 본 일정은 다시 칠하지 않아요. (근무 일정은 예외)
+                    String target = e.has("recurringEventId") ? e.optString("recurringEventId") : e.optString("id");
+                    boolean firstSight = !seen.contains(target);
+                    if (firstSight) { seen.add(target); seenChanged = true; }
+                    if (!shift && (!seenReady || !firstSight)) want = have > 0 ? have : 0;
                     if (want > 0 && have != want && patched < 60) {
                         // 반복 일정은 날짜별로 칠하면 쪼개져요 → 반복 전체를 한 번만
-                        String target = e.has("recurringEventId") ? e.optString("recurringEventId") : e.optString("id");
                         if (painted.add(target)) try {
                             GoogleCal.call(tok, "PATCH", "/calendars/" + GoogleCal.enc(id) + "/events/" + GoogleCal.enc(target),
                                     new JSONObject().put("colorId", String.valueOf(want)));
@@ -130,6 +138,10 @@ final class FamApi {
                 if (page != null && page.isEmpty()) page = null;
             } while (page != null && ++guard < 24);
             Store.p(c).edit().putString("famDbg", dbg.toString()).apply();
+            if (seenChanged || !seenReady) {
+                if (seen.size() > 4000) { java.util.Iterator<String> it = seen.iterator(); while (seen.size() > 3000 && it.hasNext()) { it.next(); it.remove(); } }
+                Store.p(c).edit().putStringSet("famSeen", new java.util.HashSet<>(seen)).putBoolean("famSeenReady", true).apply();
+            }
             Store.p(c).edit().putString("famEvents", out.toString()).putLong("famEventsAt", System.currentTimeMillis()).apply();
             return true;
         } catch (Exception e) { return false; }
