@@ -2293,7 +2293,7 @@ async function saveNode(html,base,kind,msg){
       pdf.addImage(cv.toDataURL('image/jpeg',0.92),'JPEG',0,0,210,297);blob=pdf.output('blob');filename=base+'.pdf'}
     await dl.save({filename,data:blob});
     msg.innerHTML='<div class="msg ok">✓ '+(kind==='png'?'이미지를 저장했어요. 카톡 단톡방에 올리면 돼요.':'PDF를 저장했어요.')+'</div>';
-  }catch(e){const c=e&&e.code;msg.innerHTML=c==='declined'?'':'<div class="msg bad">저장하지 못했어요'+(c?' ('+c+')':'')+'. 잠시 후 다시 시도해 주세요.</div>'}
+  }catch(e){console.error('save failed',e&&(e.stack||e.message||JSON.stringify(e)));const c=e&&e.code;msg.innerHTML=c==='declined'?'':'<div class="msg bad">저장하지 못했어요'+(c?' ('+c+')':'')+'. 잠시 후 다시 시도해 주세요.</div>'}
 }
 $('#rpPng').onclick=()=>saveNode(buildReport(),'근무요약_대근총량_'+ds(periodRange(ui.sumYm)[0]),'png',$('#rpMsg'));
 $('#rpPdf').onclick=()=>saveNode(buildReport(),'근무요약_대근총량_'+ds(periodRange(ui.sumYm)[0]),'pdf',$('#rpMsg'));
@@ -2321,7 +2321,7 @@ async function saveSheet(kind){
       pdf.addImage(cv.toDataURL('image/jpeg',0.92),'JPEG',0,0,210,297);blob=pdf.output('blob');filename=base+'.pdf'}
     const r=await dl.save({filename,data:blob});
     msg.innerHTML='<div class="msg ok">✓ '+(kind==='png'?'이미지':'PDF')+'를 저장했어요.'+(kind==='png'?' 카톡 단톡방에 올리면 돼요.':' 열어서 인쇄하면 돼요.')+'</div>';
-  }catch(e){const c=e&&e.code;msg.innerHTML=c==='declined'?'':'<div class="msg bad">저장하지 못했어요'+(c?' ('+c+')':'')+'. 잠시 후 다시 시도해 주세요.</div>'}
+  }catch(e){console.error('save failed',e&&(e.stack||e.message||JSON.stringify(e)));const c=e&&e.code;msg.innerHTML=c==='declined'?'':'<div class="msg bad">저장하지 못했어요'+(c?' ('+c+')':'')+'. 잠시 후 다시 시도해 주세요.</div>'}
 }
 $('#pPdf').onclick=()=>saveSheet('pdf');
 $('#exportJson').onclick=async()=>{
