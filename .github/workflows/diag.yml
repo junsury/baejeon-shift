@@ -4,6 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       dates: { description: "근무변경 진단 날짜(쉼표)", required: false, default: "" }
+      auth: { description: "로그인 주소 점검", required: false, default: "" }
 jobs:
   diag:
     runs-on: ubuntu-latest
@@ -19,4 +20,5 @@ jobs:
           NODE_PATH="$RUNNER_TEMP/m/node_modules" node "$GITHUB_WORKSPACE/tools/diag.js" "$RUNNER_TEMP/sa.json"
           if [ -n "${{ inputs.dates }}" ]; then NODE_PATH="$RUNNER_TEMP/m/node_modules" node "$GITHUB_WORKSPACE/tools/diag-swap.js" "$RUNNER_TEMP/sa.json" "${{ inputs.dates }}"; fi
           gcloud auth activate-service-account --key-file="$RUNNER_TEMP/sa.json" --quiet
+          if [ -n "${{ inputs.auth }}" ]; then bash tools/diag-auth.sh; fi
           gcloud logging read 'resource.type="cloud_function" AND (resource.labels.function_name="onUserCreated" OR resource.labels.function_name="onRequestCreated") AND timestamp>="'"$(date -u -d '-3 hours' +%Y-%m-%dT%H:%M:%SZ)"'"' --project baejeon-shift --limit 30 --format='value(timestamp,resource.labels.function_name,severity,textPayload)' | sed 's/@[^ ]*//g' | head -30 | while IFS= read -r l; do echo "::notice::$l"; done
