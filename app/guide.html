@@ -65,20 +65,22 @@ footer{color:var(--muted);font-size:13px;text-align:center;margin-top:20px}
 <div class="wrap">
   <header>
     <img src="icons/icon-192.png" alt="">
-    <div><h1>배전센터 근무표 사용 설명서</h1><p>4조2교대 근무 · 휴가 · 대근 · 근무변경을 한 곳에서</p></div>
+    <div><h1>배전센터 근무표 사용 설명서</h1><p>4조2교대 근무 · 휴가 · 대근 · 근무변경을 한 곳에서 · 2026년 10월 개정</p></div>
   </header>
-  <div class="cta"><a class="btn" href="./">앱 열기</a><a class="btn ghost" href="#install">설치 방법 보기</a></div>
+  <div class="cta"><a class="btn" href="./">앱 열기</a><a class="btn ghost" href="#install">설치 방법 보기</a><a class="btn ghost" href="https://github.com/junsury/baejeon-shift/releases/download/android/baejeon-shift.apk">갤럭시 앱 받기</a></div>
 
   <nav class="toc"><b>목차</b>
     <ol>
       <li><a href="#install">휴대폰에 설치하기</a></li>
       <li><a href="#join">처음 가입하기</a></li>
       <li><a href="#alarm">알림 켜기</a></li>
-      <li><a href="#screens">화면 둘러보기</a></li>
+      <li><a href="#simple">간단히 보기</a></li>
+      <li><a href="#screens">화면 둘러보기 (자세히)</a></li>
       <li><a href="#chips">근무 표시 읽는 법</a></li>
       <li><a href="#leave">휴가 · 대근 신청</a></li>
       <li><a href="#swap">근무변경 (맞교환)</a></li>
       <li><a href="#inbox">요청 승인 · 취소</a></li>
+      <li><a href="#share">편성표 카톡 공유 · 인쇄</a></li>
       <li><a href="#family">가족과 공유하기</a></li>
       <li><a href="#android-app">갤럭시 앱 · 위젯</a></li>
       <li><a href="#faq">자주 묻는 질문</a></li>
@@ -87,8 +89,16 @@ footer{color:var(--muted);font-size:13px;text-align:center;margin-top:20px}
 
   <section id="install">
     <h2><span class="n">1</span>휴대폰에 설치하기</h2>
-    <div class="tip warn">앱 주소는 <b>안드로이드는 크롬</b>, <b>아이폰은 사파리</b>에서 열어 주세요.<br>카톡에서 링크를 길게 눌러 복사 → 크롬·사파리 주소창에 붙여 넣으면 돼요.</div>
+    <div class="tip">앱 주소: <b><a href="https://baejeon-shift.web.app">baejeon-shift.web.app</a></b><br>카톡 안에서 열면 로그인이 안 돼요. 링크를 길게 눌러 복사한 뒤 <b>갤럭시는 크롬</b>, <b>아이폰은 사파리</b> 주소창에 붙여 넣으세요.</div>
     <div class="two">
+      <div><h3>갤럭시 (앱 설치 · 추천)</h3>
+        <ol class="steps">
+          <li><a href="https://github.com/junsury/baejeon-shift/releases/download/android/baejeon-shift.apk"><b>여기를 눌러 앱 받기</b></a> (baejeon-shift.apk)</li>
+          <li>받은 파일을 눌러 <b>설치</b>. "출처를 알 수 없는 앱"이 뜨면 <b>설정 → 이 출처 허용</b> 후 다시 설치</li>
+          <li>"Play 프로텍트" 경고가 뜨면 <b>세부정보 → 무시하고 설치</b> (팀에서 직접 만든 앱이라 뜨는 안내예요)</li>
+          <li>홈 화면의 <b>근무표</b> 앱을 열고 구글로 로그인</li>
+        </ol>
+      </div>
       <div><h3>아이폰</h3>
         <ol class="steps">
           <li><b>사파리</b>로 앱 주소를 열어요</li>
@@ -97,33 +107,21 @@ footer{color:var(--muted);font-size:13px;text-align:center;margin-top:20px}
           <li>홈 화면의 파란 <b>근</b> 아이콘으로 열기</li>
         </ol>
       </div>
-      <div><h3>안드로이드</h3>
-        <ol class="steps">
-          <li><b>크롬</b>으로 앱 주소를 열어요</li>
-          <li>오른쪽 위 <kbd>⋮</kbd></li>
-          <li><b>앱 설치</b> 또는 <b>홈 화면에 추가</b></li>
-          <li>홈 화면의 파란 <b>근</b> 아이콘으로 열기</li>
-        </ol>
-      </div>
     </div>
+    <p>갤럭시도 앱 대신 크롬 <kbd>⋮</kbd> → <b>홈 화면에 추가</b>로 쓸 수 있지만, 앱으로 설치해야 <b>위젯</b>과 <b>카톡 공유</b>가 잘 돼요. 새 버전이 나오면 같은 링크로 다시 받아 설치하면 그대로 업데이트돼요 (로그인·위젯 유지).</p>
   </section>
 
   <section id="android-app">
     <h2><span class="n">+</span>갤럭시 앱 · 홈 화면 위젯</h2>
-    <p>갤럭시(안드로이드)는 앱을 설치하면 <b>홈 화면 위젯</b>으로 내 근무와 휴대폰 캘린더 일정을 한눈에 볼 수 있어요. 아이폰은 지금처럼 사파리 홈 화면 앱을 쓰면 돼요.</p>
     <ol class="steps">
-      <li>근무표 앱 오른쪽 위 <b>👤</b> → <b>갤럭시 앱 받기</b> (또는 <a href="https://github.com/junsury/baejeon-shift/releases/download/android/baejeon-shift.apk">여기서 받기</a>)</li>
-      <li>받은 <b>baejeon-shift.apk</b>를 눌러 설치. "출처를 알 수 없는 앱" 안내가 뜨면 <b>설정 → 이 출처 허용</b>을 켜고 다시 설치</li>
-      <li>"Play 프로텍트" 경고가 뜨면 <b>세부정보 → 무시하고 설치</b> (팀에서 직접 만든 앱이라 뜨는 안내예요)</li>
-      <li>새로 생긴 <b>근무표</b> 앱을 열고 구글로 로그인 (크롬이 설치돼 있어야 해요)</li>
-      <li><b>👤</b> → <b>갤럭시 위젯 연결</b> → "위젯 연결 완료"가 뜨면 끝</li>
+      <li>근무표 앱 오른쪽 위 <b>👤</b> → <b>갤럭시 위젯 연결</b> → "위젯 연결 완료"가 뜨면 끝</li>
       <li>홈 화면 빈 곳을 길게 누르기 → <b>위젯</b> → <b>근무표</b> → 원하는 위젯을 끌어다 놓기</li>
     </ol>
     <div class="tip">위젯 종류: <b>근무 달력(4×4)</b> · <b>오늘·이번 주(4×2)</b> · <b>주간 근무(4×1)</b> · <b>오늘 근무(2×2)</b><br>
-    위젯을 놓을 때 나오는 설정 화면에서 <b>배경 진하기(투명도)</b>, <b>모서리</b>, <b>글자·아이콘 크기</b>, <b>밝게/어둡게</b>, <b>내 캘린더 일정 보이기</b>를 바꿀 수 있어요. 나중에 바꾸려면 위젯을 길게 누르고 <b>설정</b>을 누르세요.</div>
-    <div class="tip">캘린더 일정은 휴대폰에 있는 구글 캘린더 · 삼성 캘린더 일정이 보여요 (카카오톡 톡캘린더는 안 보여요). 일정은 휴대폰 안에서만 읽고 서버로 보내지 않아요.</div>
+    위젯을 놓을 때 나오는 설정 화면에서 투명도 · 글자 크기 · 밝게/어둡게 · 캘린더 일정 보이기 · <b>위젯을 누르면 열 화면</b>을 바꿀 수 있어요. 나중에 바꾸려면 위젯을 길게 누르고 <b>설정</b>.</div>
+    <div class="tip">달력 위젯에서 <b>날짜를 누르면</b> 그날 근무 · 같이 근무하는 사람 · 메모 · 일정이 나오고, 여기서 <b>일정 추가</b>, 일정 옆 <b>[수정하기] · [삭제]</b>를 할 수 있어요.</div>
+    <div class="tip">일정은 휴대폰의 구글 캘린더 · 삼성 캘린더 일정이 보여요 (카카오 톡캘린더는 안 보여요).</div>
     <div class="tip warn">위젯이 늦게 바뀌면: 설정 → 애플리케이션 → 근무표 → 배터리 → <b>제한 없음</b>. 앱을 한 번 열면 바로 새로 고쳐져요.</div>
-    <p>새 버전이 나오면 같은 방법으로 받아 설치하면 그대로 업데이트돼요 (로그인·위젯 유지).</p>
   </section>
 
   <section id="join">
@@ -147,19 +145,32 @@ footer{color:var(--muted);font-size:13px;text-align:center;margin-top:20px}
     <div class="tip">아이폰은 <b>홈 화면에 추가한 아이콘</b>으로 열어야 알림을 받을 수 있어요 (iOS 16.4 이상).</div>
   </section>
 
-  <section id="screens">
-    <h2><span class="n">4</span>화면 둘러보기</h2>
+  <section id="simple">
+    <h2><span class="n">4</span>간단히 보기</h2>
+    <p>처음 가입하면 <b>큰 글씨 · 탭 5개</b>짜리 간단한 화면으로 열려요. 위쪽 <b>[자세히 보기]</b>를 누르면 모든 기능이 있는 화면으로, 자세히 화면 위쪽 <b>[간단히]</b>를 누르면 다시 간단한 화면으로 바뀌어요. 고른 화면은 기억돼요.</p>
     <table>
-      <tr><th>내 근무</th><td><b>일 · 주 · 월</b>로 내 근무를 봐요. 일 보기에서 전날 · 같이 · 다음 근무자와 <b>내 메모</b>(나와 가족만 봄)를 확인해요.</td></tr>
-      <tr><th>팀 근무표</th><td><b>하루</b>: 그날 주간 · 야간 · TSO 근무자 / <b>한 달 · 3달 · 6달</b>: 전체 표 (<b>오늘</b> 버튼, 날짜를 누르면 그 열 표시) / <b>편성표</b>: 인쇄 · 카톡용 근무편성표</td></tr>
-      <tr><th>근태</th><td><b>신청</b>(휴가 · 근무변경) · <b>요청함</b>(받은 · 보낸 · 수락 · 거절) · <b>내역</b>(전체 기록, 취소)</td></tr>
+      <tr><th>내 근무</th><td>오늘 근무 · 같이 근무하는 사람 · 내일 근무, 아래에 이번 달 달력. 날짜를 누르면 그날 근무가 위에 나와요</td></tr>
+      <tr><th>편성표</th><td>익숙한 근무편성표 모양. 오늘 줄(빨간 줄)부터 보이고 위아래로 계속 넘겨 볼 수 있어요. <b>파란 이름</b>이 나</td></tr>
+      <tr><th>총량</th><td>내 남은 대근 · 팀 남은 대근 · 팀원별 남은 시간 (많이 남은 순)</td></tr>
+      <tr><th>근태</th><td><b>휴가 쓰기 · 근무 바꾸기 · TSO 근무지원 요청</b>. 받은 요청 · 보낸 요청도 여기서 봐요</td></tr>
+      <tr><th>요약</th><td>내 야간 횟수 · 야간수당 시간 · 대근수당 시간 (급여 기간 16일~15일)</td></tr>
+    </table>
+    <div class="tip">간단히 보기의 근태는 <b>날짜 고르기 → 사람 고르기(규칙에 맞는 사람만 나와요) → [바로 반영]</b> 세 번이면 끝나요. 이미 말로 합의했으면 <b>[바로 반영 (이미 얘기했어요)]</b>, 상대 수락을 받으려면 <b>[요청 보내고 수락 기다리기]</b>.</div>
+  </section>
+
+  <section id="screens">
+    <h2><span class="n">5</span>화면 둘러보기 (자세히)</h2>
+    <table>
+      <tr><th>내 근무</th><td><b>일 · 주 · 월</b>로 내 근무를 봐요. 일 보기에서 전날 · 같이 · 다음 근무자, <b>내 메모</b>(나와 가족만 봄), 갤럭시 앱에선 휴대폰 일정도 확인해요.</td></tr>
+      <tr><th>팀 근무표</th><td><b>하루</b>: 그날 근무자 / <b>한 달 · 3달 · 6달</b>: 전체 표 / <b>편성표</b>: 큰 글씨 근무편성표, PDF(인쇄) · 이미지(카톡) 저장</td></tr>
+      <tr><th>근태</th><td>맨 위 <b>📥 나에게 온 요청 · 📤 내가 보낸 요청</b> 개수 → 누르면 바로 그 목록. <b>신청</b>(휴가 · 근무변경) · <b>요청함</b> · <b>내역</b>(전체 기록, 취소)</td></tr>
       <tr><th>대근총량</th><td>팀과 내 대근 사용 가능 시간</td></tr>
-      <tr><th>근무요약</th><td>급여 기간(16일~15일) 야간 · 공휴일 · 대근 · 휴가 횟수와 수당 시간</td></tr>
+      <tr><th>근무요약</th><td>급여 기간(16일~15일) 야간 · 공휴일 · 대근 · 휴가 횟수와 수당 시간, 카톡용 이미지 저장</td></tr>
     </table>
   </section>
 
   <section id="chips">
-    <h2><span class="n">5</span>근무 표시 읽는 법</h2>
+    <h2><span class="n">6</span>근무 표시 읽는 법</h2>
     <div class="legend">
       <span><b class="c c-주">주</b>주간 08–18</span>
       <span><b class="c c-야">야</b>야간 18–다음날 08</span>
@@ -176,37 +187,48 @@ footer{color:var(--muted);font-size:13px;text-align:center;margin-top:20px}
   </section>
 
   <section id="leave">
-    <h2><span class="n">6</span>휴가 · 대근 신청</h2>
+    <h2><span class="n">7</span>휴가 · 대근 신청</h2>
     <ol class="steps">
       <li><b>근태 → 신청 → 휴가</b>에서 날짜와 휴가 종류를 골라요</li>
       <li>대신 근무할 사람 목록에서 <b>부탁할 사람</b>을 골라요 (평일 주간은 TSO 근무지원이 기본, 교대근무자 대근도 가능)</li>
       <li>필요하면 메모를 적고 <b>요청 보내기</b> → 상대가 승인하면 근무표에 반영돼요</li>
     </ol>
-    <div class="tip">미리 말로 합의했다면 <b>"이미 구두로 합의했어요"</b>를 체크하세요. 승인 없이 바로 반영되고 상대에게 알림만 가요.</div>
-    <div class="tip">주 54시간 · 하루 근무 · 주 1회 대근 · 야주야 같은 규칙에 걸리는 사람은 목록에서 이유와 함께 막혀요.</div>
+    <div class="tip">미리 말로 합의했다면 <b>구두합의</b>를 체크하세요 (간단히 보기는 <b>[바로 반영]</b>). 승인 없이 바로 반영되고 상대에게 알림만 가요.</div>
+    <div class="tip">주 54시간(월~일) · 주야/야주 연속 근무 · 하루 근무 · 주 1회 대근 · 야주야 같은 규칙에 걸리는 사람은 목록에서 이유와 함께 막혀요.</div>
   </section>
 
   <section id="swap">
-    <h2><span class="n">7</span>근무변경 (맞교환)</h2>
+    <h2><span class="n">8</span>근무변경 (맞교환)</h2>
     <ol class="steps">
       <li><b>근태 → 신청 → 근무변경</b>에서 내 근무 날짜를 골라요</li>
       <li>바꿀 사람과 그 사람의 근무 날짜를 골라요 (주간↔주간, 야간↔야간만)</li>
       <li><b>요청 보내기</b> → 상대가 승인하면 반영 (구두 합의 체크도 가능)</li>
+      <li>내 날짜를 고르면 <b>그날 바꿀 수 있는 사람만</b>, 사람을 고르면 <b>바꿀 수 있는 날만</b> 나와요 (오늘부터 6달까지)</li>
     </ol>
   </section>
 
   <section id="inbox">
-    <h2><span class="n">8</span>요청 승인 · 취소</h2>
+    <h2><span class="n">9</span>요청 승인 · 취소</h2>
     <ul>
-      <li><b>근태 → 요청함 → 받은 요청</b>에서 <b>승인 / 거절</b>. 탭의 숫자가 기다리는 요청 수예요</li>
-      <li>내가 보낸 요청은 <b>보낸 요청</b>, 처리한 요청은 <b>수락한 요청 · 거절한 요청</b>에서 다시 볼 수 있어요</li>
+      <li>근태 탭 맨 위 <b>📥 나에게 온 요청</b>(주황)에서 <b>수락 / 거절</b>. 탭 옆 빨간 숫자가 기다리는 요청 수예요</li>
+      <li><b>📤 내가 보낸 요청</b>(파랑)은 상대가 수락하기 전까지 <b>⏳ 수락 대기</b>로 보여요. 마음이 바뀌면 <b>[요청 취소]</b></li>
+      <li>수락 대기 중인 요청은 <b>근무편성표 · 내 근무</b>에 주황 글씨 <b>"요청중"</b>으로 보여요. 상대가 <b>수락하면 근무표에 정식 반영</b>, 거절하거나 취소하면 표시가 사라져요</li>
       <li>등록된 근태를 없애려면 <b>근태 → 내역</b>에서 <b>취소</b>. 상대가 아직 확인 안 한 알림은 자동으로 회수돼요</li>
-      <li>내역은 <b>근무 날짜순 / 최근 등록순</b>으로 바꿔 볼 수 있어요</li>
     </ul>
   </section>
 
+  <section id="share">
+    <h2><span class="n">10</span>편성표 카톡 공유 · 인쇄</h2>
+    <ol class="steps">
+      <li><b>팀 근무표 → 편성표</b> (근무요약은 <b>근무요약 → 카톡 공유용</b>)</li>
+      <li><b>이미지로 저장 (카톡용)</b>: 휴대폰 화면에 맞춘 큰 글씨 이미지 / <b>PDF로 저장</b>: A4 한 장 인쇄용</li>
+      <li>미리보기 창이 뜨면 <b>[카톡 등으로 공유하기]</b> → 카카오톡 → 단톡방 고르기</li>
+    </ol>
+    <div class="tip">공유창이 안 뜨면 미리보기 그림을 <b>꾹 눌러</b> 저장하거나 <b>[휴대폰에 저장]</b> 후 카톡에서 사진으로 보내세요. 갤럭시는 앱을 최신으로 업데이트해 주세요.</div>
+  </section>
+
   <section id="family">
-    <h2><span class="n">9</span>가족과 공유하기</h2>
+    <h2><span class="n">11</span>가족과 공유하기</h2>
     <ol class="steps">
       <li>오른쪽 위 <kbd>👤</kbd> → <b>가족 링크 만들기</b> → <b>보내기</b> (카톡으로 전달)</li>
       <li>가족은 링크만 누르면 <b>로그인 없이</b> 내 근무(일 · 주 · 월)와 내 메모를 봐요. 바꿀 수는 없어요</li>
