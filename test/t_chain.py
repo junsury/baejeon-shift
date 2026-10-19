@@ -15,6 +15,6 @@ with sync_playwright() as p:
     pg.set_input_files('#gImport',f.name); pg.click('[data-g=setup]'); pg.wait_for_timeout(1500)
     pg.click('[data-g=pick][data-id=B2]'); pg.wait_for_timeout(800)
     pg.click('#toSimple'); pg.wait_for_timeout(300); pg.click('[data-stab=sheet]'); pg.wait_for_timeout(400)
-    row=pg.inner_text('.sm-sh-row.today .d'); print('10/18 주간:', row.replace('\n',' '))
+    row=pg.evaluate("[...document.querySelectorAll('.sm-sh-row')].find(r=>r.querySelector('.md')&&r.querySelector('.md').textContent.trim()==='10.18').querySelector('.d').innerText"); print('10/18 주간:', row.replace('\n',' '))
     print('OK' if '변(10.16) 최구름' in row and '변(10.22) 한별님' in row else 'FAIL')
     print('errs', [e for e in errs if 'ERR_FAILED' not in e])
