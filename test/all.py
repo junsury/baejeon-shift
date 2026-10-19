@@ -9,6 +9,7 @@ CASES = {
   't_simple.py': (1, ['simple on: True', 'events 1 -> 2', '요청을 보냈어요']),
   't_chain.py': (1, ['OK']), 't_print.py': (1, []), 't_pending.py': (1, ['after cancel rq: []', 'result card: 1', 'after rseen: 0 [True]']),
   't_share_app.py': (1, ['done: {"status":"saved"}']),
+  't_back.py': (1, ['back1 team month', 'back2 team day', 'acct closed True', 'flow back True', 'exit dialog 1', 'dialog gone True', 'exit again 1']),
 }
 if os.environ.get('NET') == '1': CASES['t_png.py'] = (0, ['#pPng OK', '#pPdf OK', '#rpPng OK', '#rpPdf OK'])
 bad = []

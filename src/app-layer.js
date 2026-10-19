@@ -641,3 +641,43 @@ function startExtras(){
   document.addEventListener('visibilitychange',()=>{if(!document.hidden)check(true)});
   setInterval(()=>check(false),5*60*1000);setTimeout(()=>check(true),1500);
 })();
+
+/* ---------- 뒤로 가기: 앱 안에서 이전 화면으로, 맨 처음 화면에선 "종료할까요?" ---------- */
+(()=>{
+  const NAV=['tab','myView','teamView','attTab','ib','adminTab','simple','stab','sFlow'];
+  const snap=()=>{const o={};for(const k of NAV)o[k]=ui[k]===undefined?null:ui[k];return o};
+  let last=JSON.stringify(snap()),restoring=false;
+  try{history.replaceState({bj:'root'},'');history.pushState({bj:'nav',s:snap()},'')}catch(e){}
+  const orig=render;
+  render=function(){const r=orig.apply(this,arguments);
+    if(!restoring){const s=snap(),k=JSON.stringify(s);if(k!==last){last=k;try{history.pushState({bj:'nav',s},'')}catch(e){}}}
+    return r};
+  // 내 정보 창도 뒤로 가기로 닫히게
+  const ab=$('#acctBtn');if(ab){const o=ab.onclick;ab.onclick=ev=>{o&&o(ev);try{history.pushState({bj:'ov',s:snap()},'')}catch(e){}}}
+  let exitBox=null;
+  function showExit(){
+    if(exitBox)return;
+    exitBox=document.createElement('div');exitBox.className='exitask';
+    exitBox.innerHTML='<div class="exitask-in" role="dialog" aria-label="앱 종료"><b>앱을 종료할까요?</b><span>뒤로 가기를 한 번 더 누르면 종료돼요.</span><div class="btns"><button class="btn ghost" data-x="no">아니요</button><button class="btn" data-x="yes">예</button></div></div>';
+    document.body.appendChild(exitBox);
+    exitBox.onclick=e=>{const b=e.target.closest('[data-x]');
+      if(!b){if(e.target===exitBox)stay();return}
+      if(b.dataset.x==='no')return stay();
+      // 예: 갤럭시 앱은 앱이 직접 닫고, 그 밖에선 창 닫기
+      if(isTWA)location.href='intent://exit#Intent;scheme=baejeonshift;package=kr.baejeon.shift;end';
+      else{try{window.close()}catch(x){}}
+      setTimeout(()=>{if(exitBox){const s=exitBox.querySelector('span');if(s)s.textContent='뒤로 가기 버튼을 한 번 더 누르면 종료돼요.'}},700);
+    };
+  }
+  function hideExit(){if(exitBox){exitBox.remove();exitBox=null}}
+  function stay(){hideExit();try{history.pushState({bj:'nav',s:snap()},'')}catch(e){}}
+  addEventListener('popstate',e=>{
+    const st=e.state||{};
+    if(exitBox&&st.bj!=='root'){hideExit()}
+    // 열린 창(내 정보 · 파일 공유)이 있으면 그것부터 닫기
+    const acct=$('#acct');if(acct&&!acct.hidden){acct.hidden=true;if(st.bj==='root')try{history.pushState({bj:'nav',s:snap()},'')}catch(x){}return}
+    const sh=document.querySelector('.shsheet');if(sh){const c=sh.querySelector('[data-x=close]');c?c.click():sh.remove();if(st.bj==='root')try{history.pushState({bj:'nav',s:snap()},'')}catch(x){}return}
+    if(st.bj==='root'){showExit();return}
+    if(st.s){restoring=true;try{Object.assign(ui,st.s);if(st.s.sFlow==null)ui.sFlow=null;render();window.scrollTo(0,0)}finally{restoring=false;last=JSON.stringify(snap())}}
+  });
+})();

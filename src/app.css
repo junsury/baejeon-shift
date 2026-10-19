@@ -46,3 +46,8 @@ a.item.evlink{color:inherit;text-decoration:none}
 .shs-img img{display:block;width:100%;height:auto;-webkit-touch-callout:default}
 .shs-in .note{margin:0;font-size:14px}
 .shs-btns{display:flex;flex-direction:column;gap:8px}.shs-btns .btn{min-height:50px;font-size:17px;width:100%}
+/* 앱 종료 확인 */
+.exitask{position:fixed;inset:0;z-index:80;background:rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center;padding:16px}
+.exitask-in{background:var(--surface);color:var(--fg);border-radius:16px;padding:20px;width:100%;max-width:340px;display:flex;flex-direction:column;gap:8px;box-shadow:0 10px 30px rgba(0,0,0,.25)}
+.exitask-in b{font-size:19px}.exitask-in span{font-size:14px;color:var(--muted)}
+.exitask-in .btns{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:6px}.exitask-in .btn{min-height:48px;font-size:17px}

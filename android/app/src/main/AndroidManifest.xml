@@ -88,6 +88,20 @@
             </intent-filter>
         </activity>
 
+        <!-- 웹앱의 "앱을 종료할까요? → 예" -->
+        <activity
+            android:name=".ExitActivity"
+            android:exported="true"
+            android:excludeFromRecents="true"
+            android:theme="@android:style/Theme.Translucent.NoTitleBar">
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="baejeonshift" android:host="exit" />
+            </intent-filter>
+        </activity>
+
         <!-- 웹앱의 [카톡 등으로 공유하기] → 앱이 파일을 받아 휴대폰 공유창 띄우기 -->
         <activity
             android:name=".ShareActivity"
