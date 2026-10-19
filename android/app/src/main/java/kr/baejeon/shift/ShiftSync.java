@@ -19,7 +19,7 @@ final class ShiftSync {
     private ShiftSync() {}
 
     static final String TAG = "#근무표자동";
-    static final int AHEAD = 62;
+    static final int AHEAD = 365, BACK = 365;   // 앞뒤로 1년 (위젯 데이터와 같은 범위)
 
     /** 공유 캘린더의 휴대폰 안 번호 (아직 동기화 전이면 -1) */
     static long localId(Context c) {
@@ -80,7 +80,7 @@ final class ShiftSync {
         long cal = localId(c);
         if (cal < 0) { requestSync(c); return false; }
         boolean changed = false;
-        int from = ShiftData.todayNum() - 1, to = from + 1 + AHEAD;
+        int from = ShiftData.todayNum() - BACK, to = ShiftData.todayNum() + AHEAD;
 
         // 원하는 상태
         Map<Integer, String> want = new HashMap<>();
