@@ -35,7 +35,7 @@ public abstract class BaseWidget extends AppWidgetProvider {
             int id = i.getIntExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, 0);
             Store.Cfg f = Store.cfg(c, id, "month");
             int off = f.monthOffset + (ACT_PREV.equals(a) ? -1 : 1);
-            off = Math.max(-2, Math.min(3, off));
+            off = Math.max(-12, Math.min(12, off));   // 앞뒤로 1년
             Store.setOffset(c, id, off);
             WidgetUpdater.render(c, AppWidgetManager.getInstance(c), id);
             return;
