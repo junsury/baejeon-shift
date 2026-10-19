@@ -153,6 +153,14 @@ public class MainActivity extends com.google.androidbrowserhelper.trusted.Launch
         else { Toast.makeText(this, "설치 허용이 꺼져 있어 업데이트를 못 했어요. 다음에 앱을 열면 다시 물어볼게요.", Toast.LENGTH_LONG).show(); go(); }
     }
 
+    /** 웹앱에 앱 버전을 알려줘요 (?appv=…): 이 값이 있어야 웹이 '위젯 바로 새로 고침'을 불러요 (옛 앱은 그 기능이 없어서) */
+    @Override
+    protected Uri getLaunchingUrl() {
+        Uri u = super.getLaunchingUrl();
+        try { return u.buildUpon().appendQueryParameter("appv", String.valueOf(Updater.myCode(this))).build(); }
+        catch (Exception e) { return u; }
+    }
+
     /**
      * 기본 브라우저가 삼성 인터넷이어도 크롬으로 열어요.
      * 크롬이어야 알림이 '근무표' 앱 아이콘으로 오고, 알림을 누르면 이 앱으로 열려요.

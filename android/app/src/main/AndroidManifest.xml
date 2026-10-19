@@ -90,6 +90,21 @@
             </intent-filter>
         </activity>
 
+        <!-- 웹앱에서 메모 저장·근무 변경 직후: 화면 없이 위젯만 바로 새로 고침 -->
+        <activity
+            android:name=".RefreshActivity"
+            android:exported="true"
+            android:excludeFromRecents="true"
+            android:noHistory="true"
+            android:theme="@android:style/Theme.NoDisplay">
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="baejeonshift" android:host="refresh" />
+            </intent-filter>
+        </activity>
+
         <!-- 웹앱의 "앱을 종료할까요? → 예" -->
         <activity
             android:name=".ExitActivity"

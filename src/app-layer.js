@@ -322,8 +322,11 @@ const isIOS=/iPhone|iPad|iPod/i.test(navigator.userAgent);
 const isAndroid=/Android/i.test(navigator.userAgent);
 const APK_URL='https://github.com/junsury/baejeon-shift/releases/download/android/baejeon-shift.apk';
 // 갤럭시 앱(TWA) 안에서 열렸는지: 앱은 ?src=twa 로 열어요
-const isTWA=(()=>{try{const q=new URLSearchParams(location.search);if(q.get('src')==='twa'){sessionStorage.setItem('bj-twa','1');q.delete('src');history.replaceState(null,'',location.pathname+(q.toString()?'?'+q:'')+location.hash)}
+const isTWA=(()=>{try{const q=new URLSearchParams(location.search);if(q.get('appv')){sessionStorage.setItem('bj-appv',q.get('appv'));q.delete('appv');if(!q.get('src'))history.replaceState(null,'',location.pathname+(q.toString()?'?'+q:'')+location.hash)}if(q.get('src')==='twa'){sessionStorage.setItem('bj-twa','1');q.delete('src');history.replaceState(null,'',location.pathname+(q.toString()?'?'+q:'')+location.hash)}
   return sessionStorage.getItem('bj-twa')==='1'||document.referrer.startsWith('android-app://kr.baejeon.shift')}catch(e){return false}})();
+// 메모 저장·근무 등록/취소 직후 갤럭시 위젯 바로 새로 고침 (이 기능이 있는 새 앱만: ?appv 를 받은 경우)
+let wpT=0;
+function widgetPing(){try{if(!isTWA||!sessionStorage.getItem('bj-appv'))return;clearTimeout(wpT);wpT=setTimeout(()=>{window.__pinged=(window.__pinged||0)+1;location.href='intent://refresh#Intent;scheme=baejeonshift;package=kr.baejeon.shift;end'},700)}catch(e){}}
 const standalone=()=>matchMedia('(display-mode: standalone)').matches||navigator.standalone===true;
 let pushState='';
 function fixTwaNotify(){
@@ -501,7 +504,7 @@ async function linkMe(id){
 async function saveMemo(day,text){
   const mm=ownMid();if(!mm||isFamily()||me!==mm)return;
   const notes={...ownMemos};if(text)notes[day]=text;else delete notes[day];ownMemos=notes;syncMemos();
-  try{await FB.F.setDoc(tref('memos',mm),{notes})}catch(e){reqFail(e)}
+  try{await FB.F.setDoc(tref('memos',mm),{notes});widgetPing()}catch(e){reqFail(e)}
   render();
 }
 function applyRoleUI(){
@@ -557,12 +560,12 @@ async function logHistory(action,ev,label){
 async function addEvent(ev){
   ev.createdAt=Date.now();ev.byMember=me||null;
   const ctx=ui.tab==='attend'?ui.attTab:'';if(ctx==='add')ev.src='admin';
-  try{const r=await db.collection('events').add(ev);logHistory('create',{...ev},ctx==='add'?'관리자 등록':ctx==='inbox'?'요청 승인':ctx==='req'?'구두 합의':'등록');return r.id}
+  try{const r=await db.collection('events').add(ev);widgetPing();logHistory('create',{...ev},ctx==='add'?'관리자 등록':ctx==='inbox'?'요청 승인':ctx==='req'?'구두 합의':'등록');return r.id}
   catch(e){reqFail(e);return null}
 }
 async function delEventOk(id){
   const ev=events.find(e=>e._id===id);
-  try{await db.doc('events/'+id).delete();if(ev){const{_id,...p}=ev;logHistory('delete',p,'취소')}return true}
+  try{await db.doc('events/'+id).delete();widgetPing();if(ev){const{_id,...p}=ev;logHistory('delete',p,'취소')}return true}
   catch(e){reqFail(e);return false}
 }
 async function delEvent(id){await delEventOk(id)}
