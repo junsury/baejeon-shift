@@ -4,7 +4,7 @@ name: 갤럭시 앱 만들기
 on:
   push:
     branches: [main]
-    paths: ['android/**', '.github/workflows/android.yml']
+    paths: ['android/**', 'app/upd/**', '.github/workflows/android.yml']
   workflow_dispatch:
 permissions:
   contents: write
@@ -70,4 +70,8 @@ jobs:
           cp android/app/build/outputs/apk/release/app-release.apk baejeon-shift.apk
           gh release view android >/dev/null 2>&1 || gh release create android --title "갤럭시 앱 (근무표)" --notes "갤럭시 휴대폰에서 baejeon-shift.apk 를 받아 설치하세요. 새 버전은 같은 주소로 올라가요."
           gh release upload android baejeon-shift.apk --clobber
+          # 앱이 확인하는 새 버전 정보 (APK를 먼저 올린 뒤에 올려요)
+          python3 -c "import json,os;n=int(os.environ['GITHUB_RUN_NUMBER']);c=json.load(open('app/upd/changes.json'));json.dump({'code':n,'name':'1.0.%d'%n,'changes':c[:10]},open('version.json','w'),ensure_ascii=False)"
+          cat version.json
+          gh release upload android version.json --clobber
           gh release edit android --notes "갤럭시 휴대폰에서 baejeon-shift.apk 를 받아 설치하세요. 버전 1.0.${GITHUB_RUN_NUMBER} ($(TZ=Asia/Seoul date '+%Y-%m-%d %H:%M'))"

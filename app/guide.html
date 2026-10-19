@@ -108,7 +108,7 @@ footer{color:var(--muted);font-size:13px;text-align:center;margin-top:20px}
         </ol>
       </div>
     </div>
-    <p>갤럭시도 앱 대신 크롬 <kbd>⋮</kbd> → <b>홈 화면에 추가</b>로 쓸 수 있지만, 앱으로 설치해야 <b>위젯</b>과 <b>카톡 공유</b>가 잘 돼요. 새 버전이 나오면 같은 링크로 다시 받아 설치하면 그대로 업데이트돼요 (로그인·위젯 유지).</p>
+    <p>갤럭시도 앱 대신 크롬 <kbd>⋮</kbd> → <b>홈 화면에 추가</b>로 쓸 수 있지만, 앱으로 설치해야 <b>위젯</b>과 <b>카톡 공유</b>가 잘 돼요. 새 버전이 나오면 앱을 열 때 <b>"새 버전이 있어요"</b> 창이 떠요. <b>[업데이트]</b> → 설치 화면에서 <b>[업데이트]</b>를 누르면 끝 (로그인·위젯 유지). 처음 한 번만 <b>'이 출처 허용'</b>을 켜 달라고 나와요. 같은 링크로 다시 받아 설치해도 돼요.</p>
   </section>
 
   <section id="android-app">
@@ -255,6 +255,19 @@ footer{color:var(--muted);font-size:13px;text-align:center;margin-top:20px}
     <h3>새 기능이 안 보여요</h3><p>앱을 완전히 닫았다가 다시 열면 최신 버전이 돼요.</p>
     <h3>휴대폰을 바꿨어요</h3><p>같은 구글 계정으로 로그인하면 그대로 이어져요. 새 휴대폰에서 알림만 다시 켜 주세요.</p>
   </section>
+
+  <section id="updates">
+    <h2><span class="n">★</span>업데이트 기록</h2>
+    <div id="updList"><p>불러오는 중…</p></div>
+  </section>
+  <script>
+  fetch('upd/changes.json?t='+Date.now()).then(function(r){return r.json()}).then(function(a){
+    var esc=function(t){return String(t).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]})};
+    var by={},order=[];a.forEach(function(e){if(!by[e.date]){by[e.date]=[];order.push(e.date)}by[e.date]=by[e.date].concat(e.items||[])});
+    document.getElementById('updList').innerHTML=order.map(function(d){var p=d.split('-');
+      return '<h3>'+(+p[0])+'년 '+(+p[1])+'월 '+(+p[2])+'일</h3><ul>'+by[d].map(function(t){return '<li>'+esc(t)+'</li>'}).join('')+'</ul>'}).join('');
+  }).catch(function(){document.getElementById('updList').innerHTML='<p>지금은 불러올 수 없어요.</p>'});
+  </script>
 
   <footer>문의는 관리자에게 · 배전센터 근무표</footer>
 </div>

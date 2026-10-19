@@ -38,6 +38,9 @@ android {
         targetCompatibility JavaVersion.VERSION_17
     }
 
+    // 업데이트 내용(app/upd/changes.json)을 앱에도 넣어 '이번에 바뀐 점'을 보여줘요
+    sourceSets { main { assets.srcDirs += ['../../app/upd'] } }
+
     testOptions { unitTests { includeAndroidResources = true } }
 
     lint {

@@ -29,6 +29,7 @@
 - 규칙(firestore.rules)에 새 필드·컬렉션을 쓰면 허용했는지 확인.
 - 외부 설정이 필요한 변경(구글 클라우드·Firebase 콘솔)은 **먼저 설정 → 확인(tools/diag-auth.sh 등) → 그다음 코드 배포** 순서.
 - 갤럭시 앱(android/) 변경으로 **다시 설치가 필요하면 보고에 다운로드 링크를 꼭 함께**: https://github.com/junsury/baejeon-shift/releases/download/android/baejeon-shift.apk
+- 갤럭시 앱을 바꾸면 **`app/upd/changes.json` 맨 위에 쉬운 말 한두 줄**(새 id, 개인정보 없이) 추가 → 앱의 '새 버전이 있어요'·'이렇게 바뀌었어요' 창과 설명서 '업데이트 기록'에 나와요.
 - 사용자에게 보고할 땐: 무엇이 바뀌었는지, 사용자가 해야 할 일(앱 업데이트·새로고침), 실기기에서 확인 못 한 부분을 솔직하게.
 
 ## 자동 안전장치

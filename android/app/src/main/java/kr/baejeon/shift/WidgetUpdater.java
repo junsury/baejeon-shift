@@ -47,6 +47,7 @@ final class WidgetUpdater {
                 if (ShiftData.parse(body) == null) return false;
                 Store.setData(c, body);
                 try { ShiftSync.sync(c); } catch (Exception ignored) {}
+                try { Updater.check(c, false); } catch (Exception ignored) {}   // 새 버전 확인 (30분에 한 번)
                 Store.setUnlinked(c, false);
                 return true;
             }
