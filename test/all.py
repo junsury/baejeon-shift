@@ -11,7 +11,7 @@ CASES = {
   't_share_app.py': (1, ['done: {"status":"saved"}']),
   't_back.py': (1, ['back1 team month', 'back2 team day', 'acct closed True', 'flow back True', 'exit dialog 1', 'dialog gone True', 'exit again 1']),
   't_refresh.py': (1, ['appv=40 refresh calls 1 page alive True errs []', '?src=twa refresh calls 0 page alive True', ' refresh calls 0 page alive True']),
-  't_notif.py': (1, ['nothing-left closed True', 'pending-left closed False']),
+  't_notif.py': (0, ['nothing-left closed True', 'pending-left closed False']),
 }
 if os.environ.get('NET') == '1': CASES['t_png.py'] = (0, ['#pPng OK', '#pPdf OK', '#rpPng OK', '#rpPdf OK'])
 bad = []
