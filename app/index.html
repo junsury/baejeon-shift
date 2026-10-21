@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="ko"><head><script>window.APP_BUILD="1049254a7b"</script>
+<html lang="ko"><head><script>window.APP_BUILD="c9114b9fa6"</script>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>배전센터 근무표</title>
@@ -836,7 +836,7 @@ a.item.evlink{color:inherit;text-decoration:none}
     <div id="att-inbox" class="panel" style="padding-top:0" hidden>
       <div class="seg" role="group" aria-label="요청함 보기" id="ibSeg" style="margin-left:0;align-self:flex-start;flex-wrap:wrap">
         <button data-ib="in" aria-pressed="true" id="ibInBtn">받은 요청</button>
-        <button data-ib="out" aria-pressed="false">보낸 요청</button>
+        <button data-ib="out" aria-pressed="false" id="ibOutBtn">보낸 요청</button>
         <button data-ib="ok" aria-pressed="false">수락한 요청</button>
         <button data-ib="no" aria-pressed="false">거절한 요청</button>
       </div>
@@ -2525,7 +2525,7 @@ function renderRqSum(){
   const box=$('#rqSum');if(!box)return;if(!me||!byId(me)){box.innerHTML='';return}
   const inc=requests.filter(r=>r.to===me&&r.status==='pending'),sent=requests.filter(r=>r.from===me&&r.status==='pending');
   const res=myResults();
-  box.innerHTML=(res.length?'<button class="rqbox res" data-rqgo="in" style="grid-column:1/-1"><span>📬 내 요청 결과가 나왔어요</span><b>'+res.map(r=>r.status==='approved'?'✅ 승인':'❌ 거절').join(' · ')+'</b><small>눌러서 확인</small></button>':'')+'<button class="rqbox in'+(inc.length?' on':'')+'" data-rqgo="in"><span>📥 나에게 온 요청</span><b>'+inc.length+'건</b><small>'+(inc.length?'수락·거절을 눌러 주세요':'없어요')+'</small></button>'+
+  box.innerHTML=(res.length?'<button class="rqbox res" data-rqgo="out" style="grid-column:1/-1"><span>📬 내 요청 결과가 나왔어요</span><b>'+res.map(r=>r.status==='approved'?'✅ 승인':'❌ 거절').join(' · ')+'</b><small>눌러서 확인</small></button>':'')+'<button class="rqbox in'+(inc.length?' on':'')+'" data-rqgo="in"><span>📥 나에게 온 요청</span><b>'+inc.length+'건</b><small>'+(inc.length?'수락·거절을 눌러 주세요':'없어요')+'</small></button>'+
     '<button class="rqbox out'+(sent.length?' on':'')+'" data-rqgo="out"><span>📤 내가 보낸 요청</span><b>'+sent.length+'건</b><small>'+(sent.length?'상대 수락을 기다리는 중':'없어요')+'</small></button>';
 }
 $('#rqSum').addEventListener('click',e=>{const b=e.target.closest('[data-rqgo]');if(!b)return;ui.attTab='inbox';ui.ib=b.dataset.rqgo;render()});
@@ -2534,6 +2534,7 @@ function renderInbox(){
   document.querySelectorAll('#ibSeg [data-ib]').forEach(b=>b.setAttribute('aria-pressed',b.dataset.ib===ui.ib));
   $('#ibIn').hidden=ui.ib!=='in';$('#ibOut').hidden=ui.ib!=='out';$('#ibDone').hidden=!(ui.ib==='ok'||ui.ib==='no');
   const pn=pendingToMe().length;$('#ibInBtn').textContent='받은 요청'+(pn?' '+pn:'');
+  const rn=myResults().length;$('#ibOutBtn').textContent='보낸 요청'+(rn?' '+rn:'');
   if(me&&byId(me)){const ok=ui.ib==='ok';
     const done=requests.filter(r=>r.to===me&&r.status===(ok?'approved':'rejected')).sort((x,y)=>(y.decidedAt||y.createdAt)-(x.decidedAt||x.createdAt));
     $('#doneTitle').textContent=(ok?'수락한 요청 ':'거절한 요청 ')+done.length+'건';
@@ -2544,14 +2545,16 @@ function renderInbox(){
   const inc=pendingToMe().filter(r=>r.status==='pending').sort((x,y)=>x.createdAt-y.createdAt);
   $('#inTitle').textContent='받은 요청 '+inc.length+'건'+(notices.length?' · 알림 '+notices.length+'건':'');
   const noticeHtml=notices.map(r=>'<div class="item" style="flex-wrap:wrap"><span class="kind '+(r.canceled?'swap':'leave')+'">'+(r.canceled?'취소':'바뀜')+'</span><div class="t">'+reqDesc(r)+'<small>'+esc(nm(r.from))+(r.canceled?' 님이 이 근태를 취소했어요 · ':' 님이 구두 합의로 바로 반영했어요 · ')+new Date(r.createdAt).toLocaleDateString('ko-KR')+'</small>'+noteHtml(r)+'</div><button class="btn ghost" data-rq="'+r._id+'" data-act="seen">확인</button></div>').join('');
-  $('#inList').innerHTML=myResults().map(r=>resultCard(r,false)).join('')+noticeHtml+(inc.length?inc.map(r=>{
+  $('#inList').innerHTML=noticeHtml+(inc.length?inc.map(r=>{
     const errs=r.kind==='swap'?swapErrors(r.ev):leaveErrors(r.ev);
     let shape='';
     if(r.kind==='leave'&&r.ev.coverType==='cover'&&!errs.length){const sim=[...events,{...r.ev}];const sh=coverShape(r.to,dn(r.ev.date),r.ev.shift,sim);shape='<span class="mstrip">'+sh.strip+'</span>'+(sh.tag?'<span class="tag '+(sh.lvl===2?'미정':sh.lvl===1?'대근':'지원')+'">'+sh.tag+'</span>':'')}
     return '<div class="item" style="flex-wrap:wrap"><div class="t">'+reqDesc(r)+'<small>'+esc(nm(r.from))+' 님의 요청 · '+new Date(r.createdAt).toLocaleDateString('ko-KR')+'</small>'+noteHtml(r)+shape+errs.map(x=>'<div class="msg bad" style="margin-top:4px">✕ '+esc(x)+'</div>').join('')+'</div>'+
       '<span class="btns"><button class="btn" data-rq="'+r._id+'" data-act="ok"'+(errs.length?' disabled':'')+'>승인</button><button class="btn ghost" data-rq="'+r._id+'" data-act="no">거절</button></span></div>'}).join(''):(notices.length?'':'<p class="empty" style="margin:6px 0 0">기다리는 요청이 없어요.</p>'));
   const out=requests.filter(r=>r.from===me&&(r.status==='pending'||Date.now()-(r.decidedAt||r.createdAt)<30*864e5)).sort((x,y)=>y.createdAt-x.createdAt);
-  $('#outList').innerHTML=out.length?out.map(r=>'<div class="item'+(r.status==='pending'?' waiting':'')+'"><span class="kind '+(r.status==='approved'?'leave':'swap')+'">'+(r.status==='pending'?'⏳ 수락 대기':r.status==='withdrawn'?'회수함':r.canceled?'취소함':ST_NAME[r.status])+'</span><div class="t">'+reqDesc(r)+'<small>'+esc(nm(r.to))+' 님에게 · '+new Date(r.createdAt).toLocaleDateString('ko-KR')+(r.status==='notice'?(r.seen?' · 확인함':' · 아직 확인 안 함'):r.status==='withdrawn'?' · 상대방이 보기 전에 회수했어요':'')+'</small>'+(r.note?'<span class="rnote">'+esc(r.note)+'</span>':'')+'</div>'+(r.status==='pending'?'<button class="btn ghost" data-rq="'+r._id+'" data-act="cancel">요청 취소</button>':'')+'</div>').join(''):'<p class="empty" style="margin:6px 0 0">보낸 요청이 없어요.</p>';
+  const unseen=new Set(myResults().map(r=>r._id));
+  out.sort((x,y)=>(unseen.has(y._id)?1:0)-(unseen.has(x._id)?1:0));
+  $('#outList').innerHTML=out.length?out.map(r=>{const nw=unseen.has(r._id);return '<div class="item'+(r.status==='pending'?' waiting':'')+(nw?' res '+(r.status==='approved'?'ok':'no'):'')+'"'+(nw?' style="flex-wrap:wrap"':'')+'><span class="kind '+(r.status==='approved'?'leave':'swap')+'">'+(r.status==='pending'?'⏳ 수락 대기':r.status==='withdrawn'?'회수함':r.canceled?'취소함':ST_NAME[r.status])+'</span><div class="t">'+reqDesc(r)+'<small>'+esc(nm(r.to))+' 님에게 · '+new Date(r.createdAt).toLocaleDateString('ko-KR')+(r.status==='notice'?(r.seen?' · 확인함':' · 아직 확인 안 함'):r.status==='withdrawn'?' · 상대방이 보기 전에 회수했어요':'')+'</small>'+(r.note?'<span class="rnote">'+esc(r.note)+'</span>':'')+(nw?'<small style="font-weight:600;color:var(--fg)">'+(r.status==='approved'?'✅ 새 결과 · 승인되어 근무표에 반영됐어요':'❌ 새 결과 · 거절됐어요. 근무표는 그대로예요')+'</small>':'')+'</div>'+(r.status==='pending'?'<button class="btn ghost" data-rq="'+r._id+'" data-act="cancel">요청 취소</button>':'')+(nw?'<button class="btn ghost" data-rq="'+r._id+'" data-act="rseen">확인</button>':'')+'</div>'}).join(''):'<p class="empty" style="margin:6px 0 0">보낸 요청이 없어요.</p>';
 }
 async function onReq(e){
   const b=e.target.closest('[data-rq]');if(!b||b.disabled)return;const r=requests.find(x=>x._id===b.dataset.rq);if(!r)return;b.disabled=true;
@@ -2615,7 +2618,7 @@ $('#myLbl').onclick=()=>{ui.myDay=todayN;render()};
 $('#myBody').addEventListener('click',e=>{
   if(e.target.id==='pmSave'){const v=$('#pmemo').value.trim();e.target.blur();saveMemo(ds(ui.myDay),v);return}
   if(e.target.id==='pmDel'){saveMemo(ds(ui.myDay),'');return}
-  if(e.target.closest('[data-goinbox]')){ui.tab='attend';ui.attTab='inbox';render();return}
+  if(e.target.closest('[data-goinbox]')){ui.tab='attend';ui.attTab='inbox';ui.ib=pendingToMe().length||!myResults().length?'in':'out';render();return}
   const b=e.target.closest('[data-pick]');if(b){linkMe(b.dataset.pick);return}
   const d=e.target.closest('[data-day]');if(d){ui.myDay=+d.dataset.day;ui.myView='day';render()}});
 $('#teamSeg').addEventListener('click',e=>{const b=e.target.closest('[data-tv]');if(!b)return;ui.teamView=b.dataset.tv;render()});

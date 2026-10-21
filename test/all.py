@@ -7,7 +7,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 CASES = {
   'run.py': (4, []), 't_go.py': (4, []), 't_swap.py': (1, []), 't_swap2.py': (1, []), 't_history.py': (1, []),
   't_simple.py': (1, ['simple on: True', 'events 1 -> 2', '요청을 보냈어요']),
-  't_chain.py': (1, ['OK']), 't_print.py': (1, []), 't_pending.py': (1, ['after cancel rq: []', 'result card: 1', 'after rseen: 0 [True]']),
+  't_chain.py': (1, ['OK']), 't_print.py': (1, []), 't_pending.py': (1, ['detail result: outShown True outRes 1 inRes 0 btn 보낸 요청 1', 'after cancel rq: []', 'result card: 1', 'after rseen: 0 [True]']),
   't_share_app.py': (1, ['done: {"status":"saved"}']),
   't_back.py': (1, ['back1 team month', 'back2 team day', 'acct closed True', 'flow back True', 'exit dialog 1', 'dialog gone True', 'exit again 1']),
   't_refresh.py': (1, ['appv=40 refresh calls 1 page alive True errs []', '?src=twa refresh calls 0 page alive True', ' refresh calls 0 page alive True']),
