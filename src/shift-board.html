@@ -503,6 +503,19 @@ table.grid td.shiftday{box-shadow:inset 3px 0 0 var(--accent)}
 #simple .c{display:inline-flex;align-items:center;justify-content:center}
 /* 내 근무 */
 .sm-today{display:flex;flex-direction:column;gap:10px}
+/* 내 근무: 전 근무 | 오늘(같이 근무) | 다음 근무 */
+.sm-relay{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.3fr) minmax(0,1fr);gap:8px;align-items:stretch}
+.sm-fbx{border:1px solid var(--line);background:var(--sunk);border-radius:14px;padding:10px 6px 12px;display:flex;flex-direction:column;align-items:center;text-align:center;gap:6px;min-width:0}
+.sm-fbx .fh{font-size:13px;font-weight:700;color:var(--muted)}
+.sm-fbx .fs{font-size:16px;font-weight:800;color:var(--fg);line-height:1.25;word-break:keep-all}
+.sm-fbx .fj{font-size:12px;font-weight:700;color:var(--fg);background:var(--surface);border:1px solid var(--line);border-radius:999px;padding:1px 8px}
+.sm-fbx .fn{font-size:16px;font-weight:600;color:var(--fg);line-height:1.4;word-break:keep-all;margin-top:2px}
+.sm-fbx .fl{width:70%;height:1px;background:var(--line);margin:2px 0}
+.sm-fbx.me{background:var(--surface);border:2.5px solid var(--accent);padding:12px 6px}
+.sm-fbx.me>.c{min-width:60px;height:60px;border-radius:16px;font-size:28px;font-weight:900}
+.sm-fbx.me .fs{font-size:22px}
+.sm-fbx.me .fn{font-size:18px;font-weight:800}
+.sm-fbx .fc2{font-size:13px;font-weight:700;color:var(--cover)}
 .sm-date{font-size:17px;font-weight:700}
 .sm-shift{display:flex;align-items:center;gap:14px}
 .sm-shift>.c{min-width:72px;height:72px;border-radius:16px;font-size:30px;font-weight:900;flex:none}
@@ -2068,8 +2081,14 @@ function smMy(){
   const n=ui.sDay??todayN,c=dayCells(n)[me];const[t1,t2]=shiftLine(c);
   const s=myShifts(c);const mates=s.length?peopleOn(n,s[0],me).map(x=>x.name):[];
   const changed=c.tags.includes('변경')||c.tags.includes('대근');
-  let h='<div class="sm-card sm-today"><span class="sm-date'+(n===todayN?' red':'')+'">'+(n===todayN?'오늘 ':'')+fmtLong(n).replace(/^\d+년 /,'')+' ('+WD[dow(n)]+')</span>'+
-    '<div class="sm-shift">'+chip(c)+'<div><b>'+esc(t1)+'</b><span>'+esc(t2)+'</span>'+(mates.length?'<span>같이 <b class="fg">'+esc(mates.join(', '))+'</b>'+(changed?' · 바뀐 근무':'')+'</span>':'')+'</div></div>';
+  let h='<div class="sm-card sm-today"><span class="sm-date'+(n===todayN?' red':'')+'">'+(n===todayN?'오늘 ':'')+fmtLong(n).replace(/^\d+년 /,'')+' ('+WD[dow(n)]+')</span>';
+  if(s.length){const a=relay(n,s[0],me),z=relay(n,s[s.length-1],me);
+    const mt=s.map(x=>{const r=relay(n,x,me);return (s.length>1?(x==='주'?'주간 ':'야간 '):'')+(r.mates.length?names(r.mates):'혼자 근무')}).join('<br>');
+    const side=(hd,r,l,t,who)=>'<div class="sm-fbx"><span class="fh">'+hd+'</span><span class="fs">'+esc(l)+'</span>'+(t?'<span class="fj">'+t+'조</span>':'')+'<span class="fl"></span><span class="fn">'+names(who)+'</span></div>';
+    h+='<div class="sm-relay">'+side('전 근무',a,a.bl,a.bt,a.before)+
+      '<div class="sm-fbx me">'+chip(c)+'<span class="fs">'+esc(t1)+'</span>'+(changed?'<span class="fc2">바뀐 근무</span>':'')+'<span class="fl"></span><span class="fh">같이 근무</span><span class="fn">'+mt+'</span></div>'+
+      side('다음 근무',z,z.al,z.at,z.after)+'</div>';
+  }else h+='<div class="sm-shift">'+chip(c)+'<div><b>'+esc(t1)+'</b>'+(t2?'<span>'+esc(t2)+'</span>':'')+'</div></div>';
   h+=reqMarks(me,n).map(x=>'<div class="sm-rqline">⏳ '+esc(x.t.replace(/^\S+ /,''))+'</div>').join('');
   if(n===todayN){const c1=dayCells(n+1)[me];h+='<div class="sm-next"><span>내일</span>'+chip(c1)+'<b>'+esc(shiftLine(c1)[0])+'</b></div>'}
   else h+='<div class="sm-next"><button class="sm-link" data-s="today">← 오늘 근무 보기</button></div>';
