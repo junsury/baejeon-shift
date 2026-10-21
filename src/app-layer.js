@@ -254,11 +254,11 @@ function stopRoleData(){for(const u of roleUnsubs)try{u()}catch(e){}roleUnsubs=[
 function restartRoleData(){
   stopRoleData();
   const keep=u=>{roleUnsubs.push(u);return u};
-  requests=[];appUsers=[];claims={};famLinks=[];ownMemos={};memos={};
+  requests=[];appUsers=[];claims={};famLinks=[];ownMemos={};memos={};rqLoaded=false;usLoaded=false;
   const F=FB.F;
   if(!isFamily()){
-    keep(db.collection('requests').onSnapshot(s=>{requests=s.docs.map(x=>({_id:x.id,...x.data()}));dataChanged()}));
-    keep(db.collection('users').onSnapshot(s=>{const before=pendingUsers().length;appUsers=s.docs.map(x=>({uid:x.id,...x.data()}));dataChanged()}));
+    keep(db.collection('requests').onSnapshot(s=>{requests=s.docs.map(x=>({_id:x.id,...x.data()}));rqLoaded=true;dataChanged()}));
+    keep(db.collection('users').onSnapshot(s=>{const before=pendingUsers().length;appUsers=s.docs.map(x=>({uid:x.id,...x.data()}));usLoaded=true;dataChanged()}));
     keep(db.collection('claims').onSnapshot(s=>{claims={};s.docs.forEach(x=>claims[x.id]=x.data());checkPick();dataChanged()}));
     if(appUser.memberId)keep(F.onSnapshot(F.query(tcol('familyLinks'),F.where('by','==',uid)),s=>{famLinks=s.docs.map(x=>({token:x.id,...x.data()})).sort((a,b)=>b.at-a.at);renderAcct()},()=>{}));
   }
@@ -520,8 +520,20 @@ function applyRoleUI(){
   const pend=isAdmin?pendingUsers().length:0;const ta=$('#tabAdmin');
   if(ta)ta.innerHTML='관리'+(pend?'<span class="badge">'+pend+'</span>':'');
   const pb=$('#pendBar');if(pb){pb.hidden=!pend||viewerPreview;if(pend)pb.innerHTML='<span>가입 승인을 기다리는 사람이 <b>'+pend+'명</b> 있어요.</span><button class="link" id="goPend">승인하러 가기</button>'}
+  clearDoneNotifs(pend);
 }
 $('#pendBar').addEventListener('click',e=>{if(e.target.id==='goPend'){ui.tab='admin';ui.adminTab='set';render();setTimeout(()=>{const c=$('#linkCard');c&&c.scrollIntoView({behavior:'smooth',block:'start'})},50)}});
+/* 확인할 게 하나도 안 남으면 알림 창의 근무표 알림을 지워요 → 갤럭시 앱 아이콘 숫자도 사라짐 */
+let cnT=0,rqLoaded=false,usLoaded=false;
+function clearDoneNotifs(adminPend){
+  try{if(document.hidden||Date.now()-cnT<1500||!rqLoaded||!me||isFamily()||(isAdmin&&!usLoaded))return;
+    if((typeof attCount==='function'?attCount():0)+(adminPend||0)>0)return;
+    cnT=Date.now();
+    if(!('serviceWorker' in navigator))return;
+    navigator.serviceWorker.getRegistration().then(r=>r&&r.getNotifications?r.getNotifications():[]).then(ns=>{(ns||[]).forEach(n=>{try{n.close()}catch(e){}})}).catch(()=>{});
+    try{navigator.clearAppBadge&&navigator.clearAppBadge()}catch(e){}
+  }catch(e){}
+}
 /* 알림을 눌러 들어오면 해당 화면으로 (?go=inbox|admin), 앱을 열면 아이콘 숫자 지우기 */
 (()=>{
   const go=new URLSearchParams(location.search).get('go');
@@ -531,7 +543,7 @@ $('#pendBar').addEventListener('click',e=>{if(e.target.id==='goPend'){ui.tab='ad
   else if(go==='team-day'||go==='team-month'){const q=new URLSearchParams(location.search).get('d');const n=/^\d{4}-\d\d-\d\d$/.test(q||'')?dn(q):todayN;ui.tab='team';ui.teamView=go.slice(5);ui.day=n;ui.ym=monthOf(n);ui.stab='sheet';ui.sScrollToday=true;try{boardSel=null}catch(e){}}
   if(go)history.replaceState(null,'',location.pathname);
   const clear=()=>{try{navigator.clearAppBadge&&navigator.clearAppBadge()}catch(e){}};
-  clear();document.addEventListener('visibilitychange',()=>{if(!document.hidden)clear()});
+  clear();document.addEventListener('visibilitychange',()=>{if(!document.hidden){clear();cnT=0;clearDoneNotifs(isAdmin?pendingUsers().length:0)}});
 })();
 /* 메인관리자: 아티팩트 데이터 가져오기 (팀을 이미 만든 뒤에도) */
 $('#importRun').onclick=async()=>{
