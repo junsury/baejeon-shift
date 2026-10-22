@@ -524,13 +524,17 @@ function applyRoleUI(){
 }
 $('#pendBar').addEventListener('click',e=>{if(e.target.id==='goPend'){ui.tab='admin';ui.adminTab='set';render();setTimeout(()=>{const c=$('#linkCard');c&&c.scrollIntoView({behavior:'smooth',block:'start'})},50)}});
 /* 확인할 게 하나도 안 남으면 알림 창의 근무표 알림을 지워요 → 갤럭시 앱 아이콘 숫자도 사라짐 */
-let cnT=0,rqLoaded=false,usLoaded=false;
+let cnT=0,cnI=0,rqLoaded=false,usLoaded=false;
 function clearDoneNotifs(adminPend){
-  try{if(document.hidden||Date.now()-cnT<1500||!rqLoaded||!me||isFamily()||(isAdmin&&!usLoaded))return;
+  try{if(document.hidden||!('serviceWorker' in navigator))return;
+    const getN=()=>navigator.serviceWorker.getRegistration().then(r=>r&&r.getNotifications?r.getNotifications():[]);
+    /* 안내 알림(내일 근무·시험)은 앱을 보면 바로 지워요 */
+    if(Date.now()-cnI>1500){cnI=Date.now();getN().then(ns=>{(ns||[]).forEach(n=>{if(n.tag==='tomorrow'||/^test-/.test(n.tag||''))try{n.close()}catch(e){}})}).catch(()=>{})}
+    /* 요청 관련 알림은 앱에서 확인할 게 하나도 안 남았을 때 */
+    if(Date.now()-cnT<1500||!rqLoaded||!me||isFamily()||(isAdmin&&!usLoaded))return;
     if((typeof attCount==='function'?attCount():0)+(adminPend||0)>0)return;
     cnT=Date.now();
-    if(!('serviceWorker' in navigator))return;
-    navigator.serviceWorker.getRegistration().then(r=>r&&r.getNotifications?r.getNotifications():[]).then(ns=>{(ns||[]).forEach(n=>{try{n.close()}catch(e){}})}).catch(()=>{});
+    getN().then(ns=>{(ns||[]).forEach(n=>{try{n.close()}catch(e){}})}).catch(()=>{});
     try{navigator.clearAppBadge&&navigator.clearAppBadge()}catch(e){}
   }catch(e){}
 }
@@ -543,7 +547,7 @@ function clearDoneNotifs(adminPend){
   else if(go==='team-day'||go==='team-month'){const q=new URLSearchParams(location.search).get('d');const n=/^\d{4}-\d\d-\d\d$/.test(q||'')?dn(q):todayN;ui.tab='team';ui.teamView=go.slice(5);ui.day=n;ui.ym=monthOf(n);ui.stab='sheet';ui.sScrollToday=true;try{boardSel=null}catch(e){}}
   if(go)history.replaceState(null,'',location.pathname);
   const clear=()=>{try{navigator.clearAppBadge&&navigator.clearAppBadge()}catch(e){}};
-  clear();document.addEventListener('visibilitychange',()=>{if(!document.hidden){clear();cnT=0;clearDoneNotifs(isAdmin?pendingUsers().length:0)}});
+  clear();document.addEventListener('visibilitychange',()=>{if(!document.hidden){clear();cnT=0;cnI=0;clearDoneNotifs(isAdmin?pendingUsers().length:0)}});
 })();
 /* 메인관리자: 아티팩트 데이터 가져오기 (팀을 이미 만든 뒤에도) */
 $('#importRun').onclick=async()=>{
