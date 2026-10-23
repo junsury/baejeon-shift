@@ -1628,13 +1628,10 @@ function renderSwRecv(){
   box.hidden=!recv;if(!recv)return;
   const rv=ui.rv||(ui.rv={});const x=swRecvWho();
   if(!x){box.innerHTML='<p class="note" style="margin:0">위에서 근무를 받을 사람을 먼저 고르세요.</p>';return}
-  const ym=rv.ym||monthOf(todayN);rv.ym=ym;const[a,b]=monthRange(ym);
-  let h='<div class="st"><i>1</i>받고 싶은 날'+(x!==me||ui.attTab!=='req'?' ('+esc(nm(x))+' 기준)':'')+'</div><div class="rvc"><div class="rvh"><button type="button" data-rvym="-1" aria-label="이전 달">‹</button><b>'+ym.y+'년 '+(ym.m+1)+'월</b><button type="button" data-rvym="1" aria-label="다음 달">›</button></div>';
-  h+='<div class="rvwd">'+WD.map((w,i)=>'<span class="'+(i===0?'red':i===6?'blue':'')+'">'+w+'</span>').join('')+'</div><div class="rvg">';
-  for(let k=a-dow(a);k<a;k++)h+='<span class="rvd blank"></span>';
-  for(let k=a;k<b;k++){const c=dayCells(k)[x];const can=!!c&&c.code!=='없'&&!working(c)&&(ui.attTab!=='req'||k>=todayN);const hol=holidays.has(ds(k))||dow(k)===0,sat=!hol&&dow(k)===6;
-    h+='<button type="button" class="rvd '+(can?'ok':'no')+(k===todayN?' today':'')+(rv.n===k?' sel':'')+'"'+(can?' data-rvd="'+k+'"':' disabled')+'><span class="'+(hol?'red':sat?'blue':'')+'">'+new Date(k*864e5).getUTCDate()+'</span>'+chip(c)+'</button>'}
-  h+='</div></div><p class="note" style="margin:-2px 0 0">진한 날: '+esc(nm(x))+' 님이 쉬는 날이라 근무를 받을 수 있어요.</p>';
+  const ym=rv.ym||monthOf(todayN);rv.ym=ym;
+  let h='<div class="st"><i>1</i>받고 싶은 날'+(x!==me||ui.attTab!=='req'?' ('+esc(nm(x))+' 기준)':'')+'</div>';
+  h+=rvCal(ym,k=>{const c=dayCells(k)[x];return !!c&&c.code!=='없'&&!working(c)&&(ui.attTab!=='req'||k>=todayN)},rv.n,'rvd','rvym',x);
+  h+='<p class="note" style="margin:-2px 0 0">진한 날: '+esc(nm(x))+' 님이 쉬는 날이라 근무를 받을 수 있어요.</p>';
   if(rv.n!=null){const n=rv.n;
     const cnt=s=>swRecvPeople(n,s,x).filter(p=>p.opts.length).length;
     if(!rv.s)rv.s=cnt('주')||!cnt('야')?'주':'야';
@@ -1644,9 +1641,21 @@ function renderSwRecv(){
     h+=ps.length?ps.map(({m,opts})=>'<button type="button" class="p'+(rv.who===m.id?' sel':'')+'"'+(opts.length?' data-rvw="'+m.id+'"':' disabled')+'><span><b>'+esc(m.name)+'</b><small>'+(opts.length?'대신 줄 수 있는 '+esc(nm(x))+' 님 날짜 '+opts.length+'개':'바꿀 수 있는 날이 없어요 (같은 근무 날짜·근무시간 규칙)')+'</small></span><span class="tag">'+(opts.length?'가능':'안 돼요')+'</span></button>').join(''):'<p class="note" style="margin:0">그날 '+(rv.s==='주'?'주간':'야간')+' 근무자가 없어요.</p>';
     h+='</div>';
     const sel=rv.who&&ps.find(p=>p.m.id===rv.who&&p.opts.length);
-    if(sel){h+='<div class="st"><i>4</i>'+esc(sel.m.name)+' 님에게 대신 줄 '+esc(nm(x))+' 님 '+(rv.s==='주'?'주간':'야간')+'</div><div class="dates">'+sel.opts.map(k=>'<button type="button" data-rvm="'+k+'" aria-pressed="'+(rv.my===k)+'">'+chip(dayCells(k)[x])+fmt(k)+'</button>').join('')+'</div>'}
+    if(sel){const okS=new Set(sel.opts);if(!rv.ym4)rv.ym4=monthOf(rv.my??sel.opts[0]);
+      h+='<div class="st"><i>4</i>'+esc(sel.m.name)+' 님에게 대신 줄 '+esc(nm(x))+' 님 '+(rv.s==='주'?'주간':'야간')+'</div>';
+      h+=rvCal(rv.ym4,k=>okS.has(k),rv.my,'rvm','rvym4',x);
+      h+='<p class="note" style="margin:-2px 0 0">진한 날: 바꿀 수 있는 날 ('+sel.opts.length+'일) · 다른 달은 ‹ › 로 넘겨 보세요'+(rv.my!=null?' · 고른 날: <b>'+fmt(rv.my)+'</b>':'')+'</p>'}
   }
   box.innerHTML=h;
+}
+/* 근무변경 달력 (한 달씩): ok(k)인 날만 누를 수 있어요 */
+function rvCal(ym,ok,sel,attr,nav,x){const[a,b]=monthRange(ym);
+  let h='<div class="rvc"><div class="rvh"><button type="button" data-'+nav+'="-1" aria-label="이전 달">‹</button><b>'+ym.y+'년 '+(ym.m+1)+'월</b><button type="button" data-'+nav+'="1" aria-label="다음 달">›</button></div>';
+  h+='<div class="rvwd">'+WD.map((w,i)=>'<span class="'+(i===0?'red':i===6?'blue':'')+'">'+w+'</span>').join('')+'</div><div class="rvg">';
+  for(let k=a-dow(a);k<a;k++)h+='<span class="rvd blank"></span>';
+  for(let k=a;k<b;k++){const c=dayCells(k)[x];const can=ok(k);const hol=holidays.has(ds(k))||dow(k)===0,sat=!hol&&dow(k)===6;
+    h+='<button type="button" class="rvd '+(can?'ok':'no')+(k===todayN?' today':'')+(sel===k?' sel':'')+'"'+(can?' data-'+attr+'="'+k+'"':' disabled')+'><span class="'+(hol?'red':sat?'blue':'')+'">'+new Date(k*864e5).getUTCDate()+'</span>'+chip(c)+'</button>'}
+  return h+'</div></div>';
 }
 function swRecvFill(){
   const rv=ui.rv||{},x=swRecvWho();
@@ -1658,13 +1667,14 @@ function swRecvFill(){
   swapGate();dpLabel('sADate');dpLabel('sBDate');updateSwap();
 }
 $('#swapForm').addEventListener('click',e=>{
-  const t=e.target.closest('[data-swm],[data-rvym],[data-rvd],[data-rvs],[data-rvw],[data-rvm]');if(!t||t.disabled)return;
+  const t=e.target.closest('[data-swm],[data-rvym],[data-rvym4],[data-rvd],[data-rvs],[data-rvw],[data-rvm]');if(!t||t.disabled)return;
   const rv=ui.rv||(ui.rv={});
   if(t.dataset.swm){ui.swm=t.dataset.swm;ui.rv={};if(ui.attTab==='req')$('#sA').value=me||'';swRecvFill()}
   else if(t.dataset.rvym){rv.ym=shiftMonth(rv.ym||monthOf(todayN),+t.dataset.rvym)}
-  else if(t.dataset.rvd){rv.n=+t.dataset.rvd;rv.s=null;rv.who=null;rv.my=null;swRecvFill()}
-  else if(t.dataset.rvs){rv.s=t.dataset.rvs;rv.who=null;rv.my=null;swRecvFill()}
-  else if(t.dataset.rvw){rv.who=t.dataset.rvw;rv.my=null;swRecvFill()}
+  else if(t.dataset.rvym4){rv.ym4=shiftMonth(rv.ym4||monthOf(todayN),+t.dataset.rvym4)}
+  else if(t.dataset.rvd){rv.n=+t.dataset.rvd;rv.s=null;rv.who=null;rv.my=null;rv.ym4=null;swRecvFill()}
+  else if(t.dataset.rvs){rv.s=t.dataset.rvs;rv.who=null;rv.my=null;rv.ym4=null;swRecvFill()}
+  else if(t.dataset.rvw){rv.who=t.dataset.rvw;rv.my=null;rv.ym4=null;swRecvFill()}
   else if(t.dataset.rvm){rv.my=+t.dataset.rvm;swRecvFill();renderSwRecv();const r=$('#sResult');if(r)r.scrollIntoView({behavior:'smooth',block:'center'});return}
   renderSwRecv();
 });
