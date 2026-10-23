@@ -15,8 +15,8 @@ const PATTERN=['주','주','휴','야','야','비','휴','휴'];
   function teamAt(m,n){let t={team:m.team,role:m.role};for(const a of assignments){if(dn(a.date)>n)break;if(a.teams&&a.teams[m.id])t=a.teams[m.id]}return t}
   const present=(m,n)=>(!m.joinDate||n>=dn(m.joinDate))&&(!m.leaveDate||n<dn(m.leaveDate));
   const isWorkday=n=>{const w=dow(n);return w>0&&w<6&&!holidays.has(ds(n))};
-  function dayCells(n,evs){
-    const key=n;
+  function rawCells(n,evs){
+    const key='r'+n;
     if(!evs&&cache.has(key))return cache.get(key);
     const list=(evs||events).filter(e=>touches(e,n)).sort((a,b)=>(a.createdAt||0)-(b.createdAt||0));
     const res={};
@@ -43,6 +43,17 @@ const PATTERN=['주','주','휴','야','야','비','휴','휴'];
       if(e.coverType==='cover'&&res[e.coverId]){const c=res[e.coverId];res[e.coverId]={...c,cover:e.shift,tags:[...c.tags,'대근'],for:e.memberId}}
     }
     if(!evs)cache.set(key,res);
+    return res;
+  }
+  function dayCells(n,evs){
+    if(!evs&&cache.has(n))return cache.get(n);
+    const raw=rawCells(n,evs),prev=rawCells(n-1,evs),res={};
+    for(const id in raw){const c=raw[id],p=prev[id];let x=c;
+      if(p){const night=hasShift(p,'야');
+        if(c.code==='비'&&!night)x={...c,code:'휴'};
+        else if(c.code==='휴'&&night&&!c.tags.length&&!c.gave)x={...c,code:'비'}}
+      res[id]=x}
+    if(!evs)cache.set(n,res);
     return res;
   }
   function touches(e,n){return e.type==='swap'?(dn(e.aDate)===n||dn(e.bDate)===n):dn(e.date)===n}

@@ -163,7 +163,7 @@ footer{color:var(--muted);font-size:13px;text-align:center;margin-top:20px}
       <tr><th>근태</th><td><b>휴가 쓰기 · 근무 바꾸기 · TSO 근무지원 요청</b>. 받은 요청 · 보낸 요청도 여기서 봐요</td></tr>
       <tr><th>요약</th><td>내 야간 횟수 · 야간수당 시간 · 대근수당 시간 (급여 기간 16일~15일)</td></tr>
     </table>
-    <div class="tip">간단히 보기의 근태는 <b>날짜 고르기 → 사람 고르기(규칙에 맞는 사람만 나와요) → [바로 반영]</b> 세 번이면 끝나요. 이미 말로 합의했으면 <b>[바로 반영 (이미 얘기했어요)]</b>, 상대 수락을 받으려면 <b>[요청 보내고 수락 기다리기]</b>.</div>
+    <div class="tip">간단히 보기의 근태는 <b>날짜 고르기(달력, 위아래로 넘기며 이번 달부터 7달 · [오늘로 가기]) → 사람 고르기(규칙에 맞는 사람만 나와요) → [바로 반영]</b> 세 번이면 끝나요. 이미 말로 합의했으면 <b>[바로 반영 (이미 얘기했어요)]</b>, 상대 수락을 받으려면 <b>[요청 보내고 수락 기다리기]</b>.</div>
   </section>
 
   <section id="screens">
@@ -182,7 +182,7 @@ footer{color:var(--muted);font-size:13px;text-align:center;margin-top:20px}
     <div class="legend">
       <span><b class="c c-주">주</b>주간 08–18</span>
       <span><b class="c c-야">야</b>야간 18–다음날 08</span>
-      <span><b class="c c-비">비</b>비번 (야간 다음 날)</span>
+      <span><b class="c c-비">비</b>비번 (전날 실제로 야간을 한 날)</span>
       <span><b class="c c-휴">휴</b>휴무</span>
       <span><b class="c c-연">휴가</b>휴가</span>
       <span><b class="c c-T">T</b>TSO 08–17</span>
@@ -192,6 +192,7 @@ footer{color:var(--muted);font-size:13px;text-align:center;margin-top:20px}
       <span><b class="c c-24">주야</b>주간+야간 24시간</span>
     </div>
     <p style="margin:6px 0 0;font-size:14px;color:var(--muted)">근무자 목록에서 <b style="color:var(--cover)">주황 굵은 이름</b>은 원래 근무자가 아니라 대근 · 변경으로 들어온 사람이에요.</p>
+    <p style="margin:6px 0 0;font-size:14px;color:var(--muted)"><b>비번</b>은 전날 실제로 야간을 했을 때만 붙어요. 야간을 휴가 · 근무변경으로 빼면 다음 날은 <b>휴</b>, 남의 야간을 대신 하면 쉬는 다음 날이 <b>비</b>가 돼요.</p>
   </section>
 
   <section id="leave">
@@ -208,11 +209,12 @@ footer{color:var(--muted);font-size:13px;text-align:center;margin-top:20px}
   <section id="swap">
     <h2><span class="n">8</span>근무변경 (맞교환)</h2>
     <ol class="steps">
-      <li><b>근태 → 신청 → 근무변경</b>에서 내 근무 날짜를 골라요</li>
+      <li><b>근태 → 신청 → 근무변경</b>에서 <b>[내 근무 넘겨주기]</b>를 고르고 내 근무 날짜를 골라요</li>
       <li>바꿀 사람과 그 사람의 근무 날짜를 골라요 (주간↔주간, 야간↔야간만)</li>
       <li><b>요청 보내기</b> → 상대가 승인하면 반영 (구두 합의 체크도 가능)</li>
       <li>내 날짜를 고르면 <b>그날 바꿀 수 있는 사람만</b>, 사람을 고르면 <b>바꿀 수 있는 날만</b> 나와요 (오늘부터 6달까지)</li>
     </ol>
+    <div class="tip"><b>받고 싶은 날이 정해져 있으면 [이 날 근무 받기]</b>: 달력에서 받고 싶은 날 → 주간/야간 → 그날 근무자 중 바꿀 수 있는 사람 → 대신 줄 내 날짜 순서로 고르면 돼요. 그날 누가 근무인지 따로 찾아볼 필요가 없어요.</div>
   </section>
 
   <section id="inbox">

@@ -17,7 +17,7 @@ def generate(src: str):
         line('const DEFAULT_HOLIDAYS='), line('const WD='),
         line('const dn='), line('const ds='), line('const dow='), line('const mod='),
         line('function teamAt('), line('const present='), line('const isWorkday='),
-        block('function dayCells('), line('function touches('), line('const tmin='), line('function hasShift('),
+        block('function rawCells('), block('function dayCells('), line('function touches('), line('const tmin='), line('function hasShift('),
     ]
     body = '\n'.join(parts)
     out = ('// 자동 생성 파일 — 고치지 마세요. build.py가 src/shift-board.html의 근무 계산 코드를 복사해 만들어요.\n'

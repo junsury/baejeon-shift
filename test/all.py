@@ -12,6 +12,7 @@ CASES = {
   't_back.py': (1, ['back1 team month', 'back2 team day', 'acct closed True', 'flow back True', 'exit dialog 1', 'dialog gone True', 'exit again 1']),
   't_refresh.py': (1, ['appv=40 refresh calls 1 page alive True errs []', '?src=twa refresh calls 0 page alive True', ' refresh calls 0 page alive True']),
   't_notif.py': (0, ['nothing-left closed True info True', 'pending-left closed False info True']),
+  't_swaprecv.py': (1, ['give rows hidden True', 'result ok 1 save enabled True', 'swap req 1 True']),
 }
 if os.environ.get('NET') == '1': CASES['t_png.py'] = (0, ['#pPng OK', '#pPdf OK', '#rpPng OK', '#rpPdf OK'])
 bad = []
