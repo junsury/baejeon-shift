@@ -13,6 +13,7 @@ CASES = {
   't_refresh.py': (1, ['appv=40 refresh calls 1 page alive True errs []', '?src=twa refresh calls 0 page alive True', ' refresh calls 0 page alive True']),
   't_notif.py': (0, ['nothing-left closed True info True', 'pending-left closed False info True']),
   't_swaprecv.py': (1, ['give rows hidden True', 'result ok 1 save enabled True', 'swap req 1 True']),
+  't_twa.py': (0, ['appv add btn True', 'remembered 1', 'remembered-android add btn True', 'plain-pc add btn False']),
 }
 if os.environ.get('NET') == '1': CASES['t_png.py'] = (0, ['#pPng OK', '#pPdf OK', '#rpPng OK', '#rpPdf OK'])
 bad = []
