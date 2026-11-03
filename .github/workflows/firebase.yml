@@ -52,7 +52,7 @@ jobs:
       - uses: actions/setup-node@v4
         if: env.SA != ''
         with:
-          node-version: 20
+          node-version: 22
       - name: 알림 서버 준비
         if: env.SA != ''
         run: cd functions && npm install --no-audit --no-fund
