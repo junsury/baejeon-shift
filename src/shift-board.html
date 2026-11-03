@@ -1057,33 +1057,72 @@ const present=(m,n)=>(!m.joinDate||n>=dn(m.joinDate))&&(!m.leaveDate||n<dn(m.lea
 const isWorkday=n=>{const w=dow(n);return w>0&&w<6&&!holidays.has(ds(n))};
 
 /* ---------- 근무 계산 ---------- */
+/* 하루 근무 계산: 근태(근무변경·휴가·대근)를 등록한 순서대로 '근무 자리'(주간·야간)에 층층이 쌓아요.
+   자리마다 원래 주인 → 넘겨받은 사람 → (휴가면) 대근자 순서로 기록(hist)이 남고, 마지막 사람이 실제 근무자예요. */
 function rawCells(n,evs){
   const key='r'+n;
   if(!evs&&cache.has(key))return cache.get(key);
-  const list=(evs||events).filter(e=>touches(e,n)).sort((a,b)=>(a.createdAt||0)-(b.createdAt||0));
-  const res={};
+  const list=(evs||events).filter(e=>touches(e,n)).map((e,i)=>[e,i]).sort((x,y)=>((x[0].createdAt||0)-(y[0].createdAt||0))||(x[1]-y[1])).map(x=>x[0]);
+  const base={},toks=[],res={};
   for(const m of members){
-    if(!present(m,n)){res[m.id]={code:'없',cover:null,tags:[]};continue}
-    if(m.role==='TSO')res[m.id]={code:isWorkday(n)?'T':'휴',cover:null,tags:[]};
-    else{const t=teamAt(m,n).team;if(!t){res[m.id]={code:'없',cover:null,tags:[]};continue}let code=PATTERN[mod(REF_POS[t]+n-dn(REF),8)];
-      if(code==='비'&&teamAt(m,n-1).team!==t)code='휴';   // 조가 바뀐 날엔 전날 야간을 안 했으니 비번이 아님
-      res[m.id]={code,cover:null,tags:[]}}
+    if(!present(m,n)){base[m.id]='없';continue}
+    if(m.role==='TSO'){base[m.id]=isWorkday(n)?'T':'휴';continue}
+    const t=teamAt(m,n).team;if(!t){base[m.id]='없';continue}
+    let code=PATTERN[mod(REF_POS[t]+n-dn(REF),8)];
+    if(code==='비'&&teamAt(m,n-1).team!==t)code='휴';   // 조가 바뀐 날엔 전날 야간을 안 했으니 비번이 아님
+    base[m.id]=code;
+    if(code==='주'||code==='야')toks.push({s:code,orig:m.id,holder:m.id,via:null,hist:[]});
   }
-  for(const e of list)if(e.type==='swap'){
-    if(dn(e.aDate)===n)give(e.aId,e.bId,e.shift,dn(e.bDate));
-    if(dn(e.bDate)===n)give(e.bId,e.aId,e.shift,dn(e.aDate));
+  const tsoSt={};   // TSO: 휴가·시간휴가·근무지원
+  const take=(who,sh)=>toks.find(k=>k.holder===who&&k.s===sh&&k.via!=='cover')||toks.find(k=>k.holder===who&&k.s===sh);
+  for(const e of list){
+    if(e.type==='swap'){
+      for(const[from,to,other]of[[e.aId,e.bId,e.bDate],[e.bId,e.aId,e.aDate]]){
+        if(dn(from===e.aId?e.aDate:e.bDate)!==n)continue;
+        let k=take(from,e.shift);
+        if(!k){k={s:e.shift,orig:from,holder:from,via:null,hist:[],ghost:true};toks.push(k)}   // 넘겨줄 근무가 없던 기록(옛 데이터)도 그대로 보여주기
+        k.hist.push({t:'swap',from,to,od:dn(other),ev:e._id});k.holder=to;k.via='swap';k.with=from;k.withDate=dn(other);
+      }
+    }else if(e.type==='leave'){
+      const mm=members.find(x=>x.id===e.memberId),isTso=!!mm&&mm.role==='TSO';
+      if(e.leaveType==='시간'||isTso){(tsoSt[e.memberId]=tsoSt[e.memberId]||[]).push(e);continue}
+      let k=take(e.memberId,e.shift);
+      if(!k){k={s:e.shift,orig:e.memberId,holder:e.memberId,via:null,hist:[],ghost:true};toks.push(k)}
+      const to=e.coverType==='cover'||e.coverType==='tso'?(e.coverId||null):null;
+      k.hist.push({t:'leave',from:e.memberId,to,ct:e.coverType,lt:e.leaveType,ev:e._id});k.holder=to;k.via=to?(e.coverType==='tso'?'tso':'cover'):null;k.for=e.memberId;
+    }
   }
-  function give(from,to,shift,other){
-    if(res[from])res[from]={code:'휴',cover:null,tags:['변경'],gave:shift,gaveTo:to,gaveDate:other,with:to,withDate:other};
-    // 같은 날 내 근무를 넘겨주고 다른 사람 근무를 받아온 경우(연쇄 변경): 넘겨준 기록도 남겨 편성표에 둘 다 보이게
-    if(res[to]){const p=res[to];res[to]={code:shift,cover:null,tags:['변경'],with:from,withDate:other,...(p.gave?{gave:p.gave,gaveTo:p.gaveTo,gaveDate:p.gaveDate}:{})}}
+  for(const m of members){
+    const id=m.id,b=base[id];
+    if(b==='없'){res[id]={code:'없',cover:null,tags:[]};continue}
+    if(m.role==='TSO'){
+      let c={code:b,cover:null,tags:[]};
+      const sup=toks.find(k=>k.holder===id&&k.via==='tso');
+      if(sup)c={code:'지원',cover:null,tags:['지원'],for:sup.for};
+      for(const e of tsoSt[id]||[]){
+        if(e.leaveType==='시간'){if(c.code==='T'){const dur=tmin(e.to)-tmin(e.from);c={...c,tags:[...c.tags,'시간휴가'],part:{from:e.from,to:e.to},minus:Math.max(0,dur)/60}}}
+        else c={code:'연',cover:null,tags:[],was:e.shift,by:e.coverId||null,byType:e.coverType,leaveType:e.leaveType};
+      }
+      res[id]=c;continue}
+    const held=toks.filter(k=>k.holder===id&&k.via!=='cover'),cov=toks.filter(k=>k.holder===id&&k.via==='cover');
+    const steps=[];for(const k of toks)k.hist.forEach((h,i)=>{if(h.from===id)steps.push({...h,s:k.s,k,i})});
+    steps.sort((x,y)=>list.findIndex(e=>e._id===x.ev)-list.findIndex(e=>e._id===y.ev));
+    const gave=steps.find(x=>x.t==='swap'),lv=steps.filter(x=>x.t==='leave').pop();
+    let c;
+    if(held.length){const k=held.find(x=>x.s==='주')||held[0];
+      c={code:k.s,cover:null,tags:[]};
+      if(k.via==='swap'){c.tags.push('변경');c.with=k.with;c.withDate=k.withDate}
+      if(gave){if(!c.tags.includes('변경'))c.tags.push('변경');c.gave=gave.s;c.gaveTo=gave.to;c.gaveDate=gave.od;if(c.with==null){c.with=gave.to;c.withDate=gave.od}}
+      if(held.length>1){const k2=held.find(x=>x!==k);c.extra=k2.s}
+      if(lv)c.lv={s:lv.s,by:lv.to,byType:lv.ct,leaveType:lv.lt};
+    }else if(lv){c={code:'연',cover:null,tags:[],was:lv.s,by:lv.to||null,byType:lv.ct,leaveType:lv.lt}}
+    else if(gave){c={code:'휴',cover:null,tags:['변경'],gave:gave.s,gaveTo:gave.to,gaveDate:gave.od,with:gave.to,withDate:gave.od}}
+    else c={code:(b==='주'||b==='야')?'휴':b,cover:null,tags:[]};
+    if(cov.length){c.cover=cov[0].s;c.tags=[...c.tags,'대근'];c.for=cov[0].for}
+    if(steps.length+held.filter(k=>k.via).length+cov.length>1)c.stack=true;
+    res[id]=c;
   }
-  for(const e of list)if(e.type==='leave'){
-    if(e.leaveType==='시간'){const r=res[e.memberId];if(r&&r.code==='T'){const dur=tmin(e.to)-tmin(e.from);res[e.memberId]={...r,tags:[...r.tags,'시간휴가'],part:{from:e.from,to:e.to},minus:Math.max(0,dur)/60}}continue}
-    if(res[e.memberId])res[e.memberId]={code:'연',cover:null,tags:[],was:e.shift,by:e.coverId||null,byType:e.coverType,leaveType:e.leaveType};
-    if(e.coverType==='tso'&&res[e.coverId])res[e.coverId]={code:'지원',cover:null,tags:['지원'],for:e.memberId};
-    if(e.coverType==='cover'&&res[e.coverId]){const c=res[e.coverId];res[e.coverId]={...c,cover:e.shift,tags:[...c.tags,'대근'],for:e.memberId}}
-  }
+  Object.defineProperty(res,'__toks',{value:toks});
   if(!evs)cache.set(key,res);
   return res;
 }
@@ -1091,6 +1130,7 @@ function rawCells(n,evs){
 function dayCells(n,evs){
   if(!evs&&cache.has(n))return cache.get(n);
   const raw=rawCells(n,evs),prev=rawCells(n-1,evs),res={};
+  Object.defineProperty(res,'__toks',{value:raw.__toks});
   for(const id in raw){const c=raw[id],p=prev[id];let x=c;
     if(p){const night=hasShift(p,'야');
       if(c.code==='비'&&!night)x={...c,code:'휴'};
