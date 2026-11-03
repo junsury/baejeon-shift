@@ -410,6 +410,7 @@ $('#acct').addEventListener('click',async e=>{
       location.href='intent://link?t='+tok+'#Intent;scheme=baejeonshift;package=kr.baejeon.shift;end';b.disabled=false}
     else if(b.dataset.ac==='widgetOff'){if(confirm('이 계정과 연결된 갤럭시 위젯을 모두 끊을까요? 위젯에 "연결이 끊겼어요"가 떠요.')){const old=await F.getDocs(F.query(tcol('widgetLinks'),F.where('by','==',uid)));for(const d of old.docs)await F.deleteDoc(d.ref);toast('위젯 연결을 끊었어요')}}
     else if(b.dataset.ac==='shareGuide'){shareGuide()}
+    else if(b.dataset.ac==='updLog'){$('#acct').hidden=true;window.__showUpdLog()}
     else if(b.dataset.ac==='pushOff'){await disablePush()}
     else if(b.dataset.ac==='famLeave'){if(confirm('이 기기에서 근무표 보기를 그만둘까요? 다시 보려면 링크를 다시 눌러야 해요.')){try{localStorage.removeItem('bj-fam')}catch(e){}await F.deleteDoc(tref('users',uid)).catch(()=>{});await FB.Au.signOut(auth);location.replace(location.pathname)}}
   }catch(err){alert(errText(err))}
@@ -449,7 +450,7 @@ function renderAcct(){
   if(appUser.memberId&&isTWA)h+='<h3>갤럭시 위젯</h3><p class="note" style="margin:0">버튼을 누르면 홈 화면 위젯에 내 근무가 표시돼요. 연결한 뒤 홈 화면을 길게 눌러 [위젯] → "근무표"에서 원하는 위젯을 추가하세요.</p><div class="btns"><button class="btn" data-ac="widgetLink">갤럭시 위젯 연결</button><button class="btn ghost" data-ac="widgetOff">연결 끊기</button></div>'
     +'<h3>가족 공유 캘린더</h3><p class="note" style="margin:0">내 구글 계정에 "근무표" 캘린더를 만들어 가족(아이폰도 가능)과 함께 써요. 내 근무가 자동으로 들어가고, 가족이 넣은 일정은 위젯에 보여요.</p><div class="btns"><a class="btn ghost" href="intent://family#Intent;scheme=baejeonshift;package=kr.baejeon.shift;end">가족 공유 캘린더 설정</a></div>';
   else if(appUser.memberId&&isAndroid)h+='<h3>갤럭시 앱 (위젯)</h3><p class="note" style="margin:0">갤럭시는 앱을 설치하면 홈 화면 위젯으로 내 근무와 캘린더 일정을 볼 수 있어요. 받은 파일을 열어 설치하고, 앱에서 로그인한 뒤 이 메뉴의 [갤럭시 위젯 연결]을 누르세요.</p><div class="btns"><a class="btn" href="'+APK_URL+'">갤럭시 앱 받기</a><a class="btn ghost" href="guide.html#android-app" target="_blank" rel="noopener">설치 방법</a></div>';
-  h+='<h3>도움말</h3><div class="btns"><a class="btn ghost" href="guide.html" target="_blank" rel="noopener">사용 설명서</a><button class="btn ghost" data-ac="shareGuide">설명서 보내기</button></div>';
+  h+='<h3>도움말</h3><div class="btns"><a class="btn ghost" href="guide.html" target="_blank" rel="noopener">사용 설명서</a><button class="btn ghost" data-ac="shareGuide">설명서 보내기</button><button class="btn ghost" data-ac="updLog">업데이트 기록</button></div>';
   h+='<h3>홈 화면에 추가</h3><p class="note" style="margin:0">아이폰: 사파리 아래 공유 버튼 → "홈 화면에 추가". 안드로이드: 크롬 ⋮ → "홈 화면에 추가" 또는 "앱 설치".</p>';
   h+='<div class="btns" style="margin-top:6px"><button class="btn ghost" data-ac="logout">로그아웃</button><button class="btn ghost" data-ac="close">닫기</button></div>';
   box.innerHTML=h;
@@ -578,6 +579,9 @@ async function logHistory(action,ev,label){
   try{await FB.F.addDoc(tcol('history'),{at:Date.now(),by:uid,byName:(appUser.memberId&&nm(appUser.memberId))||appUser.name||'',action,label,ev})}catch(e){console.warn('history',e)}
 }
 async function addEvent(ev){
+  /* 정확히 반대로 다시 바꾸는 근무변경: 새로 쌓지 않고 원래 근무변경을 지워 원래대로 */
+  const rv=typeof reverseOf==='function'?reverseOf(ev):null;
+  if(rv){return (await delEventOk(rv._id))?rv._id:null}
   ev.createdAt=Date.now();ev.byMember=me||null;
   const ctx=ui.tab==='attend'?ui.attTab:'';if(ctx==='add')ev.src='admin';
   try{const r=await db.collection('events').add(ev);widgetPing();logHistory('create',{...ev},ctx==='add'?'관리자 등록':ctx==='inbox'?'요청 승인':ctx==='req'?'구두 합의':'등록');return r.id}
@@ -649,6 +653,29 @@ function startExtras(){
   if(isAdmin)roleUnsubs.push(F.onSnapshot(F.query(tcol('backups'),F.orderBy('at','desc'),F.limit(30)),s=>{backups=s.docs.map(x=>({id:x.id,...x.data()}));renderBackups()},()=>{}));
 }
 
+/* ---------- 업데이트 기록 · 새로 바뀐 점 ---------- */
+let UPD=null;
+async function loadUpd(fresh){if(UPD&&!fresh)return UPD;try{const r=await fetch('upd/changes.json?t='+Date.now(),{cache:'no-store'});UPD=await r.json()}catch(e){UPD=UPD||[]}return UPD}
+function updList(list){
+  const by={},order=[];for(const e of list){if(!by[e.date]){by[e.date]=[];order.push(e.date)}by[e.date].push(e)}
+  return order.map(d=>{const p=d.split('-');return '<h4>'+(+p[1])+'월 '+(+p[2])+'일</h4>'+by[d].map(e=>'<ul>'+(e.items||[]).map(t=>'<li>'+esc(t)+'</li>').join('')+'</ul><span class="tag '+(e.kind==='web'?'변경':'대근')+'">'+(e.kind==='web'?'자동 적용':'갤럭시 앱 업데이트')+'</span>').join('')}).join('');
+}
+function showUpd(title,html){
+  const o=document.createElement('div');o.className='updm';o.innerHTML='<div class="updc" role="dialog" aria-label="'+esc(title)+'"><h3>'+esc(title)+'</h3><div class="updl">'+html+'</div><button class="btn" data-x="1">확인</button></div>';
+  o.addEventListener('click',e=>{if(e.target===o||e.target.closest('[data-x]'))o.remove()});document.body.appendChild(o);
+}
+async function whatsNewWeb(){
+  const web=(await loadUpd()).filter(x=>x.kind==='web');if(!web.length)return;
+  let seen=null;try{seen=localStorage.getItem('bj-upd-seen')}catch(e){return}
+  const save=()=>{try{localStorage.setItem('bj-upd-seen',web[0].id)}catch(e){}};
+  if(!seen){save();return}   // 처음 쓰는 기기는 그냥 기억만
+  const i=web.findIndex(x=>x.id===seen);const nw=i<0?web.slice(0,1):web.slice(0,i);
+  if(!nw.length)return;save();showUpd('새로 바뀐 점',updList(nw.slice(0,4)));
+}
+window.__showUpdLog=async()=>showUpd('업데이트 기록',updList((await loadUpd(true)).slice(0,30)));
+/* 로그인 끝나면 한 번: 지난번 이후 바뀐 점 */
+(()=>{let t=0;const iv=setInterval(()=>{t++;if(appUser&&dataStarted||t>40){clearInterval(iv);if(appUser)setTimeout(whatsNewWeb,800)}},750)})();
+
 /* ---------- 새 버전 바로 반영: 앱으로 돌아올 때·5분마다 확인 ---------- */
 (()=>{
   if(!window.APP_BUILD)return;let busy=false,shown=false;
@@ -658,7 +685,8 @@ function startExtras(){
       if(v&&v.b&&v.b!==window.APP_BUILD){
         const typing=document.activeElement&&/INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName);
         if(document.hidden||(auto&&!typing)){location.reload();return}
-        if(!shown){shown=true;const d=document.createElement('div');d.className='toast on';d.style.cursor='pointer';d.textContent='새 버전이 있어요 · 눌러서 새로고침';d.onclick=()=>location.reload();document.body.appendChild(d)}
+        if(!shown){shown=true;const web=(await loadUpd(true)).filter(x=>x.kind==='web');const one=web[0]&&web[0].items&&web[0].items[0]||'';
+          const d=document.createElement('div');d.className='updbar';d.innerHTML='<div><b>🔄 새 버전이 있어요</b>'+(one?'<span>'+esc(one)+'</span>':'')+'</div><button class="btn">지금 적용</button>';d.querySelector('button').onclick=()=>location.reload();document.body.appendChild(d)}
       }}catch(e){}finally{busy=false}
   }
   document.addEventListener('visibilitychange',()=>{if(!document.hidden)check(true)});
@@ -698,6 +726,7 @@ function startExtras(){
     const st=e.state||{};
     if(exitBox&&st.bj!=='root'){hideExit()}
     // 열린 창(내 정보 · 파일 공유)이 있으면 그것부터 닫기
+    const um=document.querySelector('.updm');if(um){um.remove();if(st.bj==='root')try{history.pushState({bj:'nav',s:snap()},'')}catch(x){}return}
     const acct=$('#acct');if(acct&&!acct.hidden){acct.hidden=true;if(st.bj==='root')try{history.pushState({bj:'nav',s:snap()},'')}catch(x){}return}
     const sh=document.querySelector('.shsheet');if(sh){const c=sh.querySelector('[data-x=close]');c?c.click():sh.remove();if(st.bj==='root')try{history.pushState({bj:'nav',s:snap()},'')}catch(x){}return}
     if(st.bj==='root'){showExit();return}

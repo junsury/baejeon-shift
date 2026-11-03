@@ -14,6 +14,8 @@ CASES = {
   't_notif.py': (0, ['nothing-left closed True info True', 'pending-left closed False info True']),
   't_swaprecv.py': (1, ['give rows hidden True', 'result ok 1 save enabled True', 'swap req 1 True']),
   't_twa.py': (0, ['appv add btn True', 'remembered 1', 'remembered-android add btn True', 'plain-pc add btn False']),
+  't_stack.py': (1, ['detail True True True', 'blocked 1 cascade btn 1', 'above s1 s2,l1 above l1 s2', 'reverse of s2 s2 none', 'after top cancel l1,s1', 'after cascade \n']),
+  't_upd.py': (1, ['first modal 0', 'after-old modal 1', 'log modal 1 items True']),
 }
 if os.environ.get('NET') == '1': CASES['t_png.py'] = (0, ['#pPng OK', '#pPdf OK', '#rpPng OK', '#rpPdf OK'])
 bad = []

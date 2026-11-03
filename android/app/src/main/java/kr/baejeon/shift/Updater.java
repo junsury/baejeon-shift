@@ -137,7 +137,7 @@ final class Updater {
         int n = 0;
         if (a != null) for (int i = 0; i < a.length() && n < max; i++) {
             JSONObject o = a.optJSONObject(i);
-            if (o == null || skip.contains(o.optString("id"))) continue;
+            if (o == null || skip.contains(o.optString("id")) || "web".equals(o.optString("kind"))) continue;   // 화면(웹) 쪽 변경은 웹이 따로 알려줘요
             JSONArray items = o.optJSONArray("items");
             if (items == null) continue;
             for (int k = 0; k < items.length(); k++) {

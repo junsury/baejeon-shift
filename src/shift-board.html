@@ -591,6 +591,7 @@ table.grid td.shiftday{box-shadow:inset 3px 0 0 var(--accent)}
 .sm-btn.ghost{background:var(--surface);border:1px solid var(--line);color:var(--fg)!important}
 .sm-btn.big{min-height:62px;font-size:21px!important}
 .sm-btn:disabled{opacity:.45;cursor:not-allowed}
+.sm-btn.danger{background:var(--bad);color:#fff!important;border:0}
 .sm-q{font-size:16px;font-weight:700;color:var(--muted);margin:4px 4px 0}
 .sm-act{display:flex;align-items:center;gap:14px;padding:0 18px;min-height:84px;border-radius:18px;background:var(--surface);border:1px solid var(--line);text-align:left;width:100%}
 .sm-act .ic{width:50px;height:50px;border-radius:14px;display:flex;align-items:center;justify-content:center;flex:none}
@@ -601,6 +602,16 @@ table.grid td.shiftday{box-shadow:inset 3px 0 0 var(--accent)}
 .sm-step i{font-style:normal;width:28px;height:28px;border-radius:50%;background:var(--accent);color:var(--accent-fg);display:inline-flex;align-items:center;justify-content:center;font-size:15px}
 .sm-step small{font-size:14px;color:var(--muted);font-weight:500}
 .sm-days{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+/* 근태 취소·겹친 근태 순서 */
+.cxbox{display:flex;flex-wrap:wrap;gap:6px;align-items:center;width:100%;flex-basis:100%}
+.item:has(.cxbox){flex-wrap:wrap}
+.cxbox .msg{width:100%}
+.stk{margin-top:6px;padding:8px 10px;border-radius:10px;background:var(--sunk);font-size:13px;line-height:1.6}
+.stk b{display:block;font-size:12px;color:var(--muted)}
+b.cxl{color:var(--bad)}
+.sm-mine summary{font-size:17px;font-weight:700;cursor:pointer;padding:2px 0}
+.sm-mine[open] summary{margin-bottom:8px}
+.sm-mine .sm-req{margin-top:8px}
 /* 근무변경: 이 날 근무 받기 */
 .swm-modes{display:grid;grid-template-columns:1fr 1fr;gap:8px}
 .swm-modes button{min-height:54px;border-radius:12px;border:1.5px solid var(--line);background:var(--surface);font-size:15px!important;font-weight:700;color:var(--fg);line-height:1.25;padding:6px}
@@ -1144,7 +1155,7 @@ function touches(e,n){return e.type==='swap'?(dn(e.aDate)===n||dn(e.bDate)===n):
    수락하면 근태로 반영(근무표에 들어감), 거절·취소하면 표시가 사라져요. */
 function reqMarks(id,n){
   const out=[];const k=ds(n);if(typeof requests==='undefined')return out;
-  for(const r of requests){if(r.status!=='pending'||!r.ev)continue;const e=r.ev;const sh=e.shift==='주'?'주간':'야간';
+  for(const r of requests){if(r.status!=='pending'||!r.ev||r.cancel)continue;const e=r.ev;const sh=e.shift==='주'?'주간':'야간';
     if(r.kind==='swap'){
       if(e.aId===id&&e.aDate===k)out.push({s:e.shift,give:true,other:e.bId,od:dn(e.bDate),mine:r.from===id,t:fmt(n)+' 내 '+sh+'을 '+nm(e.bId)+'에게 (근무변경 요청 중)'});
       if(e.bId===id&&e.bDate===k)out.push({s:e.shift,give:true,other:e.aId,od:dn(e.aDate),mine:r.from===id,t:fmt(n)+' 내 '+sh+'을 '+nm(e.aId)+'에게 (근무변경 요청 중)'});
@@ -1305,7 +1316,37 @@ function describe(m,n,c){
   else if(c.cover)t+=sh(c.code)+' + '+sh(c.cover)+' <span class="tag 대근">대근</span> '+esc(nm(c.for))+' 대신';
   else if(c.tags.includes('변경'))t+=(HOURS[c.code]?sh(c.code)+' (':'휴무 (')+esc(swapTxt(c))+')';
   else t+=({'휴':'휴무','비':'비번 (야간 다음 날)','T':'TSO 08–17'}[c.code]||sh(c.code));
+  if(c.lv)t+=' · <span class="tag 미정">'+(c.lv.s==='주'?'주간':'야간')+' '+LT_NAME[c.lv.leaveType||'연차']+'</span>'+(c.lv.by?' '+esc(nm(c.lv.by))+' 대근':'');
+  const st=stackLines(m.id,n);if(st.length)t+='<div class="stk"><b>근태 순서</b>'+st.map(x=>'<div>'+x+'</div>').join('')+'</div>';
   return t;
+}
+/* 겹친 근태 순서: 그날 이 사람이 걸친 근무 자리마다 '원래 → 변경 → 휴가(대근)' 순서. 한 겹뿐이면 빈 목록 */
+function stackLines(id,n){
+  const toks=(rawCells(n).__toks||[]).filter(k=>k.orig===id||k.hist.some(h=>h.from===id||h.to===id));
+  const out=[];let layers=0;
+  for(const k of toks){if(!k.hist.length)continue;layers+=k.hist.length;
+    let t=(k.s==='주'?'주간':'야간')+': '+(k.ghost?'':'원래 '+esc(nm(k.orig)));
+    for(const h of k.hist)t+=(t.endsWith(': ')?'':' → ')+(h.t==='swap'?'변경 '+esc(nm(h.to))+' ('+md2(h.od)+')':LT_NAME[h.lt||'연차']+(h.to?' · '+(h.ct==='tso'?'근무지원 ':'대근 ')+esc(nm(h.to)):' · 대체 미정'));
+    out.push(t)}
+  return layers>1?out:[];
+}
+/* 이 근태 위에 쌓인(나중에 같은 근무 자리에 걸친) 근태들: 이것들을 먼저 취소해야 해요 */
+function evAbove(e){
+  const out=new Set();const days=e.type==='swap'?[e.aDate,e.bDate]:[e.date];
+  const ppl=[e.memberId,e.coverId,e.aId,e.bId].filter(Boolean),ord=x=>[x.createdAt||0,events.indexOf(x)],later=x=>{const a=ord(x),b=ord(e);return a[0]>b[0]||(a[0]===b[0]&&a[1]>b[1])};
+  for(const d of days){
+    for(const k of rawCells(dn(d)).__toks||[]){const i=k.hist.findIndex(h=>h.ev===e._id);if(i<0)continue;for(const h of k.hist.slice(i+1))if(h.ev&&h.ev!==e._id)out.add(h.ev)}
+    /* 같은 사람·같은 날에 나중에 쌓인 근태 (예: 야간 휴가 뒤에 받은 주간 → 휴가를 먼저 취소하면 하루 24시간이 돼요) */
+    for(const x of events)if(x!==e&&touches(x,dn(d))&&later(x)&&[x.memberId,x.coverId,x.aId,x.bId].some(p=>p&&ppl.includes(p)))out.add(x._id)}
+  return [...out].map(id=>events.find(x=>x._id===id)).filter(Boolean).sort((x,y)=>(y.createdAt||0)-(x.createdAt||0));
+}
+function evShort(e){return e.type==='swap'?fmt(dn(e.aDate))+'↔'+fmt(dn(e.bDate))+' '+shName(e.shift)+' 변경('+nm(e.aId)+'·'+nm(e.bId)+')':fmt(dn(e.date))+' '+shName(e.shift)+' '+LT_NAME[e.leaveType||'연차']+'('+nm(e.memberId)+')'}
+if(location.hostname==='127.0.0.1')window.__stackT={reverseOf:e=>reverseOf(e),above:id=>evAbove(events.find(x=>x._id===id)).map(x=>x._id)};
+/* 정확히 반대로 바꾸는 맞교환이면, 새로 쌓지 않고 원래 근무변경을 지울 대상 */
+function reverseOf(ev){
+  if(ev.type!=='swap')return null;const k=[ev.aId,ev.bId].sort().join(),d=[ev.aDate,ev.bDate].sort().join();
+  const x=events.filter(e=>e.type==='swap'&&e.shift===ev.shift&&[e.aId,e.bId].sort().join()===k&&[e.aDate,e.bDate].sort().join()===d).sort((a,b)=>(b.createdAt||0)-(a.createdAt||0))[0];
+  return x&&!evAbove(x).length?x:null;
 }
 let boardSel=null;
 function rangeTable(a,b){
@@ -1865,6 +1906,7 @@ function dayNotes(c){
   if(c.cover)out.push('대근 · '+nm(c.for)+' 대신');
   if(c.code==='지원')out.push('근무지원 · '+nm(c.for)+' 대신');
   if(c.tags.includes('변경'))out.push(swapTxt(c));
+  if(c.lv)out.push((c.lv.s==='주'?'주간':'야간')+' '+LT_NAME[c.lv.leaveType||'연차']+(c.lv.by?' · 대근 '+nm(c.lv.by):''));
   return out;
 }
 /* 일 보기: 앞 근무 → 내 근무 → 다음 근무 (시간순 가로 배치) */
@@ -2134,7 +2176,7 @@ function eventItem(e){
     t='<b>'+fmt(dn(p1[0]))+'</b> '+esc(nm(p1[1]))+' → '+esc(nm(p1[2]))+' · <b>'+fmt(dn(p1[3]))+'</b> '+esc(nm(p1[2]))+' → '+esc(nm(p1[1]));
     sub=sh+' 맞교환';
   }
-  const del=pendingDel===e._id?'<span class="btns"><button class="btn danger" data-del="'+e._id+'" data-confirm="1">취소 확인</button><button class="btn ghost" data-del="'+e._id+'" data-keep="1">아니요</button></span>':(canCancel(e)?'<button class="btn ghost" data-del="'+e._id+'">취소</button>':'');
+  const del=cxButton(e);
   return '<div class="item">'+k+'<div class="t">'+t+(e.forced?' <span class="tag 미정">강제</span>':'')+'<small>'+sub+(e.createdAt?' · 등록 '+new Date(e.createdAt).toLocaleDateString('ko-KR',{month:'numeric',day:'numeric'}):'')+'</small></div>'+del+'</div>';
 }
 function renderHistory(){
@@ -2331,11 +2373,13 @@ function smAttend(){
   const sent=requests.filter(r=>r.from===me&&r.status==='pending').sort((x,y)=>x.createdAt-y.createdAt);
   for(const r of myResults())h+=resultCard(r,true);
   h+='<div class="sm-two sm-rqsum"><div class="'+(inc.length?'on in':'')+'"><span>📥 나에게 온 요청</span><b>'+inc.length+'건</b></div><div class="'+(sent.length?'on out':'')+'"><span>📤 내가 보낸 요청</span><b>'+sent.length+'건</b></div></div>';
-  for(const r of inc){const errs=r.kind==='swap'?swapErrors(r.ev):leaveErrors(r.ev);
+  for(const r of inc){const errs=reqErrs(r);
     h+='<div class="sm-req"><span class="sm-req-t">📥 '+esc(nm(r.from))+' 님이 나에게 요청했어요</span><p>'+reqDesc(r)+'</p>'+(r.note?'<p class="sm-note">"'+esc(r.note)+'"</p>':'')+errs.map(x=>'<p class="sm-bad">✕ '+esc(x)+'</p>').join('')+
       '<div class="sm-two"><button class="sm-btn" data-rq="'+r._id+'" data-act="ok"'+(errs.length?' disabled':'')+'>수락</button><button class="sm-btn ghost" data-rq="'+r._id+'" data-act="no">거절</button></div></div>'}
   for(const r of sent)h+='<div class="sm-req mine"><span class="sm-req-t">📤 내가 '+esc(nm(r.to))+' 님에게 보낸 요청 · ⏳ 수락 기다리는 중</span><p>'+reqDesc(r)+'</p><p class="sm-note">상대가 수락하면 근무표에 반영돼요. 그 전까지는 근무표에 "요청중"으로만 보여요.</p><button class="sm-btn ghost" data-rq="'+r._id+'" data-act="cancel">요청 취소</button></div>';
   for(const r of notices)h+='<div class="sm-req info"><span class="sm-req-t">'+(r.canceled?'취소됐어요':'바뀌었어요')+' · '+esc(nm(r.from))+' 님</span><p>'+reqDesc(r)+'</p><button class="sm-btn ghost" data-rq="'+r._id+'" data-act="seen">확인</button></div>';
+  const mine=events.filter(e=>involved(e)&&evLast(e)>=todayN).sort((x,y)=>(x.type==='swap'?Math.min(dn(x.aDate),dn(x.bDate)):dn(x.date))-(y.type==='swap'?Math.min(dn(y.aDate),dn(y.bDate)):dn(y.date)));
+  if(mine.length){h+='<details class="sm-card sm-mine"'+(ui.sMineOpen||pendingDel?' open':'')+'><summary>📋 내 근태 '+mine.length+'건 · 잘못 넣었으면 여기서 취소</summary>'+mine.map(e=>'<div class="sm-req info"><p>'+esc(evShort(e))+'</p>'+cxButton(e,true)+'</div>').join('')+'</details>'}
   h+='<p class="sm-q">무엇을 할까요?</p>';
   const item=(k,ic,bg,col,t,sub)=>'<button class="sm-act" data-flow="'+k+'"><span class="ic" style="background:'+bg+';color:'+col+'">'+smIcon(ic)+'</span><span class="tx"><b>'+t+'</b><span>'+sub+'</span></span><span class="ar">›</span></button>';
   h+=item('leave','<path d="M3 20h18M6 20V9l6-5 6 5v11M10 20v-6h4v6"/>','var(--leave-bg)','var(--leave)','휴가 쓰기','날짜 고르고 대근해 줄 사람 고르기');
@@ -2426,8 +2470,9 @@ async function smSubmit(direct){
   }finally{ui.sBusy=false;render()}
 }
 $('#simple').addEventListener('click',async e=>{
-  const t=e.target.closest('[data-s],[data-stab],[data-sday],[data-flow],[data-pick],[data-cand],[data-lt],[data-sme],[data-rq]');if(!t)return;
+  const t=e.target.closest('[data-s],[data-stab],[data-sday],[data-flow],[data-pick],[data-cand],[data-lt],[data-sme],[data-rq],[data-del],[data-cx]');if(!t)return;
   if(t.dataset.rq){await onReq(e);return}
+  if(t.dataset.del||t.dataset.cx){ui.sMineOpen=true;await cxClick(e);return}
   if(t.dataset.sme){me=t.dataset.sme;try{localStorage.setItem('shift-me',me)}catch(x){}render();return}
   if(t.dataset.stab){ui.stab=t.dataset.stab;ui.sFlow=null;if(ui.stab!=='attend')ui.sMsg='';if(ui.stab==='sheet')ui.sScrollToday=true;render();window.scrollTo(0,0);return}
   if(t.dataset.sday){const k=+t.dataset.sday;ui.sDay=k===todayN?null:k;render();window.scrollTo(0,0);return}
@@ -2640,6 +2685,11 @@ function leaveErrors(ev){
   if(ev.coverType==='cover'&&byId(ev.coverId)){const r=evalCover(byId(ev.coverId),n,ev.shift,ev.memberId,ev.leaveType==='경조');errs.push(...r.errs)}
   return errs;
 }
+/* 받은 요청 승인 전 확인: 취소 요청이면 '위에 쌓인 근태'만 확인 */
+function reqErrs(r){
+  if(r.cancel){const ev=events.find(x=>x._id===r.eventId);if(!ev)return [];const ab=evAbove(ev);return ab.length?['이 근태 위에 다른 근태가 쌓여 있어 먼저 취소해야 해요: '+ab.map(evShort).join(', ')]:[]}
+  return r.kind==='swap'?swapErrors(r.ev):leaveErrors(r.ev);
+}
 function swapErrors(ev){
   const an=dn(ev.aDate),bn=dn(ev.bDate),a=ev.aId,b=ev.bId;const errs=[];
   const ca=dayCells(an)[a],cb=dayCells(bn)[b];
@@ -2656,6 +2706,7 @@ function swapErrors(ev){
 }
 const shName=x=>x==='주'?'주간':x==='야'?'야간':x==='T'?'TSO':x;
 function reqDesc(r){
+  if(r.cancel)return '<b class="cxl">취소 요청</b> '+reqDesc({...r,cancel:false});
   const e=r.ev;
   if(r.kind==='swap')return '<b>근무변경</b> '+esc(nm(e.aId))+' '+fmt(dn(e.aDate))+' '+shName(e.shift)+' ↔ '+esc(nm(e.bId))+' '+fmt(dn(e.bDate))+' '+shName(e.shift);
   return '<b>'+(e.coverType==='tso'?'근무지원':'대근')+'</b> '+fmt(dn(e.date))+' '+shName(e.shift)+' · '+esc(nm(e.memberId))+' '+LT_NAME[e.leaveType||'연차']+' → '+esc(nm(e.coverId))+(e.coverType==='tso'?' (08–18, 지원수당 1h)':' ('+(HOURS[e.shift]||0)+'h'+(e.leaveType==='경조'?', 총량 차감 없음':'')+')');
@@ -2687,20 +2738,24 @@ function renderInbox(){
   $('#inTitle').textContent='받은 요청 '+inc.length+'건'+(notices.length?' · 알림 '+notices.length+'건':'');
   const noticeHtml=notices.map(r=>'<div class="item" style="flex-wrap:wrap"><span class="kind '+(r.canceled?'swap':'leave')+'">'+(r.canceled?'취소':'바뀜')+'</span><div class="t">'+reqDesc(r)+'<small>'+esc(nm(r.from))+(r.canceled?' 님이 이 근태를 취소했어요 · ':' 님이 구두 합의로 바로 반영했어요 · ')+new Date(r.createdAt).toLocaleDateString('ko-KR')+'</small>'+noteHtml(r)+'</div><button class="btn ghost" data-rq="'+r._id+'" data-act="seen">확인</button></div>').join('');
   $('#inList').innerHTML=noticeHtml+(inc.length?inc.map(r=>{
-    const errs=r.kind==='swap'?swapErrors(r.ev):leaveErrors(r.ev);
+    const errs=reqErrs(r);
     let shape='';
-    if(r.kind==='leave'&&r.ev.coverType==='cover'&&!errs.length){const sim=[...events,{...r.ev}];const sh=coverShape(r.to,dn(r.ev.date),r.ev.shift,sim);shape='<span class="mstrip">'+sh.strip+'</span>'+(sh.tag?'<span class="tag '+(sh.lvl===2?'미정':sh.lvl===1?'대근':'지원')+'">'+sh.tag+'</span>':'')}
+    if(r.kind==='leave'&&!r.cancel&&r.ev.coverType==='cover'&&!errs.length){const sim=[...events,{...r.ev}];const sh=coverShape(r.to,dn(r.ev.date),r.ev.shift,sim);shape='<span class="mstrip">'+sh.strip+'</span>'+(sh.tag?'<span class="tag '+(sh.lvl===2?'미정':sh.lvl===1?'대근':'지원')+'">'+sh.tag+'</span>':'')}
     return '<div class="item" style="flex-wrap:wrap"><div class="t">'+reqDesc(r)+'<small>'+esc(nm(r.from))+' 님의 요청 · '+new Date(r.createdAt).toLocaleDateString('ko-KR')+'</small>'+noteHtml(r)+shape+errs.map(x=>'<div class="msg bad" style="margin-top:4px">✕ '+esc(x)+'</div>').join('')+'</div>'+
       '<span class="btns"><button class="btn" data-rq="'+r._id+'" data-act="ok"'+(errs.length?' disabled':'')+'>승인</button><button class="btn ghost" data-rq="'+r._id+'" data-act="no">거절</button></span></div>'}).join(''):(notices.length?'':'<p class="empty" style="margin:6px 0 0">기다리는 요청이 없어요.</p>'));
   const out=requests.filter(r=>r.from===me&&(r.status==='pending'||Date.now()-(r.decidedAt||r.createdAt)<30*864e5)).sort((x,y)=>y.createdAt-x.createdAt);
   const unseen=new Set(myResults().map(r=>r._id));
   out.sort((x,y)=>(unseen.has(y._id)?1:0)-(unseen.has(x._id)?1:0));
-  $('#outList').innerHTML=out.length?out.map(r=>{const nw=unseen.has(r._id);return '<div class="item'+(r.status==='pending'?' waiting':'')+(nw?' res '+(r.status==='approved'?'ok':'no'):'')+'"'+(nw?' style="flex-wrap:wrap"':'')+'><span class="kind '+(r.status==='approved'?'leave':'swap')+'">'+(r.status==='pending'?'⏳ 수락 대기':r.status==='withdrawn'?'회수함':r.canceled?'취소함':ST_NAME[r.status])+'</span><div class="t">'+reqDesc(r)+'<small>'+esc(nm(r.to))+' 님에게 · '+new Date(r.createdAt).toLocaleDateString('ko-KR')+(r.status==='notice'?(r.seen?' · 확인함':' · 아직 확인 안 함'):r.status==='withdrawn'?' · 상대방이 보기 전에 회수했어요':'')+'</small>'+(r.note?'<span class="rnote">'+esc(r.note)+'</span>':'')+(nw?'<small style="font-weight:600;color:var(--fg)">'+(r.status==='approved'?'✅ 새 결과 · 승인되어 근무표에 반영됐어요':'❌ 새 결과 · 거절됐어요. 근무표는 그대로예요')+'</small>':'')+'</div>'+(r.status==='pending'?'<button class="btn ghost" data-rq="'+r._id+'" data-act="cancel">요청 취소</button>':'')+(nw?'<button class="btn ghost" data-rq="'+r._id+'" data-act="rseen">확인</button>':'')+'</div>'}).join(''):'<p class="empty" style="margin:6px 0 0">보낸 요청이 없어요.</p>';
+  $('#outList').innerHTML=out.length?out.map(r=>{const nw=unseen.has(r._id);return '<div class="item'+(r.status==='pending'?' waiting':'')+(nw?' res '+(r.status==='approved'?'ok':'no'):'')+'"'+(nw?' style="flex-wrap:wrap"':'')+'><span class="kind '+(r.status==='approved'?'leave':'swap')+'">'+(r.status==='pending'?'⏳ 수락 대기':r.status==='withdrawn'?'회수함':r.canceled?'취소함':ST_NAME[r.status])+'</span><div class="t">'+reqDesc(r)+'<small>'+esc(nm(r.to))+' 님에게 · '+new Date(r.createdAt).toLocaleDateString('ko-KR')+(r.status==='notice'?(r.seen?' · 확인함':' · 아직 확인 안 함'):r.status==='withdrawn'?' · 상대방이 보기 전에 회수했어요':'')+'</small>'+(r.note?'<span class="rnote">'+esc(r.note)+'</span>':'')+(nw?'<small style="font-weight:600;color:var(--fg)">'+(r.status==='approved'?'✅ 새 결과 · 승인되어 근무표에 반영됐어요':'❌ 새 결과 · 거절됐어요. 근무표는 그대로예요')+'</small>':'')+'</div>'+(r.status==='pending'?'<button class="btn ghost" data-rq="'+r._id+'" data-act="cancel">요청 취소</button>':'')+(nw?'<button class="btn ghost" data-rq="'+r._id+'" data-act="rseen">확인</button>':'')+(()=>{const ev=!r.cancel&&!r.canceled&&r.eventId&&events.find(x=>x._id===r.eventId);return ev&&evLast(ev)>=todayN?cxButton(ev):''})()+'</div>'}).join(''):'<p class="empty" style="margin:6px 0 0">보낸 요청이 없어요.</p>';
 }
 async function onReq(e){
   const b=e.target.closest('[data-rq]');if(!b||b.disabled)return;const r=requests.find(x=>x._id===b.dataset.rq);if(!r)return;b.disabled=true;
-  if(b.dataset.act==='ok'){
-    const errs=r.kind==='swap'?swapErrors(r.ev):leaveErrors(r.ev);if(errs.length){renderInbox();return}
+  if(b.dataset.act==='ok'&&r.cancel){
+    const ev=events.find(x=>x._id===r.eventId);
+    if(ev){if(reqErrs(r).length){renderInbox();return}if(!await delEventOk(ev._id)){b.disabled=false;return}}
+    await setRequest(r,{status:'approved',decidedAt:Date.now()});
+  }else if(b.dataset.act==='ok'){
+    const errs=reqErrs(r);if(errs.length){renderInbox();return}
     const id=await addEvent({...r.ev});if(!id){b.disabled=false;return}
     await setRequest(r,{status:'approved',decidedAt:Date.now(),eventId:id});
   }else if(b.dataset.act==='no')await setRequest(r,{status:'rejected',decidedAt:Date.now()});
@@ -2709,7 +2764,7 @@ async function onReq(e){
   else if(b.dataset.act==='seen')await setRequest(r,{seen:true,seenAt:Date.now()});
   render();
 }
-$('#inList').addEventListener('click',onReq);$('#outList').addEventListener('click',onReq);
+$('#inList').addEventListener('click',onReq);$('#outList').addEventListener('click',onReq);$('#outList').addEventListener('click',cxClick);
 $('#ibSeg').addEventListener('click',e=>{const b=e.target.closest('[data-ib]');if(!b)return;ui.ib=b.dataset.ib;renderInbox()});
 
 /* 나 = 계정 연결 */
@@ -2831,17 +2886,47 @@ $('#sSave').onclick=async()=>{
   await addEvent({...ev});
   $('#sResult').innerHTML='<div class="msg ok">✓ 근무변경을 등록했어요. '+esc(nm(ev.aId))+' ↔ '+esc(nm(ev.bId))+'</div>';swapDraft=null;
 };
-const histClick=async e=>{const b=e.target.closest('[data-del]');if(!b)return;const ev=events.find(x=>x._id===b.dataset.del);if(!ev||!canCancel(ev))return;
-  if(b.dataset.confirm){pendingDel=null;
-    const others=[...new Set([ev.memberId,ev.coverId,ev.aId,ev.bId].filter(x=>x&&x!==me&&byId(x)))];
-    const {_id,...plain}=ev;
-    if(await delEventOk(b.dataset.del)){
-      /* 상대방이 아직 확인 안 한 알림은 회수하고, 그 사람에게는 취소 알림을 따로 보내지 않음 */
-      const quiet=new Set();
-      for(const r of requests.filter(r=>r.eventId===ev._id&&r.status==='notice'&&!r.seen&&!r.canceled)){if(await setRequest(r,{status:'withdrawn',decidedAt:Date.now()}))quiet.add(r.to)}
-      if(me)for(const o of others)if(!quiet.has(o))await sendRequest({kind:ev.type==='swap'?'swap':'leave',from:me,to:o,ev:plain,status:'notice',canceled:true});
-    }
-    render()}else if(b.dataset.keep){pendingDel=null;render()}else{pendingDel=b.dataset.del;render()}};
+/* 근태 취소: 맨 위에 쌓인 것부터. 상대가 있으면 '취소 요청'(승인 필요) 또는 '이미 얘기했어요 · 바로 취소' */
+const cxOthers=e=>[...new Set([e.memberId,e.coverId,e.aId,e.bId].filter(x=>x&&x!==me&&byId(x)))];
+const cxPending=e=>requests.find(r=>r.cancel&&r.eventId===e._id&&r.status==='pending');
+const evLast=e=>e.type==='swap'?Math.max(dn(e.aDate),dn(e.bDate)):dn(e.date);
+function cxButton(e,simple){
+  if(!canCancel(e))return '';
+  const B=simple?'sm-btn':'btn',G=simple?'sm-btn ghost':'btn ghost';
+  if(pendingDel!==e._id){const p=cxPending(e);if(p)return '<span class="tag 미정">취소 요청 중 · '+esc(nm(p.to))+' 님 승인 대기</span>';return '<button class="'+G+'" data-del="'+e._id+'">취소'+(simple?'하기':'')+'</button>'}
+  const ab=evAbove(e),adminNow=canWrite&&!viewerPreview,others=cxOthers(e);
+  let h='<div class="cxbox">';
+  if(ab.length){h+='<div class="msg warn">이 근태 위에 다른 근태가 쌓여 있어요. 위에 있는 것부터 먼저 취소해야 해요:<br>'+ab.map(x=>'· '+esc(evShort(x))).join('<br>')+'</div>';
+    if(adminNow)h+='<button class="'+B+' danger" data-cx="cascade" data-id="'+e._id+'">위에 것까지 한꺼번에 취소 (관리자)</button>'}
+  else if(adminNow||!others.length)h+='<button class="'+B+' danger" data-cx="now" data-id="'+e._id+'">취소 확인</button>';
+  else h+='<button class="'+B+'" data-cx="req" data-id="'+e._id+'">'+esc(nm(others[0]))+' 님에게 취소 요청</button><button class="'+G+'" data-cx="now" data-id="'+e._id+'">이미 얘기했어요 · 바로 취소</button>';
+  return h+'<button class="'+G+'" data-cx="no" data-id="'+e._id+'">아니요</button></div>';
+}
+async function delWithNotice(ev){
+  const others=cxOthers(ev);const {_id,...plain}=ev;
+  if(!await delEventOk(ev._id))return false;
+  /* 상대방이 아직 확인 안 한 알림은 회수하고, 그 사람에게는 취소 알림을 따로 보내지 않음 */
+  const quiet=new Set();
+  for(const r of requests.filter(r=>r.eventId===ev._id&&r.status==='notice'&&!r.seen&&!r.canceled)){if(await setRequest(r,{status:'withdrawn',decidedAt:Date.now()}))quiet.add(r.to)}
+  if(me)for(const o of others)if(!quiet.has(o))await sendRequest({kind:ev.type==='swap'?'swap':'leave',from:me,to:o,ev:plain,status:'notice',canceled:true});
+  return true;
+}
+async function cxClick(e){
+  const o=e.target.closest('[data-del]:not([data-cx])');
+  if(o){const ev=events.find(x=>x._id===o.dataset.del);if(!ev||!canCancel(ev))return;pendingDel=ev._id;render();return}
+  const b=e.target.closest('[data-cx]');if(!b||b.disabled)return;const ev=events.find(x=>x._id===b.dataset.id);
+  if(b.dataset.cx==='no'||!ev){pendingDel=null;render();return}
+  b.disabled=true;
+  if(b.dataset.cx==='req'){const others=cxOthers(ev);const {_id,...plain}=ev;
+    if(!evAbove(ev).length&&others.length)await sendRequest({kind:ev.type==='swap'?'swap':'leave',from:me,to:others[0],ev:plain,eventId:ev._id,cancel:true});
+    if(typeof toast==='function')toast(nm(others[0])+' 님에게 취소 요청을 보냈어요. 승인하면 원래대로 돌아가요.')}
+  else if(b.dataset.cx==='now'){if(!evAbove(ev).length)await delWithNotice(ev)}
+  else if(b.dataset.cx==='cascade'&&canWrite&&!viewerPreview){
+    const down=async(x,depth)=>{for(let g=0;g<20&&depth<10;g++){const ab=evAbove(x);if(!ab.length)break;if(!await down(ab[0],depth+1))return false}return evAbove(x).length?false:delWithNotice(x)};
+    await down(ev,0)}
+  pendingDel=null;render();
+}
+const histClick=cxClick;
 $('#histUp').addEventListener('click',histClick);$('#histPast').addEventListener('click',histClick);
 $('#histSeg').addEventListener('click',e=>{const b=e.target.closest('[data-hk]');if(!b)return;ui.hk=b.dataset.hk;render()});
 $('#hWho').addEventListener('change',e=>{ui.hWho=e.target.value;render()});

@@ -58,7 +58,7 @@ exports.onRequestCreated = fn.document('teams/{t}/requests/{id}').onCreate(async
   const uids = await uidsOfMembers(t, [r.to]);
   let title, body;
   if (r.status === 'pending') {
-    title = r.kind === 'swap' ? '근무변경 요청' : (r.ev && r.ev.coverType === 'tso' ? '근무지원 요청' : '대근 요청');
+    title = r.cancel ? '근태 취소 요청' : r.kind === 'swap' ? '근무변경 요청' : (r.ev && r.ev.coverType === 'tso' ? '근무지원 요청' : '대근 요청');
     body = nm(r.from) + ' 님: ' + desc(r.ev, nm) + (r.note ? ' · "' + r.note + '"' : '');
   } else if (r.status === 'notice' && r.canceled) {
     title = '근태가 취소됐어요'; body = nm(r.from) + ' 님이 취소: ' + desc(r.ev, nm);
@@ -75,7 +75,7 @@ exports.onRequestUpdated = fn.document('teams/{t}/requests/{id}').onUpdate(async
   const nm = await names(t);
   const ok = b.status === 'approved';
   await send(t, await uidsOfMembers(t, [b.from]), {
-    title: ok ? '요청이 승인됐어요' : '요청이 거절됐어요',
+    title: (b.cancel ? '취소 요청이 ' : '요청이 ') + (ok ? '승인됐어요' : '거절됐어요'),
     body: nm(b.to) + ' 님이 ' + (ok ? '승인' : '거절') + ': ' + desc(b.ev, nm), url: './?go=inbox', tag: 'rq-' + ctx.params.id,
   });
 });

@@ -7,7 +7,7 @@ with sync_playwright() as p:
     f=tempfile.NamedTemporaryFile('w',suffix='.json',delete=False); json.dump(TEST_DATA,f,ensure_ascii=False); f.close()
     pg.set_input_files('#gImport',f.name); pg.click('[data-g=setup]'); pg.wait_for_timeout(1500); pg.click('[data-g=pick][data-id=B2]'); pg.wait_for_timeout(600)
     pg.click('nav.tabs [data-tab=attend]'); pg.click('[data-att=hist]'); pg.wait_for_timeout(300)
-    pg.click('#histUp [data-del=e1]'); pg.click('#histUp [data-del=e1][data-confirm]'); pg.wait_for_timeout(600)
+    pg.click('#histUp [data-del=e1]'); pg.click('#histUp [data-cx=now][data-id=e1]'); pg.wait_for_timeout(600)
     print(pg.inner_text('#logCard')[:200])
     pg.click('#acctBtn'); pg.wait_for_timeout(200); print('remind chk present:', pg.query_selector('#remindChk') is not None)
     pg.click('[data-ac=close]'); pg.click('#tabAdmin'); pg.click('[data-at=set]'); pg.wait_for_timeout(300); print(pg.inner_text('#backupCard')[:80])
