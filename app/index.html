@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="ko"><head><script>window.APP_BUILD="2205b28555"</script>
+<html lang="ko"><head><script>window.APP_BUILD="2a7a33e95c"</script>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>배전센터 근무표</title>
@@ -916,7 +916,7 @@ a.item.evlink{color:inherit;text-decoration:none}
     <div class="card">
       <div class="period" style="margin-bottom:8px"><h2>근무 요약</h2><span class="note" id="sumRange"></span></div>
       <div style="overflow-x:auto"><table class="sum" id="sumTable"></table></div>
-      <p class="note" style="margin:8px 0 0">이름 가나다순 · 대근: 주간 9h, 야간 12h · 야간: 1회당 수당 6h (대근·근무변경 야간 포함). 공휴일·명절·노동절 근무와 지원수당은 위 "내 근무요약"에서 각자 확인해요.</p>
+      <p class="note" style="margin:8px 0 0">이름 가나다순 · 대근: 주간 9h, 야간 12h (합계의 +h는 TSO 근무지원, 1회당 1h · 대근총량과 별도) · 야간: 1회당 수당 6h (대근·근무변경 야간 포함). 공휴일·명절·노동절 근무와 지원수당은 위 "내 근무요약"에서 각자 확인해요.</p>
     </div>
   </section>
 
@@ -1877,11 +1877,13 @@ function renderPay(){
   const lvTxt=r=>r.lv+'회'+(r.sb||r.gjc?' ('+[r.gjc?'경조 '+r.gjc:'',r.sb?'대체 '+r.sb:''].filter(Boolean).join(', ')+')':'');
   /* 팀 표: 이름 가나다순, 이름 · 대근 · 야간 · 휴가 (공휴일·명절은 내 근무요약에서만) */
   let h='<thead><tr><th>이름</th><th>대근</th><th>야간</th><th>휴가</th></tr></thead><tbody>';
-  const tot={nt:0,cv:0,cvh:0,lv:0};
+  const tot={nt:0,cv:0,cvh:0,lv:0,sup:0};
   for(const m of byName()){const r=stat(m),tso=m.role==='TSO';
-    tot.nt+=r.nt;tot.cv+=r.cv;tot.cvh+=r.cvh;tot.lv+=r.lv;
+    tot.nt+=r.nt;tot.cv+=r.cv;tot.cvh+=r.cvh;tot.lv+=r.lv;tot.sup+=r.sup;
     h+='<tr'+(m.id===me?' class="mine"':'')+'><td>'+esc(m.name)+'</td><td>'+(tso?'–':hc(r.cvh,r.cv))+'</td><td>'+(tso?'–':hc(r.nt*NIGHT_PAY,r.nt))+'</td><td>'+lvTxt(r)+'</td></tr>'}
-  h+='<tr style="font-weight:700"><td>합계</td><td>'+hc(tot.cvh,tot.cv)+'</td><td>'+hc(tot.nt*NIGHT_PAY,tot.nt)+'</td><td>'+tot.lv+'회</td></tr>';
+  /* 합계 대근 = 대근 시간 + TSO 근무지원 시간(1회 1h, 대근총량과 별도) → "102+11h" */
+  const cvTot=tot.sup?'<b>'+tot.cvh+'+'+tot.sup+'h</b> (대근 '+tot.cv+'회 · 근무지원 '+tot.sup+'회)':hc(tot.cvh,tot.cv);
+  h+='<tr style="font-weight:700"><td>합계</td><td>'+cvTot+'</td><td>'+hc(tot.nt*NIGHT_PAY,tot.nt)+'</td><td>'+tot.lv+'회</td></tr>';
   /* 내 근무요약: 공휴일·명절·지원수당까지 */
   const mm=me&&byId(me),box=$('#myPay');
   if(box){if(!mm){box.innerHTML='<p class="note" style="margin:0">위쪽 "나"에서 본인을 고르면 내 근무요약이 보여요.</p>'}
@@ -2684,7 +2686,7 @@ function buildReport(){
   const sumHtml=$('#sumTable').innerHTML.replace(/ class="mine"/g,'');
   const y=n=>{const d=new Date(n*864e5);return d.getUTCFullYear()+'. '+(d.getUTCMonth()+1)+'. '+d.getUTCDate()+'.'};
   let h='<div class="rp-head"><h1>근무 요약 · 대근총량</h1><span>경기배전센터</span></div><div class="rp-sub">근무 기간 '+y(a)+' ~ '+y(b-1)+' · '+y(todayN)+' 기준</div>';
-  h+='<h2>근무 요약</h2><table class="rp">'+sumHtml+'</table><p class="rp-note">이름 가나다순 · 대근: 주간 9h, 야간 12h · 야간: 1회당 수당 6h · 공휴일·명절 근무와 지원수당은 앱의 "내 근무요약"에서 각자 확인</p>';
+  h+='<h2>근무 요약</h2><table class="rp">'+sumHtml+'</table><p class="rp-note">이름 가나다순 · 대근: 주간 9h, 야간 12h (합계의 +h는 TSO 근무지원 1회당 1h) · 야간: 1회당 수당 6h · 공휴일·명절 근무와 지원수당은 앱의 "내 근무요약"에서 각자 확인</p>';
   const bg=budgetFor(Math.min(todayN,b-1));
   if(bg){
     const people=members.filter(m=>!(bg.transferred&&bg.transferred[m.id])&&(m.active!==false||(bg.rows&&bg.rows[m.id])));
