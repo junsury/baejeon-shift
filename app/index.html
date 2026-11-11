@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="ko"><head><script>window.APP_BUILD="2b96ae0570"</script>
+<html lang="ko"><head><script>window.APP_BUILD="2205b28555"</script>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>배전센터 근무표</title>
@@ -614,6 +614,11 @@ table.grid td.shiftday{box-shadow:inset 3px 0 0 var(--accent)}
 .sm-step i{font-style:normal;width:28px;height:28px;border-radius:50%;background:var(--accent);color:var(--accent-fg);display:inline-flex;align-items:center;justify-content:center;font-size:15px}
 .sm-step small{font-size:14px;color:var(--muted);font-weight:500}
 .sm-days{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+/* 내 근무요약 */
+.mypgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px}
+.myp{display:flex;flex-direction:column;gap:2px;padding:10px 12px;border:1px solid var(--line);border-radius:12px;background:var(--sunk)}
+.myp>span{font-size:13px;color:var(--muted);font-weight:600}.myp>b{font-size:17px;color:var(--fg);font-weight:600}.myp>b b{font-weight:800}
+.myp small{font-size:12px;color:var(--muted)}
 /* 근태 취소·겹친 근태 순서 */
 .cxbox{display:flex;flex-wrap:wrap;gap:6px;align-items:center;width:100%;flex-basis:100%}
 .item:has(.cxbox){flex-wrap:wrap}
@@ -907,10 +912,11 @@ a.item.evlink{color:inherit;text-decoration:none}
         <div class="zbox" id="rzbox"><div id="rpPreview"></div></div>
       </div>
     </div>
+    <div class="card" id="myPay"></div>
     <div class="card">
       <div class="period" style="margin-bottom:8px"><h2>근무 요약</h2><span class="note" id="sumRange"></span></div>
       <div style="overflow-x:auto"><table class="sum" id="sumTable"></table></div>
-      <p class="note" style="margin:8px 0 0">야간수당: 야간 1회당 6h (대근·근무변경 야간 포함). 공휴일 근무: 휴일의대체 대상, 야간이면 휴일수당 3h (야간수당과 별개). 명절·노동절: 설날·추석 연휴 각 3일과 노동절 근무는 휴일근무수당 주간 9h·야간 12h (그 대체공휴일은 일반 공휴일과 같아요). 대근: 주간 9h, 야간 12h. 지원수당: TSO 근무지원 1회당 1h (대근총량과 별도).</p>
+      <p class="note" style="margin:8px 0 0">이름 가나다순 · 대근: 주간 9h, 야간 12h · 야간: 1회당 수당 6h (대근·근무변경 야간 포함). 공휴일·명절·노동절 근무와 지원수당은 위 "내 근무요약"에서 각자 확인해요.</p>
     </div>
   </section>
 
@@ -1859,21 +1865,33 @@ function renderPay(){
   const md=n=>{const d=new Date(n*864e5);return d.getUTCFullYear()+'년 '+(d.getUTCMonth()+1)+'월 '+d.getUTCDate()+'일'};
   $('#sumRange').textContent=md(a)+' ~ '+md(b-1).replace(/^\d+년 /,new Date(a*864e5).getUTCFullYear()===new Date((b-1)*864e5).getUTCFullYear()?'':'$&');
   const leaveIdx=new Map(events.filter(e=>e.type==='leave').map(e=>[e.memberId+'|'+e.date,e]));
-  let h='<thead><tr><th>이름</th><th>야간 · 수당</th><th>공휴일 · 3h</th><th>명절·노동절</th><th>대근 · 시간</th><th>휴가</th><th>지원수당</th></tr></thead><tbody>';
-  const tot={nt:0,hw:0,hn:0,sp:0,sph:0,cv:0,cvh:0,lv:0,sb:0,sup:0};
-  const pair=(cnt,hrs)=>cnt?cnt+'회 · <b>'+hrs+'h</b>':'0회';
-  for(const m of activeMembers()){let nt=0,hw=0,hn=0,sp=0,sph=0,cv=0,cvh=0,lv=0,sb=0,gjc=0,sup=0,pm=0;
-    for(let n=a;n<b;n++){const c=dayCells(n)[m.id];
-      const night=hasShift(c,'야');
-      if(night)nt++;
-      const day=hasShift(c,'주');if(holidays.has(ds(n))&&(night||day)){if(isSpecialHol(ds(n))){sp++;sph+=(day?9:0)+(night?12:0)}else{hw++;if(night)hn++}}
-      if(c.cover){cv++;cvh+=HOURS[c.cover]}
-      if(c.code==='연'){lv++;const e=leaveIdx.get(m.id+'|'+ds(n));if(e&&e.leaveType==='대체')sb++;if(e&&e.leaveType==='경조')gjc++}
-      if(c.code==='지원')sup++;if(c.part)pm+=tmin(c.part.to)-tmin(c.part.from)}
-    tot.nt+=nt;tot.hw+=hw;tot.hn+=hn;tot.sp+=sp;tot.sph+=sph;tot.cv+=cv;tot.cvh+=cvh;tot.lv+=lv;tot.sb+=sb;tot.sup+=sup;
-    const tso=m.role==='TSO';
-    h+='<tr'+(m.id===me?' class="mine"':'')+'><td>'+esc(m.name)+'</td><td>'+(tso?'–':pair(nt,nt*NIGHT_PAY))+'</td><td>'+(tso?'–':(hn?hw+'회 · <b>'+hn*HOL_PAY+'h</b>':hw+'회'))+'</td><td>'+(tso?'–':pair(sp,sph))+'</td><td>'+(tso?'–':pair(cv,cvh))+'</td><td>'+lv+'회'+(sb||gjc?' ('+[gjc?'경조 '+gjc:'',sb?'대체 '+sb:''].filter(Boolean).join(' · ')+')':'')+(pm?' · 시간 '+hm(pm):'')+'</td><td>'+(tso?'<b>'+sup+'h</b>':'–')+'</td></tr>'}
-  h+='<tr style="font-weight:700"><td>합계</td><td>'+pair(tot.nt,tot.nt*NIGHT_PAY)+'</td><td>'+tot.hw+'회 · '+tot.hn*HOL_PAY+'h</td><td>'+pair(tot.sp,tot.sph)+'</td><td>'+pair(tot.cv,tot.cvh)+'</td><td>'+tot.lv+'회</td><td>'+tot.sup+'h</td></tr>';
+  const stat=m=>{const r={nt:0,hw:0,hn:0,sp:0,sph:0,cv:0,cvh:0,lv:0,sb:0,gjc:0,sup:0};
+    for(let n=a;n<b;n++){const c=dayCells(n)[m.id];if(!c)continue;
+      const night=hasShift(c,'야'),day=hasShift(c,'주');if(night)r.nt++;
+      if(holidays.has(ds(n))&&(night||day)){if(isSpecialHol(ds(n))){r.sp++;r.sph+=(day?9:0)+(night?12:0)}else{r.hw++;if(night)r.hn++}}
+      if(c.cover){r.cv++;r.cvh+=HOURS[c.cover]}
+      if(c.code==='연'){r.lv++;const e=leaveIdx.get(m.id+'|'+ds(n));if(e&&e.leaveType==='대체')r.sb++;if(e&&e.leaveType==='경조')r.gjc++}
+      if(c.code==='지원')r.sup++}
+    return r};
+  const hc=(hrs,cnt)=>cnt?'<b>'+hrs+'h</b> ('+cnt+'회)':'0h (0회)';   // 시간 (횟수)
+  const lvTxt=r=>r.lv+'회'+(r.sb||r.gjc?' ('+[r.gjc?'경조 '+r.gjc:'',r.sb?'대체 '+r.sb:''].filter(Boolean).join(', ')+')':'');
+  /* 팀 표: 이름 가나다순, 이름 · 대근 · 야간 · 휴가 (공휴일·명절은 내 근무요약에서만) */
+  let h='<thead><tr><th>이름</th><th>대근</th><th>야간</th><th>휴가</th></tr></thead><tbody>';
+  const tot={nt:0,cv:0,cvh:0,lv:0};
+  for(const m of byName()){const r=stat(m),tso=m.role==='TSO';
+    tot.nt+=r.nt;tot.cv+=r.cv;tot.cvh+=r.cvh;tot.lv+=r.lv;
+    h+='<tr'+(m.id===me?' class="mine"':'')+'><td>'+esc(m.name)+'</td><td>'+(tso?'–':hc(r.cvh,r.cv))+'</td><td>'+(tso?'–':hc(r.nt*NIGHT_PAY,r.nt))+'</td><td>'+lvTxt(r)+'</td></tr>'}
+  h+='<tr style="font-weight:700"><td>합계</td><td>'+hc(tot.cvh,tot.cv)+'</td><td>'+hc(tot.nt*NIGHT_PAY,tot.nt)+'</td><td>'+tot.lv+'회</td></tr>';
+  /* 내 근무요약: 공휴일·명절·지원수당까지 */
+  const mm=me&&byId(me),box=$('#myPay');
+  if(box){if(!mm){box.innerHTML='<p class="note" style="margin:0">위쪽 "나"에서 본인을 고르면 내 근무요약이 보여요.</p>'}
+    else{const r=stat(mm),tso=mm.role==='TSO';
+      const row=(k,v,sub)=>'<div class="myp"><span>'+k+'</span><b>'+v+'</b>'+(sub?'<small>'+sub+'</small>':'')+'</div>';
+      let g=tso?row('지원수당',r.sup+'h',r.sup?'근무지원 '+r.sup+'회 × 1h':'')+row('휴가',lvTxt(r)):
+        row('대근',hc(r.cvh,r.cv))+row('야간',hc(r.nt*NIGHT_PAY,r.nt),'야간 1회당 '+NIGHT_PAY+'h')+row('휴가',lvTxt(r))+
+        row('공휴일 근무',r.hw+'회'+(r.hn?' · <b>'+r.hn*HOL_PAY+'h</b>':''),'휴일의대체 대상'+(r.hn?' · 야간 '+r.hn+'회 × 휴일수당 '+HOL_PAY+'h':''))+
+        row('명절·노동절',hc(r.sph,r.sp),'휴일근무수당 (주간 9h · 야간 12h)');
+      box.innerHTML='<div class="period" style="margin-bottom:8px"><h2>내 근무요약 · '+esc(mm.name)+'</h2><span class="note">나만 보여요</span></div><div class="mypgrid">'+g+'</div>'}}
   $('#sumTable').innerHTML=h+'</tbody>';
 }
 function renderModeCard(){
@@ -2666,7 +2684,7 @@ function buildReport(){
   const sumHtml=$('#sumTable').innerHTML.replace(/ class="mine"/g,'');
   const y=n=>{const d=new Date(n*864e5);return d.getUTCFullYear()+'. '+(d.getUTCMonth()+1)+'. '+d.getUTCDate()+'.'};
   let h='<div class="rp-head"><h1>근무 요약 · 대근총량</h1><span>경기배전센터</span></div><div class="rp-sub">근무 기간 '+y(a)+' ~ '+y(b-1)+' · '+y(todayN)+' 기준</div>';
-  h+='<h2>근무 요약</h2><table class="rp">'+sumHtml+'</table><p class="rp-note">야간수당: 야간 1회당 6h · 공휴일 근무: 야간이면 휴일수당 3h (야간수당과 별개) · 명절·노동절: 휴일근무수당 주간 9h·야간 12h · 대근: 주간 9h, 야간 12h · 지원수당: TSO 근무지원 1회당 1h</p>';
+  h+='<h2>근무 요약</h2><table class="rp">'+sumHtml+'</table><p class="rp-note">이름 가나다순 · 대근: 주간 9h, 야간 12h · 야간: 1회당 수당 6h · 공휴일·명절 근무와 지원수당은 앱의 "내 근무요약"에서 각자 확인</p>';
   const bg=budgetFor(Math.min(todayN,b-1));
   if(bg){
     const people=members.filter(m=>!(bg.transferred&&bg.transferred[m.id])&&(m.active!==false||(bg.rows&&bg.rows[m.id])));

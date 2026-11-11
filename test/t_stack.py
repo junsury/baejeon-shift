@@ -3,11 +3,15 @@ import sys, os, json, tempfile
 SHOT=sys.argv[1]; sys.argv=[sys.argv[0]]
 src=open(os.path.join(os.path.dirname(__file__),'run.py')).read().replace('\nrun()','\n')
 R={'__file__':os.path.join(os.path.dirname(os.path.abspath(__file__)),'run.py')}; exec(compile(src,'run.py','exec'),R)
+import datetime
+_b=datetime.date(2026,11,5);_off=0
+while _b+datetime.timedelta(days=_off)<=datetime.date.today()+datetime.timedelta(days=3):_off+=8   # 날짜가 지나도 '다가오는 일정'에 있게 8일(한 주기)씩 미루기
+F=lambda d:(datetime.date.fromisoformat(d)+datetime.timedelta(days=_off)).isoformat()
 D=json.loads(json.dumps(R['TEST_DATA']))
 D['events']=[
- {"_id":"s1","type":"swap","aId":"B1","aDate":"2026-11-05","bId":"B2","bDate":"2026-11-11","shift":"야","createdAt":1792000000001},
- {"_id":"l1","type":"leave","memberId":"B2","date":"2026-11-05","shift":"야","leaveType":"연차","coverType":"cover","coverId":"A1","createdAt":1792000000002},
- {"_id":"s2","type":"swap","aId":"A2","aDate":"2026-11-05","bId":"B2","bDate":"2026-11-07","shift":"주","createdAt":1792000000003}]
+ {"_id":"s1","type":"swap","aId":"B1","aDate":F("2026-11-05"),"bId":"B2","bDate":F("2026-11-11"),"shift":"야","createdAt":1792000000001},
+ {"_id":"l1","type":"leave","memberId":"B2","date":F("2026-11-05"),"shift":"야","leaveType":"연차","coverType":"cover","coverId":"A1","createdAt":1792000000002},
+ {"_id":"s2","type":"swap","aId":"A2","aDate":F("2026-11-05"),"bId":"B2","bDate":F("2026-11-07"),"shift":"주","createdAt":1792000000003}]
 D['requests']=[]
 from playwright.sync_api import sync_playwright
 ev=lambda pg:pg.evaluate("JSON.parse(sessionStorage.getItem('mockstore')).filter(([k])=>/events\\//.test(k)).map(([k,v])=>k.split('/').pop()).sort().join(',')")
@@ -21,8 +25,8 @@ with sync_playwright() as p:
     print('events', ev(pg))
     # 팀 근무표 11/5 최구름 칸
     pg.click('[data-tab=team]'); pg.wait_for_timeout(300); pg.click('[data-tv=month]'); pg.wait_for_timeout(300)
-    while pg.inner_text('#mLbl')!='2026.11': pg.click('#mNext'); pg.wait_for_timeout(200)
-    pg.click('td[data-m=B2][data-n="%d"]'%(20762)); pg.wait_for_timeout(300)
+    while pg.inner_text('#mLbl')!=F('2026-11-05')[:7].replace('-','.'): pg.click('#mNext'); pg.wait_for_timeout(200)
+    pg.click('td[data-m=B2][data-n="%d"]'%(20762+_off)); pg.wait_for_timeout(300)
     det=pg.inner_text('#cellDetail'); print('detail', '주간' in det, '근태 순서' in det, '야간 연차' in det)
     pg.screenshot(path=SHOT+'/stack_detail.png')
     # 내역: 맨 아래(s1) 취소 → 막힘
@@ -32,7 +36,7 @@ with sync_playwright() as p:
     pg.screenshot(path=SHOT+'/stack_block.png')
     pg.click('#histUp [data-cx=no]'); pg.wait_for_timeout(200)
     print('above s1', pg.evaluate("__stackT.above('s1').join(',')"), 'above l1', pg.evaluate("__stackT.above('l1').join(',')"))
-    print('reverse of s2', pg.evaluate("(__stackT.reverseOf({type:'swap',aId:'B2',aDate:'2026-11-05',bId:'A2',bDate:'2026-11-07',shift:'주'})||{})._id"), pg.evaluate("(__stackT.reverseOf({type:'swap',aId:'B2',aDate:'2026-11-05',bId:'B1',bDate:'2026-11-11',shift:'야'})||{})._id||'none'"))
+    print('reverse of s2', pg.evaluate("(__stackT.reverseOf({type:'swap',aId:'B2',aDate:'"+F('2026-11-05')+"',bId:'A2',bDate:'"+F('2026-11-07')+"',shift:'주'})||{})._id"), pg.evaluate("(__stackT.reverseOf({type:'swap',aId:'B2',aDate:'"+F('2026-11-05')+"',bId:'B1',bDate:'"+F('2026-11-11')+"',shift:'야'})||{})._id||'none'"))
     # 맨 위(s2) 바로 취소
     pg.click('#histUp [data-del=s2]'); pg.wait_for_timeout(300); pg.click('#histUp [data-cx=now]'); pg.wait_for_timeout(800)
     print('after top cancel', ev(pg))
